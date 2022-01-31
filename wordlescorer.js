@@ -61,11 +61,19 @@ function processStream(tweet) {
               id: parentId
             });
           } else {
-            resolve({ 
-              wordle: getWordleMatrixFromText(data.text),
-              id: parentId,
-              name: name
-            });
+            wordleResult = getWordleMatrixFromText(data.text);
+            if(wordleResult.length === 0) {
+              reject({
+                name: name,
+                id: parentId
+              })
+            } else {
+              resolve({ 
+                wordle: wordleResult,
+                id: parentId,
+                name: name
+              });
+            }
           }
         }
       );
