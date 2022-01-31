@@ -34,49 +34,86 @@ var T = new Twit(config);
 var stream = T.stream('statuses/filter', { track: WORDLE_BOT_HANDLE });
 stream.on('tweet', processStream);
 
+/**
+ * TODO: read mentions since communities is not availble via API yet
+ * T.get('statuses/mentions_timeline').then(({data}) => {
+  console.log(data);
+});
+*/
+
 function processStream(tweet) {
 
   var id = tweet.id_str;
   var parentId = tweet.in_reply_to_status_id_str;
   var tweetText = tweet.text;
-  var name = '@'+tweet.user.screen_name;
+
+  // Exit if this is a self-wordle debugging tweet (prevent multi-tweets)
+  if(tweetText.indexOf('The above wordle scored') > -1 || 
+    tweetText.indexOf('Sorry, something went wrong.') > -1) {
+    return;
+  }
+
+  var screenName = '@' + tweet.user.screen_name;
+  var altText = tweet.extended_entities?.media?.[0]?.description || '';
+  var wordleResult = getWordleMatrixFromText(tweetText);
+
+  // Try alt text if there's no wordle result in main text
+  if (wordleResult.length === 0) {
+    wordleResult = getWordleMatrixFromImageAltText(altText);
+  }
 
   /**
-   * Check @ mentioned tweet. 
+   * Check @ mentioned tweet text & alt text.
    * If there's no wordle, check the parent tweet.
    * If there's no wordle on the parent tweet, bail out.
    */
   const wordleResultPromise = new Promise((resolve, reject) => {
-    var wordleResult = getWordleMatrixFromText(tweetText);
-    if( wordleResult.length === 0) {
-      T.get('statuses/show/:id', { id: parentId })
-        .catch((err) => {
-          console.log(err);
-          reject({
-            name: name,
-            id: parentId
-          });
-        })
-        .then(({data}) => {
-          wordleResult = getWordleMatrixFromText(data.text);
-          if(wordleResult.length === 0) {
+    // If @mention tweet & alt text contains no wordle text, then try checking
+    // the parent tweet.
+    if(wordleResult.length === 0) {
+      // If there's no parent tweet, then bail out.
+      if (parentId) {
+        T.get('statuses/show/:id', { id: parentId, include_ext_alt_text: true })
+          .catch((err) => {
+            console.log('parentId request fail: ', err);
             reject({
-              name: name,
-              id: parentId
-            })
-          } else {
-            resolve({ 
-              wordle: wordleResult,
-              id: parentId,
-              name: name
+              name: screenName,
+              id: id
             });
-          }
+          })
+          .then(({data}) => {
+            var parentAltText = data?.extended_entities?.media?.[0]?.ext_alt_text || '';
+            var parentWordleResult = getWordleMatrixFromText(data.text);
+
+            parentWordleResult = parentWordleResult.length > 0 ? 
+              parentWordleResult : getWordleMatrixFromImageAltText(parentAltText);
+
+            // Reject if there's no result from the text or the alt text on the parent
+            if(parentWordleResult.length === 0) {
+              reject({
+                name: screenName,
+                id: id
+              })
+            } else {
+              resolve({ 
+                wordle: parentWordleResult,
+                id: id,
+                name: screenName
+              });
+            }
+          });
+      } else {
+        // If there's no parent, then there's nothing else to check. Bail out!
+        reject({
+          name: screenName,
+          id: id
         });
+      }
     } else {
       resolve({ 
         wordle: wordleResult, 
         id: id,
-        name: name
+        name: screenName
       });
     }
   });
@@ -84,17 +121,21 @@ function processStream(tweet) {
   wordleResultPromise.then(({wordle, id, name}) => {
     var score = calculateScoreFromWordleMatrix(wordle).finalScore;
     var solvedRow = getSolvedRow(wordle);
+
     tweetIfNotRepliedTo({ 
       status: `${name} The above wordle scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${getCompliment()}`,
       id: id
     });  
-  }).catch(({id, name}) => {
-    console.log(id, name);
-    tweetIfNotRepliedTo({
-      status:`${name} Sorry, something went wrong. I wasn't able to decipher the wordle from the requested tweet :(`,
-      id: id
-    });
-  })
+  }).catch(function(obj) {
+    if (obj.name && obj.id) {
+      tweetIfNotRepliedTo({
+        status:`${obj.name} Sorry, something went wrong. I wasn't able to decipher the wordle from the requested tweet :(`,
+        id: obj.id
+      });
+    } else {
+      console.log('unable to tweet reply failure: ', obj);
+    }
+  });
 }
 
 /**
@@ -160,7 +201,7 @@ function getSentenceSuffix(solvedRowNum) {
   if(solvedRowNum === 0) {
     return '.';
   }
-  return `, solved on row ${solvedRow}.`;
+  return `, solved on row ${solvedRowNum}.`;
 }
 
 // const blocks = {'⬛': 0,'⬜': 0,'🟨': 1,'🟦':1,'🟧':2,'🟩': 2};
@@ -207,7 +248,7 @@ function getPointBonus(solvedRow) {
  * @param {String} text - input text to conver to wordle score array
  * @returns {Number[]}
  */
-function getWordleMatrixFromText(text) {
+function getWordleMatrixFromText(text = '') {
   var wordle = [];
   var codePoint;
   var i=0;
@@ -237,4 +278,72 @@ function calculateScoreFromWordleMatrix(wordle) {
   	return previous+current;
   });
   return {finalScore: score+solvedRowBonus };
+}
+
+/** 
+T.get('statuses/show/:id', {id: '1488143147368521735', include_ext_alt_text: true}).then(({data}) => {
+  var text = data?.extended_entities?.media?.[0]?.ext_alt_text || '';
+  console.log(text);
+  console.log(getWordleMatrixFromImageAltText(text));
+});
+*/
+
+/**
+ * Converts wa11y.co alt text to a wordle score matrix
+ * @param {Stirng} text - alt text from wa11y.co
+ * @returns {Number[]} array of scores
+ */
+ function getWordleMatrixFromImageAltText(text = '') {
+  if(text.trim() === '') {
+    return [];
+  }
+  var lines = text.split('\n');
+  return lines.map((line) => {
+    var row = Array(5).fill(0, 0);
+    
+    // Nothing <-- empty row => line.match(/Nothing/gi)
+
+    // all greens (perfect)
+    if (!!line.match(/Won/g)) {
+      row.fill(SCORE.CORRECT, 0);
+    
+    // 1-4 yellows
+    } else if(!!line.match(/but in the wrong place/gi)) {
+      var matches = line.match(/(?<=:.*)[1-5]/g);
+      _rowUpdater(row, matches, SCORE.PARTIAL);
+
+    // greens and yellows (mix of 1-4 greens, 1-4 yellows)
+    } else if(line.indexOf('in the wrong place') > -1 && line.indexOf('perfect') > -1) {
+      var split = line.split('but');
+      var correct = split[0]?.match(/(?<=:.*)[1-5]/g);
+      var partials = split[1]?.match(/[1-5]/g);
+    
+      _rowUpdater(row, correct, SCORE.CORRECT);
+      _rowUpdater(row, partials, SCORE.PARTIAL);
+    
+    // Only greens
+    } else if(line.indexOf('perfect') > -1) {
+      var matches = line.match(/(?<=:.*)[1-5]/g);
+      // If it only has the word "perfect" and no numbers, assume it's all greens.
+      if (!matches) {
+        row.fill(SCORE.CORRECT, 0);
+      } else {
+        _rowUpdater(row, matches, SCORE.CORRECT);
+      }
+
+    // 100% yellows
+    } else if(line.indexOf('all the correct letters but in the wrong order') > -1) {
+      row.fill(SCORE.PARTIAL, 0);
+    }
+    return row;
+  }).flat();
+}
+
+function _rowUpdater(row, matches, score) {
+  if(!!matches) {
+    for (var j=0; j<matches.length; j++) {
+      row[matches[j]-1] = score;
+    }
+  }
+  return row;
 }
