@@ -34,7 +34,6 @@ var T = new Twit(config);
 var stream = T.stream('statuses/filter', { track: WORDLE_BOT_HANDLE });
 stream.on('tweet', processStream);
 
-
 function processStream(tweet) {
 
   var id = tweet.id_str;
@@ -50,33 +49,29 @@ function processStream(tweet) {
   const wordleResultPromise = new Promise((resolve, reject) => {
     var wordleResult = getWordleMatrixFromText(tweetText);
     if( wordleResult.length === 0) {
-      T.get('statuses/show/:id', 
-        { 
-          id: parentId
-        }, 
-        (err, data) => {
-          if(err) {
+      T.get('statuses/show/:id', { id: parentId })
+        .catch((err) => {
+          console.log(err);
+          reject({
+            name: name,
+            id: parentId
+          });
+        })
+        .then(({data}) => {
+          wordleResult = getWordleMatrixFromText(data.text);
+          if(wordleResult.length === 0) {
             reject({
               name: name,
               id: parentId
-            });
+            })
           } else {
-            wordleResult = getWordleMatrixFromText(data.text);
-            if(wordleResult.length === 0) {
-              reject({
-                name: name,
-                id: parentId
-              })
-            } else {
-              resolve({ 
-                wordle: wordleResult,
-                id: parentId,
-                name: name
-              });
-            }
+            resolve({ 
+              wordle: wordleResult,
+              id: parentId,
+              name: name
+            });
           }
-        }
-      );
+        });
     } else {
       resolve({ 
         wordle: wordleResult, 
