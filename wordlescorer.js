@@ -93,11 +93,11 @@ function processStream(tweet) {
       status: `${name} The above wordle scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${getCompliment()}`,
       id: id
     });  
-  }).catch((err, data) => {
-    console.log(err, data);
+  }).catch(({id, name}) => {
+    console.log(id, name);
     tweetIfNotRepliedTo({
-      status:`${data.name} Sorry, something went wrong. I wasn't able to decipher the wordle from the requested tweet :(`,
-      id: data.id
+      status:`${name} Sorry, something went wrong. I wasn't able to decipher the wordle from the requested tweet :(`,
+      id: id
     });
   })
 }
