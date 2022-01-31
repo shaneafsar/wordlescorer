@@ -1,0 +1,27 @@
+{
+  "name": "wordlescorer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "wordlescorer.js",
+  "scripts": {
+    "test": "wordlescorer.js",
+    "start": "node ./wordlescorer.js",
+    "develop": "NODE_ENV=develop node wordlescorer.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shaneafsar/wordlescorer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/shaneafsar/wordlescorer/issues"
+  },
+  "homepage": "https://github.com/shaneafsar/wordlescorer#readme",
+  "dependencies": {
+    "dotenv": "^14.3.2",
+    "node": "^17.4.0",
+    "twit": "^2.2.11"
+  }
+}
