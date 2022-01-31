@@ -35,7 +35,7 @@ function processStream(tweet) {
   var id = tweet.id_str;
   var parentId = tweet.in_reply_to_status_id_str;
   var tweetText = tweet.text;
-  //var name = tweet.user.screen_name;
+  var name = '@'+tweet.user.screen_name;
 
   /**
    * Check @ mentioned tweet. 
@@ -55,7 +55,8 @@ function processStream(tweet) {
           } else {
             resolve({ 
               wordle: getWordleMatrixFromText(data.text),
-              id: parentId
+              id: parentId,
+              name: name
             });
           }
         }
@@ -63,19 +64,20 @@ function processStream(tweet) {
     } else {
       resolve({ 
         wordle: wordleResult, 
-        id: id
+        id: id,
+        name: name
       });
     }
   });
 
-  wordleResultPromise.then(({wordle, id}) => {
+  wordleResultPromise.then(({wordle, id, name}) => {
     var score = calculateScoreFromWordleMatrix(wordle).finalScore;
     var solvedRow = wordle.length / 5;
-    tweetIfNotRepliedTo(`The above wordle scored ${score} out of 360, solved on row ${solvedRow}. ${getCompliment()}`, id);  
+    tweetIfNotRepliedTo(`${name} The above wordle scored ${score} out of 360, solved on row ${solvedRow}. ${getCompliment()}`, id);  
   }).catch((err) => {
     // Tweet if not replied to
     console.log(err);
-    tweetIfNotRepliedTo(`Sorry, something went wrong. I wasn't able to decipher the wordle from the requested tweet :(`, id);
+    tweetIfNotRepliedTo(`${name} Sorry, something went wrong. I wasn't able to decipher the wordle from the requested tweet :(`, id);
   })
 }
 
@@ -91,14 +93,13 @@ function getCompliment() {
 
 function tweetIfNotRepliedTo(status, id) {
   // Tweet if not replied to
-  console.log(REPLY_HASH);
   if(!REPLY_HASH[id]) {
-    T.post('statuses/update', { status: status, in_reply_to_status_id: id }, (err, reply) => {
+    T.post('statuses/update', { status: status, in_reply_to_status_id: id, auto_populate_reply_metadata: true }, (err, reply) => {
       REPLY_HASH[id] = true;
       if (err) {
         console.log(err.message);
       } else {
-        console.log(`Tweeted: ${reply.text}`);
+        console.log(`Tweeted: ${reply.text} to ${reply.in_reply_to_status_id_str}`);
       }
     });
   }
