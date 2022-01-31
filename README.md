@@ -13,6 +13,6 @@ Accepting pull requests and bug reports!
 
 ## Special thanks
 * https://www.powerlanguage.co.uk/wordle/ (@powerlanguish) - for creating wordle
-* https://wa11y.co/ (@antagonistapp) - for creating 
-* https://developer.twitter.com/
-* https://www.linode.com/docs/guides/nodejs-twitter-bot/
+* https://wa11y.co/ (@antagonistapp) - for creating an accessible alt-text version of the game's output
+* https://developer.twitter.com/ - for Twitter's API access 
+* https://www.linode.com/docs/guides/nodejs-twitter-bot/ - for providing the basis for setting up this node script
