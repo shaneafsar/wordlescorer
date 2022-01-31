@@ -89,12 +89,12 @@ function getCompliment() {
   return COMPLIMENTS[Math.floor(Math.random() * length)];
 }
 
-function tweetIfNotRepliedTo(status, in_reply_to_status_id) {
+function tweetIfNotRepliedTo(status, id) {
   // Tweet if not replied to
   console.log(REPLY_HASH);
-  if(!REPLY_HASH[in_reply_to_status_id]) {
-    T.post('statuses/update', { status, in_reply_to_status_id }, (err, reply) => {
-      REPLY_HASH[in_reply_to_status_id] = true;
+  if(!REPLY_HASH[id]) {
+    T.post('statuses/update', { status: status, in_reply_to_status_id: id }, (err, reply) => {
+      REPLY_HASH[id] = true;
       if (err) {
         console.log(err.message);
       } else {
