@@ -18,6 +18,11 @@ const COMPLIMENTS = [
   'Congrats, Wordler!'
 ];
 
+const SCORE = {
+  CORRECT: 2,
+  PARTIAL: 1
+}
+
 if (process.env.NODE_ENV === "develop") {
   require("dotenv").config();
 };
@@ -51,7 +56,10 @@ function processStream(tweet) {
         }, 
         (err, data) => {
           if(err) {
-            reject();
+            reject({
+              name: name,
+              id: parentId
+            });
           } else {
             resolve({ 
               wordle: getWordleMatrixFromText(data.text),
@@ -72,12 +80,19 @@ function processStream(tweet) {
 
   wordleResultPromise.then(({wordle, id, name}) => {
     var score = calculateScoreFromWordleMatrix(wordle).finalScore;
-    var solvedRow = wordle.length / 5;
-    tweetIfNotRepliedTo(`${name} The above wordle scored ${score} out of 360, solved on row ${solvedRow}. ${getCompliment()}`, id);  
-  }).catch((err) => {
-    // Tweet if not replied to
-    console.log(err);
-    tweetIfNotRepliedTo(`${name} Sorry, something went wrong. I wasn't able to decipher the wordle from the requested tweet :(`, id);
+    var solvedRow = getSolvedRow(wordle);
+    tweetIfNotRepliedTo({ 
+      status: `${name} The above wordle scored ${score} out of 360${getSentenceSuffix(solvedRow)} 
+      ${getCompliment()}`,
+      id: id
+    });  
+  }).catch((err, data) => {
+    console.log(err, data);
+    tweetIfNotRepliedTo({
+      status:`${data.name} Sorry, something went wrong. 
+      I wasn't able to decipher the wordle from the requested tweet :(`,
+      id: data.id
+    });
   })
 }
 
@@ -91,10 +106,23 @@ function getCompliment() {
   return COMPLIMENTS[Math.floor(Math.random() * length)];
 }
 
-function tweetIfNotRepliedTo(status, id) {
+/**
+ * Tweet reply with score/error if it hasn't been recently replied to
+ * TODO: store data?
+ * @param {Object[]} content
+ * @param {string} content[].status - tweet text
+ * @param {string} content[].id - reply id
+ */
+function tweetIfNotRepliedTo(content) {
+  var status = content.status; 
+  var id = content.id;
   // Tweet if not replied to
   if(!REPLY_HASH[id]) {
-    T.post('statuses/update', { status: status, in_reply_to_status_id: id, auto_populate_reply_metadata: true }, (err, reply) => {
+    T.post('statuses/update', { 
+      status: status, 
+      in_reply_to_status_id: id, 
+      auto_populate_reply_metadata: true 
+    }, (err, reply) => {
       REPLY_HASH[id] = true;
       if (err) {
         console.log(err.message);
@@ -105,8 +133,42 @@ function tweetIfNotRepliedTo(status, id) {
   }
 }
 
+/**
+ * getSolvedRow
+ * @param {Number[]} wordle - score matrix
+ * @returns {Number} 0-6
+ */
+function getSolvedRow(wordle) {
+  if (wordle.length === 0 || wordle.length % 5 !== 0) {
+    console.log('Invalid wordle!!', wordle);
+    return 0;
+  }
+  const lastFiveBlocks = wordle.slice(-5);
+  if(lastFiveBlocks.filter((e) => e === SCORE.CORRECT).length !== 5) {
+    return 0;
+  }
+  return wordle.length / 5;
+}
+
+/**
+ * getSentenceSuffix
+ * @param {Number} solvedRowNum 
+ * @returns {String} 
+ */
+function getSentenceSuffix(solvedRowNum) {
+  if(solvedRowNum === 0) {
+    return '.';
+  }
+  return `, solved on row ${solvedRow}.`;
+}
+
 // const blocks = {'⬛': 0,'⬜': 0,'🟨': 1,'🟦':1,'🟧':2,'🟩': 2};
 
+/**
+ * Provides a multiplier for a block based on which row it appeared in.
+ * @param {Number} currentIndex 
+ * @returns {Number}
+ */
 function getMultiplier(currentIndex) {
 	var multiplier = 1;
   if(currentIndex <= 4) {
@@ -128,10 +190,10 @@ function getMultiplier(currentIndex) {
  * @param {Number} solvedRow - row number where a solve occured (must be between 1-6)
  * @returns {Number} integer bonus amount
  */
-function getSolvedRowBonus(solvedRow) {
+function getPointBonus(solvedRow) {
 	var bonus = 0;
   var blocksPerRow = 5;
-  var solvedBlockValue = 2;
+  var solvedBlockValue = SCORE.CORRECT;
   var i = solvedRow;
   for(; i<=5; i++) {
   	bonus += solvedBlockValue * blocksPerRow * getMultiplier((solvedRow*5)-1)
@@ -140,7 +202,7 @@ function getSolvedRowBonus(solvedRow) {
 }
 
 /**
- * Convert text to an array representing scores for each square
+ * Convert text to a flattened array representing scores for each square.
  * @param {String} text - input text to conver to wordle score array
  * @returns {Number[]}
  */
@@ -151,9 +213,9 @@ function getWordleMatrixFromText(text) {
   for(; i < text.length; i++) {
   	codePoint = text.codePointAt(i);
   	if(codePoint === 129000 || codePoint === 128998){
-    	wordle.push(1);
+    	wordle.push(SCORE.PARTIAL);
     } else if(codePoint === 129001 || codePoint === 128999){
-    	wordle.push(2);
+    	wordle.push(SCORE.CORRECT);
     } else if(codePoint === 11035 || codePoint === 11036){
     	wordle.push(0);
     }
@@ -167,7 +229,7 @@ function getWordleMatrixFromText(text) {
  * @returns {Object} {finalScore: number}
  */
 function calculateScoreFromWordleMatrix(wordle) {
-  var solvedRowBonus = getSolvedRowBonus(wordle.length / 5);
+  var solvedRowBonus = getPointBonus(wordle.length / 5);
   var score = wordle.map((element, index) => {
     return element*getMultiplier(index);
   }).reduce((previous, current) => {
