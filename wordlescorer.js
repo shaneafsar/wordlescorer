@@ -55,7 +55,6 @@ function processStream(tweet) {
           } else {
             resolve({ 
               wordle: getWordleMatrixFromText(data.text),
-              solvedRow:  
               id: parentId
             });
           }
