@@ -6,23 +6,22 @@ This node script runs and watches a specific bot account on Twitter (@ScoreMyWor
 Accepting pull requests and bug reports!
 
 ### Features
-* At-mention @ScoreMyWordle in your tweet with a Wordle output (or in a reply), and it'll tweet-back a response with a score.
+* At-mention @ScoreMyWordle in your tweet with a Wordle output (or in a reply), and it'll tweet back a response with a score. (Note: limited support in Communities, you will be quote-tweeted).
 * Supports reading the default square emoji wordle output (including the high contrast version of the emojis)
 * Supports reading wa11y.co alt text on wordle images if there's no default wordle square emoji output
+* Tweets out the top Wordler of the day ranked by score, row solved, then tweet time.
 
 ## Future ideas
 
 ### Features
 * Improve parsing acessibility text on images that leveraged wa11y.co (any others parsers out there?).
 * Provide a score or unique message for interesting pattern results.
-* Watch @-mentions so that it works with the Wordle Twitter community (Communities are currently inaccessible via API). [in progress]
-* Tweet out a leaderboard daily with top 3 wordlers ranked by row solved, score, and tweet time.
 * Static website to paste results without needing to tweet.
-* More & varied compliments!.
+* More & varied compliments!
 
 ### Infra
-* Add suite of unit tests
-* Add data persistence layer to conistently track already mentioned tweets app starts [in progress]
+* Add massive suite of unit tests
+* Refactor DBs into typescript and/or leverage Replit data store
 
 
 ## Special thanks
