@@ -6,7 +6,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 class WordleData {
   constructor(name) {
-    const file = join(__dirname, `${name}.json`);
+    const file = join(__dirname, `db.${name}.json`);
     const adapter = new JSONFile(file);
     this.db = new Low(adapter);
   }

@@ -102,3 +102,6 @@ dist
 
 # TernJS port file
 .tern-port
+
+#Filesystem DB ignore
+**/db.*.json
