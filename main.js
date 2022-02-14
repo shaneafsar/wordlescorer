@@ -99,18 +99,25 @@ async function getTopScorerInfo(date) {
    *      name
    *      score
    *      solvedRow
+   *      datetime
    *    }
    * }
    */
   let data = await TopScoreDB.read();
   const scorerList = Object.values(data);
+  /**
+   * Compare by score, then solved row, then date
+   */
   scorerList.sort(function(a,b) {
-    if (a.score === b.score){
-        return b.solvedRow - a.solvedRow;
-    } else if(a.score > b.score){
-        return 1;
-    } else if(a.score < b.score){
+    if (a.score === b.score) {
+      if(a.solvedRow === b.solvedRow) {
+        return a.datetime - b.datetime;
+      }
+      return a.solvedRow - b.solvedRow;
+    } else if(a.score > b.score) {
         return -1;
+    } else if(a.score < b.score) {
+        return 1;
     }
    });
   return scorerList?.[0] || null;
@@ -228,7 +235,8 @@ function processTweet(tweet) {
                 wordle: parentWordleResult,
                 id: id,
                 name: screenName,
-                userId: userId
+                userId: userId,
+                datetime: createdAtMs
               });
             }
           });
@@ -244,12 +252,13 @@ function processTweet(tweet) {
         wordle: wordleResult, 
         id: id,
         name: screenName,
-        userId: userId
+        userId: userId,
+        datetime: createdAtMs
       });
     }
   });
 
-  wordleResultPromise.then(({wordle, id, name, userId}) => {
+  wordleResultPromise.then(({wordle, id, name, userId, datetime}) => {
     const score = calculateScoreFromWordleMatrix(wordle).finalScore;
     const solvedRow = getSolvedRow(wordle);
 
@@ -257,7 +266,7 @@ function processTweet(tweet) {
      * Add to today's scores if tweet happened today
      */
     if(isSameDay) {
-      updateTopScores({name, score, solvedRow, userId});
+      updateTopScores({name, score, solvedRow, userId, datetime});
     }
 
     tweetIfNotRepliedTo({
@@ -290,7 +299,7 @@ function getTopScoreDB(date) {
   return new WordleData(`top-scores-${date.getUTCMonth()}-${date.getUTCDate()}-${date.getUTCFullYear()}`);
 }
 
-function updateTopScores({name, score, solvedRow, userId}) {
+function updateTopScores({name, score, solvedRow, userId, datetime}) {
   const TopScoresDB = getTopScoreDB();
   /**
    * Only allow one score per user
@@ -298,7 +307,8 @@ function updateTopScores({name, score, solvedRow, userId}) {
   TopScoresDB.write(userId, {
     name,
     score,
-    solvedRow
+    solvedRow,
+    datetime
   });
 }
 
@@ -343,6 +353,7 @@ function tweetIfNotRepliedTo({status, id, name, score, solvedRow}) {
             }, (err, data) => {
               if(err) {
                 console.log('failed to quote tweet ', err);
+                /*
                 ErrorDB.push('quoteError', {
                   id,
                   name,
@@ -350,9 +361,11 @@ function tweetIfNotRepliedTo({status, id, name, score, solvedRow}) {
                   solvedRow,
                   err
                 });
+                */
               }
             });
         }
+        /*
         ErrorDB.push('replyError', {
           id,
           name,
@@ -360,6 +373,7 @@ function tweetIfNotRepliedTo({status, id, name, score, solvedRow}) {
           solvedRow,
           err
         });
+        */
       } else {
         console.log(`Tweeted: ${reply.text} to ${reply.in_reply_to_status_id_str}`);
       }
