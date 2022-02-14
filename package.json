@@ -2,11 +2,12 @@
   "name": "wordlescorer",
   "version": "1.0.0",
   "description": "",
-  "main": "wordlescorer.js",
+  "main": "main.js",
+  "type": "module",
   "scripts": {
-    "test": "wordlescorer.js",
-    "start": "node ./wordlescorer.js",
-    "develop": "NODE_ENV=develop node wordlescorer.js"
+    "test": "main.js",
+    "start": "node ./main.js",
+    "develop": "NODE_ENV=develop node main.js"
   },
   "repository": {
     "type": "git",
@@ -21,7 +22,10 @@
   "homepage": "https://github.com/shaneafsar/wordlescorer#readme",
   "dependencies": {
     "dotenv": "^14.3.2",
+    "lowdb": "^3.0.0",
     "node": "^17.4.0",
-    "twit": "^2.2.11"
+    "path": "^0.12.7",
+    "twit": "^2.2.11",
+    "url": "^0.11.0"
   }
 }

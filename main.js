@@ -1,11 +1,31 @@
-const Twit = require('twit');
+import Twit from 'twit'
+import dotenv  from 'dotenv'
+import WordleData from './WordleData.js';
+
+/**
+ * Load env variables from filesystem when developing
+ */
+if (process.env.NODE_ENV === "develop") {
+  dotenv.config();
+};
+
+const TWIT_CONFIG = {
+  consumer_key: process.env.consumer_key,
+  consumer_secret: process.env.consumer_secret,
+  access_token: process.env.access_token,
+  access_token_secret: process.env.access_token_secret,
+};
 
 const WORDLE_BOT_HANDLE = '@ScoreMyWordle';
+
+const AnalyzedTweetsDB = new WordleData('analyzed');
+const ErrorDB = new WordleData('errors');
 
 /**
  * Keep in-memory hash of analyzed tweets.
  */
-const REPLY_HASH = {};
+const REPLY_HASH = await AnalyzedTweetsDB.read();
+
 
 const COMPLIMENTS = [
   'Nice work!',
@@ -18,21 +38,17 @@ const COMPLIMENTS = [
   'Congrats, Wordler!'
 ];
 
+// const blocks = {'⬛': 0,'⬜': 0,'🟨': 1,'🟦':1,'🟧':2,'🟩': 2};
 const SCORE = {
   CORRECT: 2,
-  PARTIAL: 1
+  PARTIAL: 1,
+  WRONG: 0
 }
 
-if (process.env.NODE_ENV === "develop") {
-  require("dotenv").config();
-};
-
-// Pulling keys from another file
-var config = require('./config.js');
-
-var T = new Twit(config);
+var T = new Twit(TWIT_CONFIG);
 var stream = T.stream('statuses/filter', { track: WORDLE_BOT_HANDLE });
 stream.on('tweet', processStream);
+
 
 /**
  * TODO: read mentions since communities is not availble via API yet
@@ -122,7 +138,10 @@ function processStream(tweet) {
     var score = calculateScoreFromWordleMatrix(wordle).finalScore;
     var solvedRow = getSolvedRow(wordle);
 
-    tweetIfNotRepliedTo({ 
+    tweetIfNotRepliedTo({
+      name: name,
+      score: score,
+      solvedRow: solvedRow, 
       status: `${name} The above wordle scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${getCompliment()}`,
       id: id
     });  
@@ -136,6 +155,10 @@ function processStream(tweet) {
       console.log('unable to tweet reply failure: ', obj);
     }
   });
+}
+
+function generateTweetText({name, score, solvedRow}) {
+  // TODO
 }
 
 /**
@@ -154,11 +177,11 @@ function getCompliment() {
  * @param {Object[]} content
  * @param {string} content[].status - tweet text
  * @param {string} content[].id - reply id
+ * @param {string} content[].name - account name
+ * @param {number} content[].score - calculated score
+ * @param {number} content[].solvedRow
  */
-function tweetIfNotRepliedTo(content) {
-  var status = content.status; 
-  var id = content.id;
-  // Tweet if not replied to
+function tweetIfNotRepliedTo({status, id, name, score, solvedRow}) {
   if(!REPLY_HASH[id]) {
     T.post('statuses/update', { 
       status: status, 
@@ -168,9 +191,21 @@ function tweetIfNotRepliedTo(content) {
       REPLY_HASH[id] = true;
       if (err) {
         console.log(err.message);
+        ErrorDB.push('tweetError', {
+          id,
+          name,
+          score,
+          solvedRow,
+          err
+        });
       } else {
         console.log(`Tweeted: ${reply.text} to ${reply.in_reply_to_status_id_str}`);
       }
+      AnalyzedTweetsDB.write(id, {
+        name: name,
+        score: score,
+        solvedRow: solvedRow,
+      });
     });
   }
 }
@@ -203,8 +238,6 @@ function getSentenceSuffix(solvedRowNum) {
   }
   return `, solved on row ${solvedRowNum}.`;
 }
-
-// const blocks = {'⬛': 0,'⬜': 0,'🟨': 1,'🟦':1,'🟧':2,'🟩': 2};
 
 /**
  * Provides a multiplier for a block based on which row it appeared in.
@@ -251,7 +284,7 @@ function getPointBonus(solvedRow) {
 function getWordleMatrixFromText(text = '') {
   var wordle = [];
   var codePoint;
-  var i=0;
+  var i = 0;
   for(; i < text.length; i++) {
   	codePoint = text.codePointAt(i);
   	if(codePoint === 129000 || codePoint === 128998){
@@ -259,7 +292,7 @@ function getWordleMatrixFromText(text = '') {
     } else if(codePoint === 129001 || codePoint === 128999){
     	wordle.push(SCORE.CORRECT);
     } else if(codePoint === 11035 || codePoint === 11036){
-    	wordle.push(0);
+    	wordle.push(SCORE.WRONG);
     }
   }
   return wordle;
@@ -277,7 +310,7 @@ function calculateScoreFromWordleMatrix(wordle) {
   }).reduce((previous, current) => {
   	return previous+current;
   });
-  return {finalScore: score+solvedRowBonus };
+  return {finalScore: score + solvedRowBonus };
 }
 
 /** 
