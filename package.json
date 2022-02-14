@@ -6,8 +6,9 @@
   "type": "module",
   "scripts": {
     "test": "main.js",
-    "start": "node ./main.js",
-    "develop": "NODE_ENV=develop node main.js"
+    "start": "nodemon -x 'node main.js || touch main.js'",
+    "local": "NODE_ENV=develop nodemon main.js",
+    "replit": "nodemon main.js"
   },
   "repository": {
     "type": "git",
@@ -20,10 +21,15 @@
     "url": "https://github.com/shaneafsar/wordlescorer/issues"
   },
   "homepage": "https://github.com/shaneafsar/wordlescorer#readme",
+  "nodemonConfig": {
+    "ignore": ["node_modules/*", "*.md"],
+    "delay": 2500
+  },
   "dependencies": {
     "dotenv": "^14.3.2",
     "lowdb": "^3.0.0",
     "node": "^17.4.0",
+    "nodemon": "^2.0.15",
     "path": "^0.12.7",
     "twit": "^2.2.11",
     "url": "^0.11.0"

@@ -31,7 +31,13 @@ class WordleData {
       this.db.data[key] = [];
     }
 
-    if(!data.datetime) {
+    /**
+     * If possible, add epoch time
+     */
+    if(typeof data === 'object' &&
+      !Array.isArray(data) &&
+      data !== null &&
+      !data.datetime) {
       data.datetime = Date.now();
     }
 
@@ -47,7 +53,13 @@ class WordleData {
   async write(key, data) {
     await this.loadData();
 
-    if(!data.datetime) {
+    /**
+     * If possible, add epoch time
+     */
+    if(typeof data === 'object' &&
+      !Array.isArray(data) &&
+      data !== null &&
+      !data.datetime) {
       data.datetime = Date.now();
     }
 

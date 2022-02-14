@@ -20,11 +20,17 @@ const WORDLE_BOT_HANDLE = '@ScoreMyWordle';
 
 const AnalyzedTweetsDB = new WordleData('analyzed');
 const ErrorDB = new WordleData('errors');
+const LastMentionDB = new WordleData('last-mention');
+const FINAL_SCORE_TIMEOUT = setDailyTopScoreTimeout();
 
 /**
  * Keep in-memory hash of analyzed tweets.
  */
 const REPLY_HASH = await AnalyzedTweetsDB.read();
+
+const LAST_MENTION = await LastMentionDB.read();
+
+const PROCESSING = {};
 
 
 const COMPLIMENTS = [
@@ -47,24 +53,131 @@ const SCORE = {
 
 var T = new Twit(TWIT_CONFIG);
 var stream = T.stream('statuses/filter', { track: WORDLE_BOT_HANDLE });
-stream.on('tweet', processStream);
-
+stream.on('tweet', processTweet);
 
 /**
- * TODO: read mentions since communities is not availble via API yet
- * T.get('statuses/mentions_timeline').then(({data}) => {
-  console.log(data);
-});
-*/
+ * Reading mentions since communities is not availble via API yet
+ * API docs inticate rate-limit of 75 calls per 15min (12s per call).
+ */
+setInterval(() => {
+  T.get('statuses/mentions_timeline', { 
+    since_id: LAST_MENTION.since_id, 
+    count: 200
+  }).then(({data}) => {
+    if(data.length > 0) {
+      LAST_MENTION['since_id'] = data[0].id_str;
+      LastMentionDB.write('since_id', data[0].id_str);  
+      data.forEach((tweet) => { 
+        processTweet(tweet);
+      });
+    } else {
+      console.log(`no more mentions as of ${new Date().toUTCString()}`);
+    }
+  });
+}, 12500);
 
-function processStream(tweet) {
+function getFormattedDate(date) {
+  let options = { 
+    weekday: 'short', 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric' 
+  };
 
-  var id = tweet.id_str;
-  var parentId = tweet.in_reply_to_status_id_str;
-  var tweetText = tweet.text;
+  options.timeZone = 'UTC';
+  options.timeZoneName = 'short';
+
+  return date.toLocaleString('en-US', options);
+}
+
+async function getTopScorerInfo(date) {
+  const TopScoreDB = getTopScoreDB(date);
+  /**
+   * {
+   *   userid: 
+   *    {
+   *      name
+   *      score
+   *      solvedRow
+   *    }
+   * }
+   */
+  let data = await TopScoreDB.read();
+  const scorerList = Object.values(data);
+  scorerList.sort(function(a,b) {
+    if (a.score === b.score){
+        return b.solvedRow - a.solvedRow;
+    } else if(a.score > b.score){
+        return 1;
+    } else if(a.score < b.score){
+        return -1;
+    }
+   });
+  return scorerList?.[0] || null;
+}
+
+/**
+ * Check if day has ended, tweet top results
+ */
+async function tweetDailyTopScore(date) {
+  var scorer = await getTopScorerInfo(date);
+  var finalStatus = 'Not sure -- nobody requested a score today :(';
+  if(scorer) {
+    finalStatus = `${scorer.name}! They scored ${scorer.score} points and solved it on row ${scorer.solvedRow}! ${getCompliment()}`;
+  }
+
+  T.post('statuses/update', { 
+      status: `The top scorer for ${getFormattedDate(date)} is: ${finalStatus}`
+    }, (err, reply) => {
+      if(err) {
+        console.log('error tweeting top score: ', err);
+      }
+  });
+
+  // Run again for tomorrow!
+  FINAL_SCORE_TIMEOUT = setDailyTopScoreTimeout();
+}
+
+function setDailyTopScoreTimeout() {
+  const finalTime = new Date().setUTCHours(24,0,0,0);
+  const currentDate = new Date();
+  const currentTime = currentDate.getTime();
+  console.log(`final score tweet happening in about ${(finalTime - currentTime)/1000/60/60} hours`);
+  return setTimeout(() => {
+    tweetDailyTopScore(currentDate);
+  }, finalTime - currentTime);
+}
+
+function _isSameDay(d1, d2) {
+  if(!d2){
+    d2 = new Date();
+  }
+  return d1.getUTCDate() === d2.getUTCDate() && 
+    d1.getUTCMonth() === d2.getUTCMonth() &&
+    d1.getUTCFullYear() === d2.getUTCFullYear();
+}
+
+function processTweet(tweet) {
+  const id = tweet.id_str;
+  const parentId = tweet.in_reply_to_status_id_str;
+  const tweetText = tweet.text;
+  const userId = tweet.user.id_str;
+  const createdAt = new Date(tweet.created_at);
+  const createdAtMs = createdAt.getTime();
+  const isSameDay = _isSameDay(createdAt);
+
+  /**
+   * Bail early if this tweet has been processed or is 
+   * processing.
+   */
+  if(REPLY_HASH[id] || PROCESSING[id]) {
+    return;
+  }
+
+  PROCESSING[id] = true;
 
   // Exit if this is a self-wordle debugging tweet (prevent multi-tweets)
-  if(tweetText.indexOf('The above wordle scored') > -1 || 
+  if(tweetText.indexOf('The wordle scored') > -1 || 
     tweetText.indexOf('Sorry, something went wrong.') > -1) {
     return;
   }
@@ -114,7 +227,8 @@ function processStream(tweet) {
               resolve({ 
                 wordle: parentWordleResult,
                 id: id,
-                name: screenName
+                name: screenName,
+                userId: userId
               });
             }
           });
@@ -129,36 +243,63 @@ function processStream(tweet) {
       resolve({ 
         wordle: wordleResult, 
         id: id,
-        name: screenName
+        name: screenName,
+        userId: userId
       });
     }
   });
 
-  wordleResultPromise.then(({wordle, id, name}) => {
-    var score = calculateScoreFromWordleMatrix(wordle).finalScore;
-    var solvedRow = getSolvedRow(wordle);
+  wordleResultPromise.then(({wordle, id, name, userId}) => {
+    const score = calculateScoreFromWordleMatrix(wordle).finalScore;
+    const solvedRow = getSolvedRow(wordle);
+
+    /**
+     * Add to today's scores if tweet happened today
+     */
+    if(isSameDay) {
+      updateTopScores({name, score, solvedRow, userId});
+    }
 
     tweetIfNotRepliedTo({
       name: name,
       score: score,
       solvedRow: solvedRow, 
-      status: `${name} The above wordle scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${getCompliment()}`,
+      status: `${name} The wordle scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${getCompliment()}`,
       id: id
     });  
   }).catch(function(obj) {
     if (obj.name && obj.id) {
-      tweetIfNotRepliedTo({
+      AnalyzedTweetsDB.write(obj.id, {
+        name: obj.name
+      });
+
+      /**tweetIfNotRepliedTo({
         status:`${obj.name} Sorry, something went wrong. I wasn't able to decipher the wordle from the requested tweet :(`,
         id: obj.id
-      });
+      });*/
     } else {
       console.log('unable to tweet reply failure: ', obj);
     }
   });
 }
 
-function generateTweetText({name, score, solvedRow}) {
-  // TODO
+function getTopScoreDB(date) {
+  if(!date) {
+    date = new Date();
+  }
+  return new WordleData(`top-scores-${date.getUTCMonth()}-${date.getUTCDate()}-${date.getUTCFullYear()}`);
+}
+
+function updateTopScores({name, score, solvedRow, userId}) {
+  const TopScoresDB = getTopScoreDB();
+  /**
+   * Only allow one score per user
+   */
+  TopScoresDB.write(userId, {
+    name,
+    score,
+    solvedRow
+  });
 }
 
 /**
@@ -189,9 +330,30 @@ function tweetIfNotRepliedTo({status, id, name, score, solvedRow}) {
       auto_populate_reply_metadata: true 
     }, (err, reply) => {
       REPLY_HASH[id] = true;
-      if (err) {
-        console.log(err.message);
-        ErrorDB.push('tweetError', {
+        if (err) {
+          console.log(err.message);
+          /**
+           * Hack for Twitter Communities (no API yet)
+           */
+          if(err.message === 'Reply to a community tweet must also be a community tweet') {
+            console.log('Attempting to quote tweet');
+            T.post('statuses/update', { 
+              status: status, 
+              attachment_url: `https://twitter.com/${name.substring(1)}/status/${id}`
+            }, (err, data) => {
+              if(err) {
+                console.log('failed to quote tweet ', err);
+                ErrorDB.push('quoteError', {
+                  id,
+                  name,
+                  score,
+                  solvedRow,
+                  err
+                });
+              }
+            });
+        }
+        ErrorDB.push('replyError', {
           id,
           name,
           score,
