@@ -17,21 +17,13 @@ const TWIT_CONFIG = {
 };
 
 const WORDLE_BOT_HANDLE = '@ScoreMyWordle';
+const WORDLE_BOT_ID = '1422211304996155393';
 
 const AnalyzedTweetsDB = new WordleData('analyzed');
 const ErrorDB = new WordleData('errors');
 const LastMentionDB = new WordleData('last-mention');
-const FINAL_SCORE_TIMEOUT = setDailyTopScoreTimeout();
-
-/**
- * Keep in-memory hash of analyzed tweets.
- */
-const REPLY_HASH = await AnalyzedTweetsDB.read();
-
-const LAST_MENTION = await LastMentionDB.read();
 
 const PROCESSING = {};
-
 
 const COMPLIMENTS = [
   'Nice work!',
@@ -52,6 +44,11 @@ const SCORE = {
 }
 
 var T = new Twit(TWIT_CONFIG);
+
+const REPLY_HASH = await AnalyzedTweetsDB.read();
+const LAST_MENTION = await LastMentionDB.read();
+var FINAL_SCORE_TIMEOUT = setDailyTopScoreTimeout();
+
 var stream = T.stream('statuses/filter', { track: WORDLE_BOT_HANDLE });
 stream.on('tweet', processTweet);
 
@@ -224,6 +221,12 @@ function processTweet(tweet) {
             parentWordleResult = parentWordleResult.length > 0 ? 
               parentWordleResult : getWordleMatrixFromImageAltText(parentAltText);
 
+            var parentUserId = data.user.id_str;
+            var parentName = '@' + data.user.screen_name;
+            var parentTweetId = parentId;
+
+            // BUG: Need to refactor to include parent tweet context
+
             // Reject if there's no result from the text or the alt text on the parent
             if(parentWordleResult.length === 0) {
               reject({
@@ -236,6 +239,9 @@ function processTweet(tweet) {
                 id: id,
                 name: screenName,
                 userId: userId,
+                scorerUserId: parentUserId,
+                scorerName: parentName,
+                scorerTweetId: parentTweetId,
                 datetime: createdAtMs
               });
             }
@@ -253,12 +259,23 @@ function processTweet(tweet) {
         id: id,
         name: screenName,
         userId: userId,
+        scorerUserId: userId,
+        scorerName: screenName,
+        scorerTweetId: id,
         datetime: createdAtMs
       });
     }
   });
 
-  wordleResultPromise.then(({wordle, id, name, userId, datetime}) => {
+  wordleResultPromise.then(({ 
+    wordle, 
+    id, 
+    name, 
+    userId,
+    scorerUserId,
+    scorerName,
+    scorerTweetId, 
+    datetime}) => {
     const score = calculateScoreFromWordleMatrix(wordle).finalScore;
     const solvedRow = getSolvedRow(wordle);
 
@@ -266,7 +283,13 @@ function processTweet(tweet) {
      * Add to today's scores if tweet happened today
      */
     if(isSameDay) {
-      updateTopScores({name, score, solvedRow, userId, datetime});
+      updateTopScores({ 
+        name: scorerName, 
+        userId: scorerUserId, 
+        score, 
+        solvedRow, 
+        datetime
+      });
     }
 
     tweetIfNotRepliedTo({
