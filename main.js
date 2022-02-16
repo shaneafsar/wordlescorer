@@ -192,6 +192,9 @@ function processTweet(tweet) {
 
   // Try alt text if there's no wordle result in main text
   if (wordleResult.length === 0) {
+    if(!altText) {
+      altText = tweet.extended_entities?.media?.[0]?.ext_alt_text || '';
+    }
     wordleResult = getWordleMatrixFromImageAltText(altText);
   }
 
