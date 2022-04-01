@@ -22,11 +22,17 @@
   },
   "homepage": "https://github.com/shaneafsar/wordlescorer#readme",
   "nodemonConfig": {
-    "ignore": ["node_modules/*", "*.md", "db.*.json"],
+    "ignore": [
+      "node_modules/*",
+      "*.md",
+      "db.*.json",
+      "db/*"
+    ],
     "delay": 2500
   },
   "dependencies": {
     "dotenv": "^14.3.2",
+    "fs": "0.0.1-security",
     "lowdb": "^3.0.0",
     "node": "^17.4.0",
     "nodemon": "^2.0.15",

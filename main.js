@@ -1,6 +1,7 @@
 import Twit from 'twit'
 import dotenv  from 'dotenv'
-import WordleData from './WordleData.js';
+import WordleData from './WordleData.js'
+import logger from './logger.js'
 
 /**
  * Load env variables from filesystem when developing
@@ -20,7 +21,6 @@ const WORDLE_BOT_HANDLE = '@ScoreMyWordle';
 const WORDLE_BOT_ID = '1422211304996155393';
 
 const AnalyzedTweetsDB = new WordleData('analyzed');
-const ErrorDB = new WordleData('errors');
 const LastMentionDB = new WordleData('last-mention');
 
 const PROCESSING = {};
@@ -58,8 +58,9 @@ stream.on('tweet', processTweet);
  */
 setInterval(() => {
   T.get('statuses/mentions_timeline', { 
-    since_id: LAST_MENTION.since_id, 
-    count: 200
+    since_id: LAST_MENTION.since_id || '1509768073456365608', 
+    count: 200,
+    include_entities: true
   }).then(({data}) => {
     if(data.length > 0) {
       LAST_MENTION['since_id'] = data[0].id_str;
@@ -322,7 +323,7 @@ function getTopScoreDB(date) {
   if(!date) {
     date = new Date();
   }
-  return new WordleData(`top-scores-${date.getUTCMonth()}-${date.getUTCDate()}-${date.getUTCFullYear()}`);
+  return new WordleData(`top-scores-${date.getUTCMonth()}-${date.getUTCDate()}-${date.getUTCFullYear()}`, 'top-scores');
 }
 
 function updateTopScores({name, score, solvedRow, userId, datetime}) {
@@ -379,27 +380,11 @@ function tweetIfNotRepliedTo({status, id, name, score, solvedRow}) {
             }, (err, data) => {
               if(err) {
                 console.log('failed to quote tweet ', err);
-                /*
-                ErrorDB.push('quoteError', {
-                  id,
-                  name,
-                  score,
-                  solvedRow,
-                  err
-                });
-                */
+                logger.error('failed to quote tweet ', err);
               }
             });
         }
-        /*
-        ErrorDB.push('replyError', {
-          id,
-          name,
-          score,
-          solvedRow,
-          err
-        });
-        */
+        logger.error('reply error: ', id, name, score, solvedRow, err);
       } else {
         console.log(`Tweeted: ${reply.text} to ${reply.in_reply_to_status_id_str}`);
       }
