@@ -127,17 +127,18 @@ async function getTopScorerInfo(date) {
 async function tweetDailyTopScore(date) {
   var scorer = await getTopScorerInfo(date);
   var finalStatus = 'Not sure -- nobody requested a score today :(';
+  
   if(scorer) {
     finalStatus = `${scorer.name}! They scored ${scorer.score} points and solved it on row ${scorer.solvedRow}! ${getCompliment()}`;
-  }
 
-  T.post('statuses/update', { 
+    T.post('statuses/update', { 
       status: `The top scorer for ${getFormattedDate(date)} is: ${finalStatus}`
     }, (err, reply) => {
       if(err) {
         console.log('error tweeting top score: ', err);
       }
-  });
+    });
+  }
 
   // Run again for tomorrow!
   FINAL_SCORE_TIMEOUT = setDailyTopScoreTimeout();
