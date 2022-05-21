@@ -58,7 +58,7 @@ stream.on('tweet', processTweet);
  */
 setInterval(() => {
   T.get('statuses/mentions_timeline', { 
-    since_id: LAST_MENTION.since_id || '1509768073456365608', 
+    since_id: LAST_MENTION.since_id || '1526808148031447042', 
     count: 200,
     include_entities: true
   }).then(({data}) => {

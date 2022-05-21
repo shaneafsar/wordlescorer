@@ -1,0 +1,7 @@
+extends layout
+
+block content
+  h1= title
+  ul
+  each val, id in datalist
+    li #{val.name} scored #{val.score} on #{val.datestring} - #[a(href="https://www.twitter.com/"+val.name+"/status/"+id) tweet]

@@ -26,7 +26,8 @@
       "node_modules/*",
       "*.md",
       "db.*.json",
-      "db/*"
+      "db/*",
+      "static/*"
     ],
     "delay": 2500
   },
