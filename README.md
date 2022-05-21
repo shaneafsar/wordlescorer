@@ -20,7 +20,7 @@ Accepting bug reports & feature requests!
 * More & varied compliments!
 
 ### Infra
-* Add massive suite of unit tests to allow for easy pull requests
+* Add massive suite of unit tests (make it easier to receive contributions)
 * Refactor DBs into typescript and/or leverage Replit data store
 * Pull out the scoring mechanism so that it can be used independently (e.g. for a static website, bots on other services)
 
