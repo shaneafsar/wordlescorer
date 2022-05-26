@@ -10,21 +10,21 @@ router.get('/', function(req, res, next) {
     var AnalyzedTweetsDB = new WordleData('analyzed');
     AnalyzedTweetsDB.read().then(data => {
       var values = Object.values(data);
-      var datesort = {};
-      var renderData = values.map((item) => {
-        item.datestring = (new Date(item.datetime)).toLocaleDateString("en-US");
-        if(datesort[item.datestring]) {
-          datesort[item.datestring].push(item);
-        } else {
-          datesort[item.datestring] = [item];
-        }
+      var keys = Object.keys(data);
+      var screenNameHash = {};
+      var renderData = values.map((item, index) => {
+        item.datestring = (new Date(item.datetime)).toLocaleDateString("en-US");  
+        item.id = keys[index];
+        screenNameHash[item.name] = { lastCheckTime: Date.now() };
         return item;
-      });
-
+      }).sort((a,b) => b.datetime - a.datetime);
+      
       //Render page
       res.render('index', { 
-        title: 'Score My Wordle',
-        datalist: data
+        title: 'Score My Wordle Info',
+        datalist: renderData,
+        scoredCount: renderData.length,
+        userCount: Object.keys(screenNameHash).length
       });
     });
   });

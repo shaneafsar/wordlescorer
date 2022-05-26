@@ -22,6 +22,7 @@ const WORDLE_BOT_ID = '1422211304996155393';
 
 const AnalyzedTweetsDB = new WordleData('analyzed');
 const LastMentionDB = new WordleData('last-mention');
+const UserGrowthDB = new WordleData('user-growth');
 
 const PROCESSING = {};
 
@@ -47,10 +48,37 @@ var T = new Twit(TWIT_CONFIG);
 
 const REPLY_HASH = await AnalyzedTweetsDB.read();
 const LAST_MENTION = await LastMentionDB.read();
+const USER_GROWTH_HASH = await UserGrowthDB.read();
 var FINAL_SCORE_TIMEOUT = setDailyTopScoreTimeout();
 
 var stream = T.stream('statuses/filter', { track: WORDLE_BOT_HANDLE });
 stream.on('tweet', processTweet);
+
+/**
+ Let the world know we exist!
+*/
+var growthStream = T.stream('statuses/filter', { track: 'Wordle'  });
+var testIterate = 0;
+growthStream.on('tweet', function(tweet) {
+
+/**
+  testIterate++;
+  if(testIterate >= 5) {
+    return;
+  }
+
+  const userId = tweet.user.id_str;
+  const screenName = '@' + tweet.user.screen_name;
+  console.log(screenName);
+  UserGrowthDB.write(userId, { lastCheckTime: Date.now()});
+  // Exit if already scored, we don't want to bother them!
+  if (USER_GROWTH_HASH[userId] || USER_GROWTH_HASH[screenName]) {
+    return;
+  }
+  USER_GROWTH_HASH[userId] = true;
+  processTweet(tweet, true);
+**/
+});
 
 /**
  * Reading mentions since communities is not availble via API yet
@@ -163,7 +191,7 @@ function _isSameDay(d1, d2) {
     d1.getUTCFullYear() === d2.getUTCFullYear();
 }
 
-function processTweet(tweet) {
+function processTweet(tweet, isGrowthTweet) {
   const id = tweet.id_str;
   const parentId = tweet.in_reply_to_status_id_str;
   const tweetText = tweet.text;
@@ -171,7 +199,8 @@ function processTweet(tweet) {
   const createdAt = new Date(tweet.created_at);
   const createdAtMs = createdAt.getTime();
   const isSameDay = _isSameDay(createdAt);
-
+  
+  UserGrowthDB.write(userId, { lastCheckTime: Date.now()});
   /**
    * Bail early if this tweet has been processed or is 
    * processing.
@@ -184,7 +213,8 @@ function processTweet(tweet) {
 
   // Exit if this is a self-wordle debugging tweet (prevent multi-tweets)
   if(tweetText.indexOf('The wordle scored') > -1 || 
-    tweetText.indexOf('Sorry, something went wrong.') > -1) {
+    tweetText.indexOf('Sorry, something went wrong.') > -1 ||
+    userId === WORDLE_BOT_ID) {
     return;
   }
 
@@ -199,9 +229,10 @@ function processTweet(tweet) {
     }
     wordleResult = getWordleMatrixFromImageAltText(altText);
   }
-
+  console.log('processTweet ', tweetText);
   /**
    * Check @ mentioned tweet text & alt text.
+   * Bail out if this a growth tweet.
    * If there's no wordle, check the parent tweet.
    * If there's no wordle on the parent tweet, bail out.
    */
@@ -209,8 +240,8 @@ function processTweet(tweet) {
     // If @mention tweet & alt text contains no wordle text, then try checking
     // the parent tweet.
     if(wordleResult.length === 0) {
-      // If there's no parent tweet, then bail out.
-      if (parentId) {
+      // If there's no parent tweet && not a growth tweet, then bail out.
+      if (parentId && isGrowthTweet !== true) {
         T.get('statuses/show/:id', { id: parentId, include_ext_alt_text: true })
           .catch((err) => {
             console.log('parentId request fail: ', err);
@@ -252,7 +283,7 @@ function processTweet(tweet) {
             }
           });
       } else {
-        // If there's no parent, then there's nothing else to check. Bail out!
+        // If there's no parent or it's a growth tweet, then there's nothing else to check. Bail out!
         reject({
           name: screenName,
           id: id
@@ -301,7 +332,7 @@ function processTweet(tweet) {
       name: name,
       score: score,
       solvedRow: solvedRow, 
-      status: `${name} The wordle scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${getCompliment()}`,
+      status: `${name} The wordle scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${getCompliment(isGrowthTweet)}`,
       id: id
     });  
   }).catch(function(obj) {
@@ -345,9 +376,9 @@ function updateTopScores({name, score, solvedRow, userId, datetime}) {
  * TODO: Consider adjusting to different ones based on score?
  * @returns {string} a compliment :)
  */
-function getCompliment() {
+function getCompliment(isGrowthTweet) {
   const length = COMPLIMENTS.length;
-  return COMPLIMENTS[Math.floor(Math.random() * length)];
+  return COMPLIMENTS[Math.floor(Math.random() * length)] + (isGrowthTweet ? ' Mention me in the future, I <3 wordles!' : '');
 }
 
 /**

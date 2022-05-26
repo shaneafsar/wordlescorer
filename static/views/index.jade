@@ -2,6 +2,13 @@ extends layout
 
 block content
   h1= title
+  table
+    tr
+      td Total Tweets Scored
+      td Total User Count
+    tr
+      td(class='value') #{scoredCount}
+      td(class='value') #{userCount}
   ul
-  each val, id in datalist
-    li #{val.name} scored #{val.score} on #{val.datestring} - #[a(href="https://www.twitter.com/"+val.name+"/status/"+id) tweet]
+  each val in datalist
+    li #{val.name} scored #{val.score} on #{val.datestring} - #[a(href="https://www.twitter.com/"+val.name+"/status/"+val.id) tweet]
