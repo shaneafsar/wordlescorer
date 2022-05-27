@@ -6,9 +6,11 @@ block content
     tr
       td Total Tweets Scored
       td Total User Count
+      td Last Updated
     tr
       td(class='value') #{scoredCount}
       td(class='value') #{userCount}
+      td(class='value') #{lastUpdated}
   ul
   each val in datalist
     li #{val.name} scored #{val.score} on #{val.datestring} - #[a(href="https://www.twitter.com/"+val.name+"/status/"+val.id) tweet]

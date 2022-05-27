@@ -9,8 +9,12 @@ a {
 
 table {
   border-bottom: 1px solid #7A7A7A;
-  padding: 4px;
   width: 90%;
+}
+
+td {
+  padding-left: 4px;
+  vertical-align: top;
 }
 
 td.value {

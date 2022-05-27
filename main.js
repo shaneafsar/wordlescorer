@@ -1,7 +1,10 @@
-import Twit from 'twit'
-import dotenv  from 'dotenv'
-import WordleData from './WordleData.js'
-import logger from './logger.js'
+import Twit from 'twit';
+import dotenv  from 'dotenv';
+import WordleData from './WordleData.js';
+import logger from './logger.js';
+import app from "./app.js";
+import * as debug$0 from "debug";
+import http from "http";
 
 /**
  * Load env variables from filesystem when developing
@@ -54,31 +57,30 @@ var FINAL_SCORE_TIMEOUT = setDailyTopScoreTimeout();
 var stream = T.stream('statuses/filter', { track: WORDLE_BOT_HANDLE });
 stream.on('tweet', processTweet);
 
-/**
- Let the world know we exist!
-*/
-var growthStream = T.stream('statuses/filter', { track: 'Wordle'  });
-var testIterate = 0;
-growthStream.on('tweet', function(tweet) {
 
-/**
-  testIterate++;
-  if(testIterate >= 5) {
-    return;
-  }
+// Let the world know we exist!
 
-  const userId = tweet.user.id_str;
-  const screenName = '@' + tweet.user.screen_name;
-  console.log(screenName);
-  UserGrowthDB.write(userId, { lastCheckTime: Date.now()});
-  // Exit if already scored, we don't want to bother them!
-  if (USER_GROWTH_HASH[userId] || USER_GROWTH_HASH[screenName]) {
-    return;
-  }
-  USER_GROWTH_HASH[userId] = true;
-  processTweet(tweet, true);
-**/
-});
+// var growthStream = T.stream('statuses/filter', { track: 'Wordle'  });
+// var testIterate = 0;
+// growthStream.on('tweet', function(tweet) {
+//   testIterate++;
+//   if(testIterate >= 5) {
+//     return;
+//   }
+
+//   const userId = tweet.user.id_str;
+//   const screenName = '@' + tweet.user.screen_name;
+//   console.log(screenName);
+//   UserGrowthDB.write(userId, { lastCheckTime: Date.now()});
+//   // Exit if already scored, we don't want to bother them!
+//   if (USER_GROWTH_HASH[userId] || USER_GROWTH_HASH[screenName]) {
+//     return;
+//   }
+//   USER_GROWTH_HASH[userId] = true;
+//   processTweet(tweet, true);
+
+// });
+
 
 /**
  * Reading mentions since communities is not availble via API yet
@@ -100,7 +102,7 @@ setInterval(() => {
       console.log(`no more mentions as of ${new Date().toUTCString()}`);
     }
   });
-}, 12500);
+}, 60000);
 
 function getFormattedDate(date) {
   let options = { 
@@ -412,11 +414,11 @@ function tweetIfNotRepliedTo({status, id, name, score, solvedRow}) {
             }, (err, data) => {
               if(err) {
                 console.log('failed to quote tweet ', err);
-                logger.error('failed to quote tweet ', err);
+                logger.error(Date.now(),' | failed to quote tweet ', err);
               }
             });
         }
-        logger.error('reply error: ', id, name, score, solvedRow, err);
+        logger.error(Date.now(),' | reply error: ', id, name, score, solvedRow, err);
       } else {
         console.log(`Tweeted: ${reply.text} to ${reply.in_reply_to_status_id_str}`);
       }
@@ -598,4 +600,74 @@ function _rowUpdater(row, matches, score) {
     }
   }
   return row;
+}
+
+// ****************
+// EXPRESS SERVER
+// ****************
+ 
+var debug = debug$0.default('static2:server');
+/**
+ * Get port from environment and store in Express.
+ */
+var port = normalizePort(process.env.PORT || '3000');
+app.set('port', port);
+/**
+ * Create HTTP server.
+ */
+var server = http.createServer(app);
+/**
+ * Listen on provided port, on all network interfaces.
+ */
+server.listen(port);
+server.on('error', onError);
+server.on('listening', onListening);
+/**
+ * Normalize a port into a number, string, or false.
+ */
+function normalizePort(val) {
+    var port = parseInt(val, 10);
+    if (isNaN(port)) {
+        // named pipe
+        return val;
+    }
+    if (port >= 0) {
+        // port number
+        return port;
+    }
+    return false;
+}
+/**
+ * Event listener for HTTP server "error" event.
+ */
+function onError(error) {
+    if (error.syscall !== 'listen') {
+        throw error;
+    }
+    var bind = typeof port === 'string'
+        ? 'Pipe ' + port
+        : 'Port ' + port;
+    // handle specific listen errors with friendly messages
+    switch (error.code) {
+        case 'EACCES':
+            console.error(bind + ' requires elevated privileges');
+            process.exit(1);
+            break;
+        case 'EADDRINUSE':
+            console.error(bind + ' is already in use');
+            process.exit(1);
+            break;
+        default:
+            throw error;
+    }
+}
+/**
+ * Event listener for HTTP server "listening" event.
+ */
+function onListening() {
+    var addr = server.address();
+    var bind = typeof addr === 'string'
+        ? 'pipe ' + addr
+        : 'port ' + addr.port;
+    debug('Listening on ' + bind);
 }
