@@ -13,6 +13,7 @@ if (process.env.NODE_ENV === "develop") {
   dotenv.config();
 };
 
+
 const TWIT_CONFIG = {
   consumer_key: process.env.consumer_key,
   consumer_secret: process.env.consumer_secret,
@@ -37,7 +38,8 @@ const COMPLIMENTS = [
   'Never give up!',
   '👍👍👍',
   '⭐⭐⭐',
-  'Congrats, Wordler!'
+  'Congrats, Wordler!',
+  'You are a star!'
 ];
 
 // const blocks = {'⬛': 0,'⬜': 0,'🟨': 1,'🟦':1,'🟧':2,'🟩': 2};
@@ -54,20 +56,19 @@ const LAST_MENTION = await LastMentionDB.read();
 const USER_GROWTH_HASH = await UserGrowthDB.read();
 var FINAL_SCORE_TIMEOUT = setDailyTopScoreTimeout();
 
+
 var stream = T.stream('statuses/filter', { track: WORDLE_BOT_HANDLE });
 stream.on('tweet', processTweet);
 
 
 // Let the world know we exist!
 
-// var growthStream = T.stream('statuses/filter', { track: 'Wordle'  });
-// var testIterate = 0;
-// growthStream.on('tweet', function(tweet) {
-//   testIterate++;
-//   if(testIterate >= 5) {
-//     return;
-//   }
+// var growthStream = T.stream('statuses/filter', { track: 'Wordle' });
 
+// var rateLimit = 0;
+// growthStream.on('tweet', function(tweet) {
+//   rateLimit++;
+//   if(rateLimit >= 5) { return; }
 //   const userId = tweet.user.id_str;
 //   const screenName = '@' + tweet.user.screen_name;
 //   console.log(screenName);
@@ -78,7 +79,6 @@ stream.on('tweet', processTweet);
 //   }
 //   USER_GROWTH_HASH[userId] = true;
 //   processTweet(tweet, true);
-
 // });
 
 
@@ -242,14 +242,33 @@ function processTweet(tweet, isGrowthTweet) {
     // If @mention tweet & alt text contains no wordle text, then try checking
     // the parent tweet.
     if(wordleResult.length === 0) {
+      
       // If there's no parent tweet && not a growth tweet, then bail out.
       if (parentId && isGrowthTweet !== true) {
+
+        /**
+         * Bail early if the parent tweet has been processed or is 
+         * processing.
+         */
+        if(REPLY_HASH[parentId] || PROCESSING[parentId]) {
+          reject({
+            name: screenName,
+            id: id,
+            parentId: parentId,
+            message: 'already processed parentId'
+          });
+          return;
+        }
+
+        
         T.get('statuses/show/:id', { id: parentId, include_ext_alt_text: true })
           .catch((err) => {
             console.log('parentId request fail: ', err);
             reject({
               name: screenName,
-              id: id
+              id: id,
+              parentId: parentId,
+              message: 'parentId request fail'
             });
           })
           .then(({data}) => {
@@ -348,6 +367,7 @@ function processTweet(tweet, isGrowthTweet) {
         id: obj.id
       });*/
     } else {
+      logger.error(Date.now(),'unable to tweet reply failure: ', obj);
       console.log('unable to tweet reply failure: ', obj);
     }
   });
@@ -385,7 +405,6 @@ function getCompliment(isGrowthTweet) {
 
 /**
  * Tweet reply with score/error if it hasn't been recently replied to
- * TODO: store data?
  * @param {Object[]} content
  * @param {string} content[].status - tweet text
  * @param {string} content[].id - reply id
@@ -534,6 +553,25 @@ function calculateScoreFromWordleMatrix(wordle) {
   return {finalScore: score + solvedRowBonus };
 }
 
+
+// GET Individual tweet response
+
+// T.get('statuses/show/:id', {id: '1533961937352105984', include_ext_alt_text: true}).then(({data}) => {
+//   //console.log(data)
+//   var parentAltText = data?.extended_entities?.media?.[0]?.ext_alt_text || '';
+//             var parentWordleResult = getWordleMatrixFromText(data.text);
+
+//             parentWordleResult = parentWordleResult.length > 0 ? 
+//               parentWordleResult : getWordleMatrixFromImageAltText(parentAltText);
+
+//   console.log(parentWordleResult);
+// //   const wordleResult = getWordleMatrixFromText(data.text);
+// //   const score = calculateScoreFromWordleMatrix(wordleResult).finalScore;
+// //   const solvedRow = getSolvedRow(wordleResult);
+// //   console.log(`The wordle scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${getCompliment()}`)
+// });
+
+// GET a11y text for testing
 /** 
 T.get('statuses/show/:id', {id: '1488143147368521735', include_ext_alt_text: true}).then(({data}) => {
   var text = data?.extended_entities?.media?.[0]?.ext_alt_text || '';

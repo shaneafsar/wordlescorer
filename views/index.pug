@@ -2,15 +2,26 @@ extends layout
 
 block content
   h1= title
-  table
+  table(class='stats')
     tr
-      td Total Tweets Scored
-      td Total User Count
-      td Last Updated
+      th Total Wordles Scored
+      th Total User Count
+      th Last Updated
     tr
       td(class='value') #{scoredCount}
       td(class='value') #{userCount}
       td(class='value') #{lastUpdated}
-  ul
-  each val in datalist
-    li #{val.name} scored #{val.score} on #{val.datestring} - #[a(href="https://www.twitter.com/"+val.name+"/status/"+val.id) tweet]
+
+  table(class='scores')
+    tr
+      th Screename
+      th Score
+      th Date
+      th Link
+    each val in datalist
+      if val.score
+        tr
+          td #[a(href="https://www.twitter.com/"+val.name) #{val.name}]
+          td #{val.score} 
+          td #{val.datestring} 
+          td #[a(href="https://www.twitter.com/"+val.name+"/status/"+val.id) tweet]

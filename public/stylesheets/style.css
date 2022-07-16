@@ -7,16 +7,22 @@ a {
   color: #00B7FF;
 }
 
-table {
-  border-bottom: 1px solid #7A7A7A;
-  width: 90%;
+.stats {
+ border-bottom: 1px solid #7A7A7A;
+ width: 90%; 
 }
 
-td {
+td, th {
   padding-left: 4px;
   vertical-align: top;
+  text-align: left;
 }
 
 td.value {
   font-size: 24px;
+}
+
+.scores {
+  width: 90%;
+  margin-top: 12px;
 }
