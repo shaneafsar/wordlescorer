@@ -1,10 +1,17 @@
 import Twit from 'twit';
 import dotenv  from 'dotenv';
 import WordleData from './WordleData.js';
+import getMultiplier from './utils/get-multiplier.js';
+import checkIsSameDay from './utils/is-same-day.js';
+import { SCORE, CODEPOINT_SCORE } from './const/SCORE-CONST.js';
+import COMPLIMENTS from './const/COMPLIMENTS.js';
+import { WORDLE_BOT_ID, WORDLE_BOT_HANDLE } from './const/WORDLE-BOT.js';
 import logger from './logger.js';
 import app from "./app.js";
 import * as debug$0 from "debug";
 import http from "http";
+
+const RUN_GROWTH = false;
 
 /**
  * Load env variables from filesystem when developing
@@ -21,33 +28,12 @@ const TWIT_CONFIG = {
   access_token_secret: process.env.access_token_secret,
 };
 
-const WORDLE_BOT_HANDLE = '@ScoreMyWordle';
-const WORDLE_BOT_ID = '1422211304996155393';
-
 const AnalyzedTweetsDB = new WordleData('analyzed');
 const LastMentionDB = new WordleData('last-mention');
 const UserGrowthDB = new WordleData('user-growth');
 
 const PROCESSING = {};
 
-const COMPLIMENTS = [
-  'Nice work!',
-  'Stupendous!',
-  'You rock!',
-  'Keep it up!',
-  'Never give up!',
-  '👍👍👍',
-  '⭐⭐⭐',
-  'Congrats, Wordler!',
-  'You are a star!'
-];
-
-// const blocks = {'⬛': 0,'⬜': 0,'🟨': 1,'🟦':1,'🟧':2,'🟩': 2};
-const SCORE = {
-  CORRECT: 2,
-  PARTIAL: 1,
-  WRONG: 0
-}
 
 var T = new Twit(TWIT_CONFIG);
 
@@ -62,25 +48,25 @@ stream.on('tweet', processTweet);
 
 
 // Let the world know we exist!
-
-// var growthStream = T.stream('statuses/filter', { track: 'Wordle' });
-
-// var rateLimit = 0;
-// growthStream.on('tweet', function(tweet) {
-//   rateLimit++;
-//   if(rateLimit >= 5) { return; }
-//   const userId = tweet.user.id_str;
-//   const screenName = '@' + tweet.user.screen_name;
-//   console.log(screenName);
-//   UserGrowthDB.write(userId, { lastCheckTime: Date.now()});
-//   // Exit if already scored, we don't want to bother them!
-//   if (USER_GROWTH_HASH[userId] || USER_GROWTH_HASH[screenName]) {
-//     return;
-//   }
-//   USER_GROWTH_HASH[userId] = true;
-//   processTweet(tweet, true);
-// });
-
+if(RUN_GROWTH) {
+  var growthStream = T.stream('statuses/filter', { track: 'Wordle' });
+  
+  var rateLimit = 0;
+  growthStream.on('tweet', function(tweet) {
+    rateLimit++;
+    if(rateLimit >= 5) { return; }
+    const userId = tweet.user.id_str;
+    const screenName = '@' + tweet.user.screen_name;
+    console.log(screenName);
+    UserGrowthDB.write(userId, { lastCheckTime: Date.now()});
+    // Exit if already scored, we don't want to bother them!
+    if (USER_GROWTH_HASH[userId] || USER_GROWTH_HASH[screenName]) {
+      return;
+    }
+    USER_GROWTH_HASH[userId] = true;
+    processTweet(tweet, true);
+  });
+}
 
 /**
  * Reading mentions since communities is not availble via API yet
@@ -178,19 +164,10 @@ function setDailyTopScoreTimeout() {
   const finalTime = new Date().setUTCHours(24,0,0,0);
   const currentDate = new Date();
   const currentTime = currentDate.getTime();
-  console.log(`final score tweet happening in about ${(finalTime - currentTime)/1000/60/60} hours`);
+  console.log(`\n *** \n final score tweet happening in about ${((finalTime - currentTime)/1000/60/60).toFixed(2)} hours \n *** \n`);
   return setTimeout(() => {
     tweetDailyTopScore(currentDate);
   }, finalTime - currentTime);
-}
-
-function _isSameDay(d1, d2) {
-  if(!d2){
-    d2 = new Date();
-  }
-  return d1.getUTCDate() === d2.getUTCDate() && 
-    d1.getUTCMonth() === d2.getUTCMonth() &&
-    d1.getUTCFullYear() === d2.getUTCFullYear();
 }
 
 function processTweet(tweet, isGrowthTweet) {
@@ -200,7 +177,7 @@ function processTweet(tweet, isGrowthTweet) {
   const userId = tweet.user.id_str;
   const createdAt = new Date(tweet.created_at);
   const createdAtMs = createdAt.getTime();
-  const isSameDay = _isSameDay(createdAt);
+  const isSameDay = checkIsSameDay(createdAt);
   
   UserGrowthDB.write(userId, { lastCheckTime: Date.now()});
   /**
@@ -367,7 +344,7 @@ function processTweet(tweet, isGrowthTweet) {
         id: obj.id
       });*/
     } else {
-      logger.error(Date.now(),'unable to tweet reply failure: ', obj);
+      logger.error((new Date()).toUTCString(),'unable to tweet reply failure: ', obj);
       console.log('unable to tweet reply failure: ', obj);
     }
   });
@@ -433,11 +410,11 @@ function tweetIfNotRepliedTo({status, id, name, score, solvedRow}) {
             }, (err, data) => {
               if(err) {
                 console.log('failed to quote tweet ', err);
-                logger.error(Date.now(),' | failed to quote tweet ', err);
+                logger.error((new Date()).toUTCString(),' | failed to quote tweet ', err);
               }
             });
         }
-        logger.error(Date.now(),' | reply error: ', id, name, score, solvedRow, err);
+        logger.error((new Date()).toUTCString(),' | reply error: ', id, name, score, solvedRow, err);
       } else {
         console.log(`Tweeted: ${reply.text} to ${reply.in_reply_to_status_id_str}`);
       }
@@ -480,27 +457,6 @@ function getSentenceSuffix(solvedRowNum) {
 }
 
 /**
- * Provides a multiplier for a block based on which row it appeared in.
- * @param {Number} currentIndex 
- * @returns {Number}
- */
-function getMultiplier(currentIndex) {
-	var multiplier = 1;
-  if(currentIndex <= 4) {
-    multiplier = 6;
-  } else if(currentIndex <= 9) {
-    multiplier = 5;
-  } else if(currentIndex <= 14) {
-    multiplier = 4;
-  } else if(currentIndex <= 19) {
-    multiplier = 3;
-  } else if(currentIndex <= 24) {
-    multiplier = 2;
-  }
-  return multiplier;
-}
-
-/**
  * Provides a bonus per square based on where the wordle was solved.
  * @param {Number} solvedRow - row number where a solve occured (must be between 1-6)
  * @returns {Number} integer bonus amount
@@ -523,16 +479,13 @@ function getPointBonus(solvedRow) {
  */
 function getWordleMatrixFromText(text = '') {
   var wordle = [];
-  var codePoint;
+  var codePoint, codePointScore;
   var i = 0;
   for(; i < text.length; i++) {
   	codePoint = text.codePointAt(i);
-  	if(codePoint === 129000 || codePoint === 128998){
-    	wordle.push(SCORE.PARTIAL);
-    } else if(codePoint === 129001 || codePoint === 128999){
-    	wordle.push(SCORE.CORRECT);
-    } else if(codePoint === 11035 || codePoint === 11036){
-    	wordle.push(SCORE.WRONG);
+    codePointScore = CODEPOINT_SCORE.get(codepoint);
+    if(typeof codePointScore === 'number') {
+      wordle.push(codePointScore);
     }
   }
   return wordle;
@@ -553,32 +506,6 @@ function calculateScoreFromWordleMatrix(wordle) {
   return {finalScore: score + solvedRowBonus };
 }
 
-
-// GET Individual tweet response
-
-// T.get('statuses/show/:id', {id: '1533961937352105984', include_ext_alt_text: true}).then(({data}) => {
-//   //console.log(data)
-//   var parentAltText = data?.extended_entities?.media?.[0]?.ext_alt_text || '';
-//             var parentWordleResult = getWordleMatrixFromText(data.text);
-
-//             parentWordleResult = parentWordleResult.length > 0 ? 
-//               parentWordleResult : getWordleMatrixFromImageAltText(parentAltText);
-
-//   console.log(parentWordleResult);
-// //   const wordleResult = getWordleMatrixFromText(data.text);
-// //   const score = calculateScoreFromWordleMatrix(wordleResult).finalScore;
-// //   const solvedRow = getSolvedRow(wordleResult);
-// //   console.log(`The wordle scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${getCompliment()}`)
-// });
-
-// GET a11y text for testing
-/** 
-T.get('statuses/show/:id', {id: '1488143147368521735', include_ext_alt_text: true}).then(({data}) => {
-  var text = data?.extended_entities?.media?.[0]?.ext_alt_text || '';
-  console.log(text);
-  console.log(getWordleMatrixFromImageAltText(text));
-});
-*/
 
 /**
  * Converts wa11y.co alt text to a wordle score matrix
