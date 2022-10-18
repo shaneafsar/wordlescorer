@@ -2,10 +2,34 @@ extends layout
 
 block content
   h1= title
+
   table(class='stats')
     tr
-      th Total Wordles Scored
-      th Total User Count
+      th Wordle Number
+      th Unique users
+      th Row 1
+      th Row 2
+      th Row 3
+      th Row 4
+      th Row 5
+      th Row 6
+      th No solve
+    each val in globalStats 
+      tr
+        td(class='value') #{val.key}
+        td(class='value-sm') #{val.total}
+        td(class='value-sm') #{val.solvedRowCounts[1]} (#{val.solvedRowPercents[1]})
+        td(class='value-sm') #{val.solvedRowCounts[2]} (#{val.solvedRowPercents[2]})
+        td(class='value-sm') #{val.solvedRowCounts[3]} (#{val.solvedRowPercents[3]})
+        td(class='value-sm') #{val.solvedRowCounts[4]} (#{val.solvedRowPercents[4]})
+        td(class='value-sm') #{val.solvedRowCounts[5]} (#{val.solvedRowPercents[5]})
+        td(class='value-sm') #{val.solvedRowCounts[6]} (#{val.solvedRowPercents[6]})
+        td(class='value-sm') #{val.solvedRowCounts[0]} (#{val.solvedRowPercents[0]})
+
+  table(class='stats')
+    tr
+      th Total @mentions Scored
+      th Total @mentions User Count
       th Last Updated
     tr
       td(class='value') #{scoredCount}

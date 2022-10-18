@@ -4,7 +4,9 @@ import WordleData from './WordleData.js';
 import getMultiplier from './utils/get-multiplier.js';
 import checkIsSameDay from './utils/is-same-day.js';
 import getWordleNumberFromText from './utils/get-wordle-number-from-text.js';
+import getGlobalStats from './utils/get-global-stats.js';
 import getFormattedGlobalStats from './utils/get-formatted-global-stats.js';
+import getGlobalScoreDB from './utils/get-global-score-DB.js';
 import { SCORE, CODEPOINT_SCORE } from './const/SCORE-CONST.js';
 import COMPLIMENTS from './const/COMPLIMENTS.js';
 import { WORDLE_BOT_ID, WORDLE_BOT_HANDLE } from './const/WORDLE-BOT.js';
@@ -49,7 +51,7 @@ var FINAL_GLOBAL_STATS_TIMEOUT = setDailyTopScoreTimeout(tweetGlobalStats);
 var stream = T.stream('statuses/filter', { track: WORDLE_BOT_HANDLE });
 stream.on('tweet', processTweet);
 
-console.log(await getGlobalStats(new Date()));
+console.log(getFormattedGlobalStats(await getGlobalStats(new Date())));
 
 // Let the world know we exist!
 if(RUN_GROWTH) {
@@ -143,44 +145,6 @@ function getFormattedDate(date) {
   return date.toLocaleString('en-US', options);
 }
 
-async function getGlobalStats(date) {
-  const GlobalScoreStatsDB = getGlobalScoreDB(date);
-// userId: {
-//     "wordleNumber": 486,
-//     "wordleScore": 138,
-//     "solvedRow": 4,
-//     "tweetId": "1582402486090215425",
-//     "userId": "15167084",
-//     "screenName": "@TEST",
-//     "datetime": 1666109132149
-//   },
-  let data = await GlobalScoreStatsDB.read();
-  const scorerList = Object.values(data);
-  const wordleScores = {};
-  
-  scorerList.forEach(item => {
-    var key = item.wordleNumber+'';
-    var solvedRow = item.solvedRow;
-    
-    //Only allow valid wordles through
-    if(solvedRow < 7) {
-      if (wordleScores[key]) {
-        wordleScores[key].total++;
-      } else {
-        wordleScores[key] = { 
-          total: 1,
-          key: key,
-          solvedRowCounts: [0, 0, 0, 0, 0, 0, 0]
-        };
-      }
-      wordleScores[key].solvedRowCounts[solvedRow]++;
-    }
-  });
-  const sortedWordleStats = Object.values(wordleScores).sort((a, b) => b.total-a.total);
-  
-  return sortedWordleStats.slice(0, 2);
-}
-
 async function getTopScorerInfo(date) {
   const TopScoreDB = getTopScoreDB(date);
   /**
@@ -220,7 +184,7 @@ async function getTopScorerInfo(date) {
 async function tweetGlobalStats(date) {
   var stats = await getGlobalStats(date);
   var formattedStats = getFormattedGlobalStats(stats);
-  formattedStats.forEach(item => {
+  formattedStats.forEach((item, index) => {
     setTimeout(() => {
       T.post('statuses/update', { 
         status: item
@@ -229,7 +193,7 @@ async function tweetGlobalStats(date) {
           console.log('error tweeting gloabl stats: ', err);
         }
       });
-    }, 60000);
+    }, (60000*[index+1]));
   });
 
   // Run again for tomorrow!
@@ -470,13 +434,6 @@ function getTopScoreDB(date) {
     date = new Date();
   }
   return new WordleData(`top-scores-${date.getUTCMonth()}-${date.getUTCDate()}-${date.getUTCFullYear()}`, 'top-scores');
-}
-
-function getGlobalScoreDB(date) {
-  if(!date) {
-    date = new Date();
-  }
-  return new WordleData(`global-scores-${date.getUTCMonth()}-${date.getUTCDate()}-${date.getUTCFullYear()}`, 'global-scores');
 }
 
 function updateGlobalScores({

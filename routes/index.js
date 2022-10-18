@@ -1,5 +1,7 @@
 import * as express from "express";
 import WordleData from '../WordleData.js';
+import getGlobalStats from '../utils/get-global-stats.js';
+import getPercent from '../utils/get-percent.js';
 var router = express.Router();
 /* GET home page. */
 router.get('/', function(req, res, next) {
@@ -23,14 +25,26 @@ router.get('/', function(req, res, next) {
         dateStyle: 'short', 
         timeStyle: 'long'
     }).format(new Date());
-    
-    //Render page
-    res.render('index', { 
-      title: 'Score My Wordle Info',
-      datalist: renderData,
-      scoredCount: renderData.filter(item => item.score).length,
-      userCount: Object.keys(screenNameHash).length,
-      lastUpdated: renderDate
+
+    getGlobalStats(new Date()).then((stats) => {
+      
+      // Add percents to each stat
+      stats.forEach(item => {
+        item.solvedRowPercents = item.solvedRowCounts.map(row => { 
+          return getPercent(row, item.total);
+        });
+      });
+
+      
+      //Render page
+      res.render('index', { 
+        title: 'Score My Wordle Bot Info',
+        globalStats: stats,
+        datalist: renderData,
+        scoredCount: renderData.filter(item => item.score).length,
+        userCount: Object.keys(screenNameHash).length,
+        lastUpdated: renderDate
+      });
     });
   });
 

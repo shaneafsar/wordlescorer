@@ -10,16 +10,22 @@ a {
 .stats {
  border-bottom: 1px solid #7A7A7A;
  width: 90%; 
+ margin-bottom: 12px;
 }
 
 td, th {
   padding-left: 4px;
+  padding-bottom: 4px;
   vertical-align: top;
   text-align: left;
 }
 
 td.value {
   font-size: 24px;
+}
+
+td.value-sm {
+  font-size: 16px;
 }
 
 .scores {
