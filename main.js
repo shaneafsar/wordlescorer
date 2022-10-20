@@ -35,6 +35,8 @@ const TWIT_CONFIG = {
 const AnalyzedTweetsDB = new WordleData('analyzed');
 const LastMentionDB = new WordleData('last-mention');
 const UserGrowthDB = new WordleData('user-growth');
+const TopScoresDB = getTopScoreDB();
+const GlobalScoresDB = getGlobalScoreDB();
 
 const PROCESSING = {};
 
@@ -44,6 +46,7 @@ var T = new Twit(TWIT_CONFIG);
 const REPLY_HASH = await AnalyzedTweetsDB.read();
 const LAST_MENTION = await LastMentionDB.read();
 const USER_GROWTH_HASH = await UserGrowthDB.read();
+const GLOBAL_SCORE_HASH = await GlobalScoresDB.read();
 var FINAL_SCORE_TIMEOUT = setDailyTopScoreTimeout(tweetDailyTopScore);
 var FINAL_GLOBAL_STATS_TIMEOUT = setDailyTopScoreTimeout(tweetGlobalStats);
 
@@ -51,7 +54,6 @@ var FINAL_GLOBAL_STATS_TIMEOUT = setDailyTopScoreTimeout(tweetGlobalStats);
 var stream = T.stream('statuses/filter', { track: WORDLE_BOT_HANDLE });
 stream.on('tweet', processTweet);
 
-console.log(getFormattedGlobalStats(await getGlobalStats(new Date())));
 
 // Let the world know we exist!
 if(RUN_GROWTH) {
@@ -84,26 +86,28 @@ if(RUN_GROWTH) {
           screenName
         };
 
+  
         updateGlobalScores(scoreObj);
-      }
-
-      const timeAgo = new Date(new Date().getTime() + -30*60000);
-      const randomNum = Math.floor(Math.random() * 5);
       
-      // if there are no analyzed tweets in the last 30min, then
-      // randomly decide to tweet reply
 
-      if (randomNum === 0 && USER_GROWTH_HASH['lastCheckTime']?.lastCheckTime <= timeAgo) {
-        var lastCheckTime = { lastCheckTime: Date.now()};
-        UserGrowthDB.write('lastCheckTime', lastCheckTime);
-        UserGrowthDB.write(userId, lastCheckTime);
-        // Exit if already scored, we don't want to bother them!
-        if (USER_GROWTH_HASH[userId] || USER_GROWTH_HASH[screenName]) {
-          return;
+        const timeAgo = new Date(new Date().getTime() + -30*60000);
+        const randomNum = Math.floor(Math.random() * 5);
+      
+        // if there are no analyzed tweets in the last 30min, then
+        // randomly decide to tweet reply
+  
+        if (randomNum === 0 && USER_GROWTH_HASH['lastCheckTime']?.lastCheckTime <= timeAgo) {
+          var lastCheckTime = { lastCheckTime: Date.now()};
+          UserGrowthDB.write('lastCheckTime', lastCheckTime);
+          UserGrowthDB.write(userId, lastCheckTime);
+          // Exit if already scored, we don't want to bother them!
+          if (USER_GROWTH_HASH[userId] || USER_GROWTH_HASH[screenName]) {
+            return;
+          }
+          USER_GROWTH_HASH[userId] = lastCheckTime;
+          USER_GROWTH_HASH['lastCheckTime'] = lastCheckTime;
+          processTweet(tweet, true);
         }
-        USER_GROWTH_HASH[userId] = lastCheckTime;
-        USER_GROWTH_HASH['lastCheckTime'] = lastCheckTime;
-        processTweet(tweet, true);
       }
     }
   });
@@ -252,7 +256,7 @@ function processTweet(tweet, isGrowthTweet) {
   /**
    * Bail early if this tweet has been processed or is 
    * processing.
-   */
+   */  
   if(REPLY_HASH[id] || PROCESSING[id]) {
     return;
   }
@@ -436,7 +440,9 @@ function getTopScoreDB(date) {
   return new WordleData(`top-scores-${date.getUTCMonth()}-${date.getUTCDate()}-${date.getUTCFullYear()}`, 'top-scores');
 }
 
-function updateGlobalScores({
+var UPDATE_TIMEOUT_GLOBAL = 1000;
+var GLOBAL_STAT_CALL_TIME = new Date();
+async function updateGlobalScores({
     wordleNumber,
     wordleScore,
     solvedRow,
@@ -444,29 +450,39 @@ function updateGlobalScores({
     userId,
     screenName,
   }) {
-  const GlobalScoresDB = getGlobalScoreDB();
-  GlobalScoresDB.write(userId, {
-    wordleNumber,
-    wordleScore,
-    solvedRow,
-    tweetId,
-    userId,
-    screenName,
-  });
+  if (new Date() - GLOBAL_STAT_CALL_TIME >= 5000) {
+    GLOBAL_STAT_CALL_TIME = new Date();
+    UPDATE_TIMEOUT_GLOBAL = 1000;
+  }
+  //setTimeout(() => {
+  return await GlobalScoresDB.write(userId, {
+      wordleNumber,
+      wordleScore,
+      solvedRow,
+      tweetId,
+      userId,
+      screenName,
+    });
+  //}, UPDATE_TIMEOUT_GLOBAL);
+  //UPDATE_TIMEOUT_GLOBAL += 1500;
 }
 
-function updateTopScores({name, score, solvedRow, userId, datetime}) {
-  const TopScoresDB = getTopScoreDB();
+//var UPDATE_TIMEOUT = 2000;
+async function updateTopScores({name, score, solvedRow, userId, datetime}) {
   /**
    * Only allow one score per user
    */
-  TopScoresDB.write(userId, {
-    name,
-    score,
-    solvedRow,
-    datetime
-  });
+ // setTimeout(() => {
+  return await TopScoresDB.write(userId, {
+      name,
+      score,
+      solvedRow,
+      datetime
+    });
+ // }, UPDATE_TIMEOUT);
+  //UPDATE_TIMEOUT += 2000;
 }
+
 
 /**
  * Returns a compliment.

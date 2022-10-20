@@ -24,7 +24,7 @@ function getFormattedGlobalStats(stats) {
  for (var i = 0; i < stats.length; i++) {
   var statsRow = stats[i];
   var total = statsRow.total;
-  var statement = `For Wordle ${statsRow.key} -- So far, I found ${total} unique users with the following solution distribution:
+  var statement = `In the last 24 hours for Wordle ${statsRow.key}, I found ${total} unique users with the following solution distribution:
   Row 1: ${statsRow.solvedRowCounts[1]} (${getPercent(statsRow.solvedRowCounts[1], total)})
   Row 2: ${statsRow.solvedRowCounts[2]} (${getPercent(statsRow.solvedRowCounts[2], total)})
   Row 3: ${statsRow.solvedRowCounts[3]} (${getPercent(statsRow.solvedRowCounts[3], total)})
