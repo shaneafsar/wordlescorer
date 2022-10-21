@@ -34,6 +34,9 @@ function getFormattedGlobalStats(stats) {
   Not solved: ${statsRow.solvedRowCounts[0]} (${getPercent(statsRow.solvedRowCounts[0], total)})`;
   tweets.push(statement);
  }
+  if(tweets.length > 0) {
+    return [tweets[0]];
+  }
   return tweets;
 };
 

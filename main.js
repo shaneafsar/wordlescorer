@@ -356,7 +356,8 @@ function processTweet(tweet, isGrowthTweet) {
                 scorerUserId: parentUserId,
                 scorerName: parentName,
                 scorerTweetId: parentTweetId,
-                datetime: createdAtMs
+                datetime: createdAtMs,
+                isGrowthTweet
               });
             }
           });
@@ -377,7 +378,8 @@ function processTweet(tweet, isGrowthTweet) {
         scorerUserId: userId,
         scorerName: screenName,
         scorerTweetId: id,
-        datetime: createdAtMs
+        datetime: createdAtMs,
+        isGrowthTweet
       });
     }
   });
@@ -391,7 +393,8 @@ function processTweet(tweet, isGrowthTweet) {
     scorerUserId,
     scorerName,
     scorerTweetId, 
-    datetime}) => {
+    datetime,
+    isGrowthTweet}) => {
     const score = calculateScoreFromWordleMatrix(wordle).finalScore;
     const solvedRow = getSolvedRow(wordle);
 
@@ -405,7 +408,8 @@ function processTweet(tweet, isGrowthTweet) {
         wordleNum: wordleNumStr,
         score, 
         solvedRow, 
-        datetime
+        datetime,
+        isGrowthTweet
       });
     }
 
@@ -414,7 +418,8 @@ function processTweet(tweet, isGrowthTweet) {
       score: score,
       solvedRow: solvedRow, 
       status: `${name} The wordle scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${getCompliment(isGrowthTweet)}`,
-      id: id
+      id: id,
+      isGrowthTweet
     });  
   }).catch(function(obj) {
     if (obj.name && obj.id) {
@@ -468,7 +473,7 @@ async function updateGlobalScores({
 }
 
 //var UPDATE_TIMEOUT = 2000;
-async function updateTopScores({name, score, solvedRow, userId, datetime}) {
+async function updateTopScores({name, score, solvedRow, userId, datetime, isGrowthTweet}) {
   /**
    * Only allow one score per user
    */
@@ -477,7 +482,8 @@ async function updateTopScores({name, score, solvedRow, userId, datetime}) {
       name,
       score,
       solvedRow,
-      datetime
+      datetime,
+      autoScore: isGrowthTweet
     });
  // }, UPDATE_TIMEOUT);
   //UPDATE_TIMEOUT += 2000;
@@ -502,8 +508,9 @@ function getCompliment(isGrowthTweet) {
  * @param {string} content[].name - account name
  * @param {number} content[].score - calculated score
  * @param {number} content[].solvedRow
+ * @param {boolean} content[].isGrowthTweet
  */
-function tweetIfNotRepliedTo({status, id, name, score, solvedRow}) {
+function tweetIfNotRepliedTo({status, id, name, score, solvedRow, isGrowthTweet}) {
   if(!REPLY_HASH[id]) {
     T.post('statuses/update', { 
       status: status, 
@@ -536,6 +543,7 @@ function tweetIfNotRepliedTo({status, id, name, score, solvedRow}) {
         name: name,
         score: score,
         solvedRow: solvedRow,
+        autoScore: isGrowthTweet
       });
     });
   }

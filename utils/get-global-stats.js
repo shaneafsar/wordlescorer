@@ -35,7 +35,7 @@ async function getGlobalStats(date) {
   });
   const sortedWordleStats = Object.values(wordleScores).sort((a, b) => b.total-a.total);
   
-  return sortedWordleStats.slice(0, 2);
+  return sortedWordleStats.slice(0, 2).sort((a, b) => b.key-a.key);
 }
 
 export default getGlobalStats;

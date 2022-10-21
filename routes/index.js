@@ -18,6 +18,10 @@ router.get('/', function(req, res, next) {
       if(item.score) {
         screenNameHash[item.name] = { lastCheckTime: Date.now() };
       }
+      // Only include highlights for dates after this time.
+      if(item.datetime > 1666286675411) {
+        item.isManual = !item.autoScore;
+      }
       return item;
     }).sort((a,b) => b.datetime - a.datetime);
 
@@ -34,8 +38,7 @@ router.get('/', function(req, res, next) {
           return getPercent(row, item.total);
         });
       });
-
-      
+     
       //Render page
       res.render('index', { 
         title: 'Score My Wordle Bot Info',
