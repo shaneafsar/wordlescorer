@@ -2,6 +2,9 @@ import * as express from "express";
 import WordleData from '../WordleData.js';
 import getGlobalStats from '../utils/get-global-stats.js';
 import getPercent from '../utils/get-percent.js';
+
+var formatter = new Intl.NumberFormat().format;
+
 var router = express.Router();
 /* GET home page. */
 router.get('/', function(req, res, next) {
@@ -27,16 +30,21 @@ router.get('/', function(req, res, next) {
 
     const renderDate = new Intl.DateTimeFormat("en-US", { 
         dateStyle: 'short', 
-        timeStyle: 'long'
+        timeStyle: 'long',
+        timeZone: 'America/New_York'
     }).format(new Date());
 
     getGlobalStats(new Date()).then((stats) => {
-      
+
       // Add percents to each stat
       stats.forEach(item => {
-        item.solvedRowPercents = item.solvedRowCounts.map(row => { 
+        item.solvedRowPercents = item.solvedRowCounts.map(row => {
           return getPercent(row, item.total);
         });
+        item.solvedRowCounts = item.solvedRowCounts.map(row => {
+          return formatter(row);
+        });
+        item.total = formatter(item.total);
       });
      
       //Render page

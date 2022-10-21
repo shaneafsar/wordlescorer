@@ -28,6 +28,10 @@ td.value-sm {
   font-size: 16px;
 }
 
+td:not(:last-child) {
+  border-right: 1px solid #cccccc;
+}
+
 .highlight {
   background-color: #aad0da;
 }

@@ -33,8 +33,11 @@ async function getGlobalStats(date) {
       wordleScores[key].solvedRowCounts[solvedRow]++;
     }
   });
+
+  // Sort by most popular
   const sortedWordleStats = Object.values(wordleScores).sort((a, b) => b.total-a.total);
-  
+
+  // Sort by wordle key/number
   return sortedWordleStats.slice(0, 2).sort((a, b) => b.key-a.key);
 }
 

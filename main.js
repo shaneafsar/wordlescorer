@@ -7,6 +7,7 @@ import getWordleNumberFromText from './utils/get-wordle-number-from-text.js';
 import getGlobalStats from './utils/get-global-stats.js';
 import getFormattedGlobalStats from './utils/get-formatted-global-stats.js';
 import getGlobalScoreDB from './utils/get-global-score-DB.js';
+import isValidWordle from './utils/is-valid-wordle.js';
 import { SCORE, CODEPOINT_SCORE } from './const/SCORE-CONST.js';
 import COMPLIMENTS from './const/COMPLIMENTS.js';
 import { WORDLE_BOT_ID, WORDLE_BOT_HANDLE } from './const/WORDLE-BOT.js';
@@ -547,14 +548,6 @@ function tweetIfNotRepliedTo({status, id, name, score, solvedRow, isGrowthTweet}
       });
     });
   }
-}
-
-function isValidWordle(wordle) {
-  if (wordle.length === 0 || wordle.length % 5 !== 0) {
-    console.log('Invalid wordle!!', wordle);
-    return false;
-  }
-  return true;
 }
 
 /**
