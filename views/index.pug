@@ -27,6 +27,7 @@ block content
         td(class='value-sm') #{val.solvedRowCounts[0]} (#{val.solvedRowPercents[0]})
 
   table(class='stats')
+    <caption>#{scoreMessage}</caption>
     tr
       th Total Manually Scored
       th Total User Count
@@ -48,5 +49,13 @@ block content
         tr(class=val.isManual && 'highlight')
           td #[a(href="https://www.twitter.com/"+val.name) #{val.name}]
           td #{val.score} 
+            if val.solvedRow
+              ='(Solved on ' + val.solvedRow
+            else
+              ='(Not solved'
+            if val.wordleNumber 
+              =' | Wordle ' + val.wordleNumber +')'
+            else
+              =')'
           td #{val.datestring}
           td #[a(href="https://www.twitter.com/"+val.name+"/status/"+val.id) tweet]

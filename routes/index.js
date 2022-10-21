@@ -46,11 +46,18 @@ router.get('/', function(req, res, next) {
         });
         item.total = formatter(item.total);
       });
-     
+
+      const finalTime = new Date().setUTCHours(24,0,0,0);
+      const currentDate = new Date();
+      const currentTime = currentDate.getTime();
+      const timeTillDailyTopScore = `\n *** \n Daily Top Score tweet happening in about ${((finalTime - currentTime)/1000/60/60).toFixed(2)} hours! \n *** \n`;
+
+      
       //Render page
       res.render('index', { 
         title: 'Score My Wordle Bot Info',
         globalStats: stats,
+        scoreMessage: timeTillDailyTopScore,
         datalist: renderData,
         scoredCount: renderData.filter(item => item.score).length,
         userCount: Object.keys(screenNameHash).length,
@@ -58,6 +65,5 @@ router.get('/', function(req, res, next) {
       });
     });
   });
-
 });
 export default router;

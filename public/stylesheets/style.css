@@ -1,6 +1,8 @@
 body {
   padding: 50px;
   font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
+  background: #0e0b16;
+  color: #F0F0F0;
 }
 
 a {
@@ -33,7 +35,7 @@ td:not(:last-child) {
 }
 
 .highlight {
-  background-color: #aad0da;
+  background-color: #a239ca;
 }
 
 caption {

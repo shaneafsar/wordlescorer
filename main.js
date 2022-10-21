@@ -131,7 +131,7 @@ setInterval(() => {
         processTweet(tweet);
       });
     } else {
-      console.log(`no more mentions as of ${new Date().toUTCString()}`);
+      // console.log(`no more mentions as of ${new Date().toUTCString()}`);
     }
   });
 }, 60000);
@@ -406,7 +406,7 @@ function processTweet(tweet, isGrowthTweet) {
       updateTopScores({ 
         name: scorerName, 
         userId: scorerUserId,
-        wordleNum: wordleNumStr,
+        wordleNumber: wordleNumStr,
         score, 
         solvedRow, 
         datetime,
@@ -417,7 +417,8 @@ function processTweet(tweet, isGrowthTweet) {
     tweetIfNotRepliedTo({
       name: name,
       score: score,
-      solvedRow: solvedRow, 
+      solvedRow: solvedRow,
+      wordleNumber: wordleNumStr,
       status: `${name} The wordle scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${getCompliment(isGrowthTweet)}`,
       id: id,
       isGrowthTweet
@@ -446,8 +447,6 @@ function getTopScoreDB(date) {
   return new WordleData(`top-scores-${date.getUTCMonth()}-${date.getUTCDate()}-${date.getUTCFullYear()}`, 'top-scores');
 }
 
-var UPDATE_TIMEOUT_GLOBAL = 1000;
-var GLOBAL_STAT_CALL_TIME = new Date();
 async function updateGlobalScores({
     wordleNumber,
     wordleScore,
@@ -456,38 +455,30 @@ async function updateGlobalScores({
     userId,
     screenName,
   }) {
-  if (new Date() - GLOBAL_STAT_CALL_TIME >= 5000) {
-    GLOBAL_STAT_CALL_TIME = new Date();
-    UPDATE_TIMEOUT_GLOBAL = 1000;
-  }
-  //setTimeout(() => {
-  return await GlobalScoresDB.write(userId, {
-      wordleNumber,
-      wordleScore,
-      solvedRow,
-      tweetId,
-      userId,
-      screenName,
-    });
-  //}, UPDATE_TIMEOUT_GLOBAL);
-  //UPDATE_TIMEOUT_GLOBAL += 1500;
+  const scoreObj = {
+    wordleNumber,
+    wordleScore,
+    solvedRow,
+    tweetId,
+    userId,
+    screenName,
+  };
+  GLOBAL_SCORE_HASH[userId] = scoreObj;
+  return await GlobalScoresDB.write(userId, scoreObj);
 }
 
-//var UPDATE_TIMEOUT = 2000;
-async function updateTopScores({name, score, solvedRow, userId, datetime, isGrowthTweet}) {
+async function updateTopScores({name, score, solvedRow, userId, datetime, isGrowthTweet, wordleNumber}) {
   /**
    * Only allow one score per user
    */
- // setTimeout(() => {
   return await TopScoresDB.write(userId, {
       name,
       score,
       solvedRow,
       datetime,
-      autoScore: isGrowthTweet
+      autoScore: isGrowthTweet,
+      wordleNumber
     });
- // }, UPDATE_TIMEOUT);
-  //UPDATE_TIMEOUT += 2000;
 }
 
 
@@ -510,8 +501,9 @@ function getCompliment(isGrowthTweet) {
  * @param {number} content[].score - calculated score
  * @param {number} content[].solvedRow
  * @param {boolean} content[].isGrowthTweet
+ * @param {string} content[].wordleNumber - wordle number
  */
-function tweetIfNotRepliedTo({status, id, name, score, solvedRow, isGrowthTweet}) {
+function tweetIfNotRepliedTo({status, id, name, score, solvedRow, isGrowthTweet, wordleNumber}) {
   if(!REPLY_HASH[id]) {
     T.post('statuses/update', { 
       status: status, 
@@ -544,7 +536,8 @@ function tweetIfNotRepliedTo({status, id, name, score, solvedRow, isGrowthTweet}
         name: name,
         score: score,
         solvedRow: solvedRow,
-        autoScore: isGrowthTweet
+        autoScore: isGrowthTweet,
+        wordleNumber
       });
     });
   }
