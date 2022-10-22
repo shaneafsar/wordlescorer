@@ -1,5 +1,8 @@
 import getGlobalStats from './get-global-stats.js';
 import getTopScoreDB from './get-top-score-DB.js';
+import getPercent from './get-percent.js';
+
+const formatter = new Intl.NumberFormat().format;
 
 async function getTopScorerInfo(date) {
   const TopScoreDB = getTopScoreDB(date);
@@ -12,6 +15,7 @@ async function getTopScorerInfo(date) {
    *      score
    *      solvedRow
    *      datetime
+   *      wordleNumber
    *    }
    * }
    */
@@ -23,6 +27,20 @@ async function getTopScorerInfo(date) {
     // filter scorerList to items with wordleNumber that have globalStats[1].key
     scorerList = scorerList.filter((scorer) => {
       return globalStats[1].key === scorer.wordleNumber+'';
+    });
+
+    const solvedRowCounts =  globalStats[1].solvedRowCounts.slice(0);
+    solvedRowCounts.push(globalStats[1].solvedRowCounts[0]);
+    const globalStatsTotal = globalStats[1].total;
+
+    scorerList.forEach(scorer => {
+      scorer.aboveTotal = 0;
+      var iteratorStart = scorer.solvedRow + 1;
+      for(var i = iteratorStart; i < solvedRowCounts.length; i++) {
+        scorer.aboveTotal += solvedRowCounts[i];
+      }
+      scorer.percentage = getPercent(scorer.aboveTotal, globalStatsTotal);
+      scorer.aboveTotal = formatter(scorer.aboveTotal);
     });
   }
   /**

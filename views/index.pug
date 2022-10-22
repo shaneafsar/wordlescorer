@@ -3,9 +3,16 @@ extends layout
 block content
   h1= title
 
+  if topScorerInfo
+  <section>
+    <p>Today's current top scorer for Wordle #{topScorerInfo.wordleNumber}:  #{topScorerInfo.name}</p>
+      ul
+        li Score: #{topScorerInfo.score}
+        li Solved on row #{topScorerInfo.solvedRow}
+        li Solved above #{topScorerInfo.aboveTotal} (~#{topScorerInfo.percentage}) other users
+  </section>
+
   table(class='stats')
-    if topScorerInfo
-      <caption>Today's current top scorer: #{topScorerInfo.name}</caption>
     tr
       th Wordle Number
       th Unique users
@@ -40,7 +47,7 @@ block content
       td(class='value') #{lastUpdated}
 
   table(class='scores')
-    <caption>After Thu Oct 20 2022 1:30pm EDT, rows that are highlighted are tweets that are scored as a result of mentioning the bot</caption>
+    <caption>After Thu Oct 20 2022 1:30pm EDT, rows that are highlighted are tweets that are scored as a result of the user directly mentioning the bot. Everyone else was randomly selected for scoring.</caption>
     tr
       th Screename
       th Score

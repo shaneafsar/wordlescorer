@@ -10,6 +10,7 @@ import getFormattedGlobalStats from './utils/get-formatted-global-stats.js';
 import getTopScoreDB from './utils/get-top-score-DB.js';
 import getGlobalScoreDB from './utils/get-global-score-DB.js';
 import isValidWordle from './utils/is-valid-wordle.js';
+import getScorerGlobalStats from './utils/get-scorer-global-stats.js';
 import { SCORE, CODEPOINT_SCORE } from './const/SCORE-CONST.js';
 import COMPLIMENTS from './const/COMPLIMENTS.js';
 import { WORDLE_BOT_ID, WORDLE_BOT_HANDLE } from './const/WORDLE-BOT.js';
@@ -181,7 +182,7 @@ async function tweetDailyTopScore(date) {
   var finalStatus = 'Not sure -- nobody requested a score today :(';
   
   if(scorer) {
-    finalStatus = `${scorer.name}! They scored ${scorer.score} points and solved it on row ${scorer.solvedRow}! ${getCompliment()}`;
+    finalStatus = `${scorer.name}! They scored ${scorer.score} points for Wordle ${scorer.wordleNumber} and solved it on row ${scorer.solvedRow}! That's better than ${scorer.aboveTotal} (~${scorer.percentage}) other users. ${getCompliment()}`;
 
     T.post('statuses/update', { 
       status: `The top scorer for ${getFormattedDate(date)} is: ${finalStatus}`
@@ -382,29 +383,27 @@ function processTweet(tweet, isGrowthTweet) {
       });
     }
 
-    tweetIfNotRepliedTo({
-      name: name,
-      score: score,
-      solvedRow: solvedRow,
-      wordleNumber: wordleNumStr,
-      status: `${name} The wordle scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${getCompliment(isGrowthTweet)}`,
-      id: id,
-      isGrowthTweet
-    });  
-  }).catch(function(obj) {
-    if (obj.name && obj.id) {
-      AnalyzedTweetsDB.write(obj.id, {
-        name: obj.name
-      });
-
-      /**tweetIfNotRepliedTo({
-        status:`${obj.name} Sorry, something went wrong. I wasn't able to decipher the wordle from the requested tweet :(`,
-        id: obj.id
-      });*/
-    } else {
-      logger.error((new Date()).toUTCString(),'unable to tweet reply failure: ', obj);
-      console.log('unable to tweet reply failure: ', obj);
-    }
+    getScorerGlobalStats({solvedRow, wordleNumber: wordleNumStr, date: new Date()}).then(({wordlePrefix, aboveTotal}) => {
+      tweetIfNotRepliedTo({
+        name: name,
+        score: score,
+        solvedRow: solvedRow,
+        wordleNumber: wordleNumStr,
+        status: `${name} This ${wordlePrefix} scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${aboveTotal} ${getCompliment(isGrowthTweet)}`,
+        id: id,
+        isGrowthTweet
+      });  
+    }).catch(function(obj) {
+      if (obj.name && obj.id) {
+        AnalyzedTweetsDB.write(obj.id, {
+          name: obj.name
+        });
+  
+      } else {
+        logger.error((new Date()).toUTCString(),'unable to tweet reply failure: ', obj);
+        console.log('unable to tweet reply failure: ', obj);
+      }
+    });
   });
 }
 
