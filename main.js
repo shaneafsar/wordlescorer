@@ -5,7 +5,9 @@ import getMultiplier from './utils/get-multiplier.js';
 import checkIsSameDay from './utils/is-same-day.js';
 import getWordleNumberFromText from './utils/get-wordle-number-from-text.js';
 import getGlobalStats from './utils/get-global-stats.js';
+import getTopScorerInfo from './utils/get-top-scorer-info.js';
 import getFormattedGlobalStats from './utils/get-formatted-global-stats.js';
+import getTopScoreDB from './utils/get-top-score-DB.js';
 import getGlobalScoreDB from './utils/get-global-score-DB.js';
 import isValidWordle from './utils/is-valid-wordle.js';
 import { SCORE, CODEPOINT_SCORE } from './const/SCORE-CONST.js';
@@ -54,7 +56,6 @@ var FINAL_GLOBAL_STATS_TIMEOUT = setDailyTopScoreTimeout(tweetGlobalStats);
 
 var stream = T.stream('statuses/filter', { track: WORDLE_BOT_HANDLE });
 stream.on('tweet', processTweet);
-
 
 // Let the world know we exist!
 if(RUN_GROWTH) {
@@ -148,39 +149,6 @@ function getFormattedDate(date) {
   options.timeZoneName = 'short';
 
   return date.toLocaleString('en-US', options);
-}
-
-async function getTopScorerInfo(date) {
-  const TopScoreDB = getTopScoreDB(date);
-  /**
-   * {
-   *   userid: 
-   *    {
-   *      name
-   *      score
-   *      solvedRow
-   *      datetime
-   *    }
-   * }
-   */
-  let data = await TopScoreDB.read();
-  const scorerList = Object.values(data);
-  /**
-   * Compare by score, then solved row, then date
-   */
-  scorerList.sort(function(a,b) {
-    if (a.score === b.score) {
-      if(a.solvedRow === b.solvedRow) {
-        return a.datetime - b.datetime;
-      }
-      return a.solvedRow - b.solvedRow;
-    } else if(a.score > b.score) {
-        return -1;
-    } else if(a.score < b.score) {
-        return 1;
-    }
-   });
-  return scorerList?.[0] || null;
 }
 
 /**
@@ -438,13 +406,6 @@ function processTweet(tweet, isGrowthTweet) {
       console.log('unable to tweet reply failure: ', obj);
     }
   });
-}
-
-function getTopScoreDB(date) {
-  if(!date) {
-    date = new Date();
-  }
-  return new WordleData(`top-scores-${date.getUTCMonth()}-${date.getUTCDate()}-${date.getUTCFullYear()}`, 'top-scores');
 }
 
 async function updateGlobalScores({

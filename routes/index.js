@@ -1,6 +1,7 @@
 import * as express from "express";
 import WordleData from '../WordleData.js';
 import getGlobalStats from '../utils/get-global-stats.js';
+import getTopScorerInfo from '../utils/get-top-scorer-info.js';
 import getPercent from '../utils/get-percent.js';
 
 var formatter = new Intl.NumberFormat().format;
@@ -9,7 +10,7 @@ var router = express.Router();
 /* GET home page. */
 router.get('/', function(req, res, next) {
   console.log('loading data...');
-
+  const currentDate = new Date();
   const AnalyzedTweetsDB = new WordleData('analyzed');
   AnalyzedTweetsDB.read().then(data => {
     var values = Object.values(data);
@@ -28,14 +29,20 @@ router.get('/', function(req, res, next) {
       return item;
     }).sort((a,b) => b.datetime - a.datetime);
 
+  
+    
     const renderDate = new Intl.DateTimeFormat("en-US", { 
         dateStyle: 'short', 
         timeStyle: 'long',
         timeZone: 'America/New_York'
-    }).format(new Date());
+    }).format(currentDate);
 
-    getGlobalStats(new Date()).then((stats) => {
-
+    Promise.all([
+      getGlobalStats(currentDate), 
+      getTopScorerInfo(currentDate)]).then(results => {
+      const stats = results[0];
+      const topScorerInfo = results[1];
+      
       // Add percents to each stat
       stats.forEach(item => {
         item.solvedRowPercents = item.solvedRowCounts.map(row => {
@@ -48,16 +55,15 @@ router.get('/', function(req, res, next) {
       });
 
       const finalTime = new Date().setUTCHours(24,0,0,0);
-      const currentDate = new Date();
       const currentTime = currentDate.getTime();
-      const timeTillDailyTopScore = `\n *** \n Daily Top Score tweet happening in about ${((finalTime - currentTime)/1000/60/60).toFixed(2)} hours! \n *** \n`;
+      const timeTillDailyTopScore = `*** Daily Top Score tweet happening in about ${((finalTime - currentTime)/1000/60/60).toFixed(2)} hours! ***`;
 
-      
       //Render page
       res.render('index', { 
         title: 'Score My Wordle Bot Info',
         globalStats: stats,
         scoreMessage: timeTillDailyTopScore,
+        topScorerInfo: topScorerInfo,
         datalist: renderData,
         scoredCount: renderData.filter(item => item.score).length,
         userCount: Object.keys(screenNameHash).length,

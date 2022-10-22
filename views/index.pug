@@ -4,6 +4,8 @@ block content
   h1= title
 
   table(class='stats')
+    if topScorerInfo
+      <caption>Today's current top scorer: #{topScorerInfo.name}</caption>
     tr
       th Wordle Number
       th Unique users
