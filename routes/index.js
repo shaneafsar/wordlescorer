@@ -26,6 +26,7 @@ router.get('/', function(req, res, next) {
       if(item.datetime > 1666286675411) {
         item.isManual = !item.autoScore;
       }
+      item.name = item.scorerName || item.name;
       return item;
     }).sort((a,b) => b.datetime - a.datetime);
 

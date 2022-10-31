@@ -6,7 +6,9 @@ const formatter = new Intl.NumberFormat().format;
 
 async function getTopScorerInfo(date) {
   const TopScoreDB = getTopScoreDB(date);
-  const globalStats = await getGlobalStats(date);
+  const globalStats = await getGlobalStats(date).catch((err)   => {
+    console.error(err);
+  });
   /**
    * {
    *   userid: 
@@ -19,19 +21,22 @@ async function getTopScorerInfo(date) {
    *    }
    * }
    */
-  let data = await TopScoreDB.read();
+  let data = await TopScoreDB.read().catch((err) => {
+    console.error(err);
+  });
   let scorerList = Object.values(data);
-
   // Select the most likely wordle that we care about today, filter to those people
-  if (globalStats.length > 1 && globalStats?.[1].key && globalStats?.[0].total < globalStats?.[1].total) {
-    // filter scorerList to items with wordleNumber that have globalStats[1].key
+  if (globalStats.length > 1) {
+    
+    let globalStat = globalStats?.[0].total < globalStats?.[1].total ? globalStats[1] : globalStats[0];
+    // filter scorerList to items with wordleNumber that have globalStat.key
     scorerList = scorerList.filter((scorer) => {
-      return globalStats[1].key === scorer.wordleNumber+'';
+      return globalStat.key === scorer.wordleNumber+'';
     });
 
-    const solvedRowCounts =  globalStats[1].solvedRowCounts.slice(0);
-    solvedRowCounts.push(globalStats[1].solvedRowCounts[0]);
-    const globalStatsTotal = globalStats[1].total;
+    const solvedRowCounts =  globalStat.solvedRowCounts.slice(0);
+    solvedRowCounts.push(globalStat.solvedRowCounts[0]);
+    const globalStatsTotal = globalStat.total;
 
     scorerList.forEach(scorer => {
       scorer.aboveTotal = 0;
@@ -58,6 +63,7 @@ async function getTopScorerInfo(date) {
         return 1;
     }
    });
+
   return scorerList?.[0] || null;
 }
 

@@ -3,14 +3,14 @@ extends layout
 block content
   h1= title
 
-  if topScorerInfo
-  <section>
-    <p>Today's current top scorer for Wordle #{topScorerInfo.wordleNumber}:  #{topScorerInfo.name}</p>
-      ul
-        li Score: #{topScorerInfo.score}
-        li Solved on row #{topScorerInfo.solvedRow}
-        li Solved above #{topScorerInfo.aboveTotal} (~#{topScorerInfo.percentage}) other users
-  </section>
+  if topScorerInfo && topScorerInfo.wordleNumber
+    <section>
+      <p>Today's current top scorer for Wordle #{topScorerInfo.wordleNumber}:  #{topScorerInfo.name}</p>
+        ul
+          li Score: #{topScorerInfo.score}
+          li Solved on row #{topScorerInfo.solvedRow}
+          li Solved above #{topScorerInfo.aboveTotal} (~#{topScorerInfo.percentage}) other users
+    </section>
 
   table(class='stats')
     tr

@@ -1,13 +1,14 @@
 import { join, dirname } from 'path'
 import { Low, JSONFile } from 'lowdb'
 import { fileURLToPath } from 'url'
+import logger from './logger.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 class WordleData {
   constructor(name, subdir) {
     const file = join(__dirname, 'db', subdir ? `${subdir}` : '', `db.${name}.json`);
-    //console.log(file);
+    this.file = file;
     const adapter = new JSONFile(file);
     this.db = new Low(adapter);
   }
@@ -44,7 +45,10 @@ class WordleData {
 
     this.db.data[key].push(data);
 
-    await this.db.write();
+    await this.db.write().catch(e => {
+      console.log('WordleData | push | ', this.file, ' | ', e);
+      logger.error('WordleData | push | ', this.file, ' | ', e);
+    });
   }
 
   /**
@@ -71,7 +75,10 @@ class WordleData {
       this.db.data[key] = data;
     }
 
-    await this.db.write();
+    await this.db.write().catch(e => {
+      console.log('WordleData | write | ', this.file, ' | ', e);
+      logger.error('WordleData | write | ', this.file, ' | ', e);
+    });
   }
 
   async loadData() {

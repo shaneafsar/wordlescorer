@@ -15,6 +15,8 @@ import { SCORE, CODEPOINT_SCORE } from './const/SCORE-CONST.js';
 import COMPLIMENTS from './const/COMPLIMENTS.js';
 import { WORDLE_BOT_ID, WORDLE_BOT_HANDLE } from './const/WORDLE-BOT.js';
 import logger from './logger.js';
+import logError from './utils/log-error.js';
+import debugReplay from './utils/debug-replay.js';
 import app from "./app.js";
 import * as debug$0 from "debug";
 import http from "http";
@@ -27,7 +29,6 @@ const RUN_GROWTH = true;
 if (process.env.NODE_ENV === "develop") {
   dotenv.config();
 };
-
 
 const TWIT_CONFIG = {
   consumer_key: process.env.consumer_key,
@@ -44,7 +45,6 @@ const GlobalScoresDB = getGlobalScoreDB();
 
 const PROCESSING = {};
 
-
 var T = new Twit(TWIT_CONFIG);
 
 const REPLY_HASH = await AnalyzedTweetsDB.read();
@@ -53,7 +53,6 @@ const USER_GROWTH_HASH = await UserGrowthDB.read();
 const GLOBAL_SCORE_HASH = await GlobalScoresDB.read();
 var FINAL_SCORE_TIMEOUT = setDailyTopScoreTimeout(tweetDailyTopScore);
 var FINAL_GLOBAL_STATS_TIMEOUT = setDailyTopScoreTimeout(tweetGlobalStats);
-
 
 var stream = T.stream('statuses/filter', { track: WORDLE_BOT_HANDLE });
 stream.on('tweet', processTweet);
@@ -213,7 +212,7 @@ function setDailyTopScoreTimeout(tweetFunc) {
   }, finalTime - currentTime);
 }
 
-function processTweet(tweet, isGrowthTweet) {
+function processTweet(tweet, isGrowthTweet, isReplay) {
   const id = tweet.id_str;
   const parentId = tweet.in_reply_to_status_id_str;
   const tweetText = tweet.text;
@@ -221,17 +220,19 @@ function processTweet(tweet, isGrowthTweet) {
   const createdAt = new Date(tweet.created_at);
   const createdAtMs = createdAt.getTime();
   const isSameDay = checkIsSameDay(createdAt);
-  
-  UserGrowthDB.write(userId, { lastCheckTime: Date.now()});
-  /**
-   * Bail early if this tweet has been processed or is 
-   * processing.
-   */  
-  if(REPLY_HASH[id] || PROCESSING[id]) {
-    return;
-  }
 
-  PROCESSING[id] = true;
+  if (!isReplay) {
+    UserGrowthDB.write(userId, { lastCheckTime: Date.now()});
+    /**
+     * Bail early if this tweet has been processed or is 
+     * processing.
+     */  
+    if(REPLY_HASH[id] || PROCESSING[id]) {
+      return;
+    }
+  
+    PROCESSING[id] = true;
+  }
 
   // Exit if this is a self-wordle debugging tweet (prevent multi-tweets)
   if(tweetText.indexOf('The wordle scored') > -1 || 
@@ -272,26 +273,31 @@ function processTweet(tweet, isGrowthTweet) {
          * Bail early if the parent tweet has been processed or is 
          * processing.
          */
-        if(REPLY_HASH[parentId] || PROCESSING[parentId]) {
-          reject({
-            name: screenName,
-            id: id,
-            parentId: parentId,
-            message: 'already processed parentId'
-          });
-          return;
+        if(!isReplay) {
+          if(REPLY_HASH[parentId] || PROCESSING[parentId]) {
+            reject({
+              name: screenName,
+              id: id,
+              parentId: parentId,
+              message: 'already processed parentId',
+              source: 'wordleResultPromise'
+            });
+            return;
+          }
         }
 
         
         T.get('statuses/show/:id', { id: parentId, include_ext_alt_text: true })
           .catch((err) => {
-            console.log('parentId request fail: ', err);
+
             reject({
               name: screenName,
               id: id,
               parentId: parentId,
-              message: 'parentId request fail'
+              message: 'parentId request fail',
+              source: 'wordleResultPromise'
             });
+            
           })
           .then(({data}) => {
             var parentAltText = data?.extended_entities?.media?.[0]?.ext_alt_text || '';
@@ -335,7 +341,9 @@ function processTweet(tweet, isGrowthTweet) {
         // If there's no parent or it's a growth tweet, then there's nothing else to check. Bail out!
         reject({
           name: screenName,
-          id: id
+          id: id,
+          source: 'wordleResultPromise',
+          message: 'No parentId or is growth tweet'
         });
       }
     } else {
@@ -384,28 +392,31 @@ function processTweet(tweet, isGrowthTweet) {
     }
 
     getScorerGlobalStats({solvedRow, wordleNumber: wordleNumStr, date: new Date()}).then(({wordlePrefix, aboveTotal}) => {
-      tweetIfNotRepliedTo({
-        name: name,
-        score: score,
-        solvedRow: solvedRow,
-        wordleNumber: wordleNumStr,
-        status: `${name} This ${wordlePrefix} scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${aboveTotal} ${getCompliment(isGrowthTweet)}`,
-        id: id,
-        isGrowthTweet
-      });  
+      if (!isReplay) {
+        tweetIfNotRepliedTo({
+          name: name,
+          score: score,
+          solvedRow: solvedRow,
+          wordleNumber: wordleNumStr,
+          status: `${name} This ${wordlePrefix} scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${aboveTotal} ${getCompliment(isGrowthTweet)}`,
+          id: id,
+          isGrowthTweet,
+          scorerName
+        });  
+      }
     }).catch(function(obj) {
       if (obj.name && obj.id) {
         AnalyzedTweetsDB.write(obj.id, {
           name: obj.name
         });
-  
+        logError(' getScorerGlobalStats failure ', obj);
       } else {
-        logger.error((new Date()).toUTCString(),'unable to tweet reply failure: ', obj);
-        console.log('unable to tweet reply failure: ', obj);
+        logError('unable to tweet reply failure: ', obj);
       }
     });
-  });
+  }).catch(logError);
 }
+
 
 async function updateGlobalScores({
     wordleNumber,
@@ -457,13 +468,14 @@ function getCompliment(isGrowthTweet) {
  * @param {Object[]} content
  * @param {string} content[].status - tweet text
  * @param {string} content[].id - reply id
- * @param {string} content[].name - account name
+ * @param {string} content[].name - tweet requester account name
+ * @param {string} content[].scorerName - scorer account name
  * @param {number} content[].score - calculated score
  * @param {number} content[].solvedRow
  * @param {boolean} content[].isGrowthTweet
  * @param {string} content[].wordleNumber - wordle number
  */
-function tweetIfNotRepliedTo({status, id, name, score, solvedRow, isGrowthTweet, wordleNumber}) {
+function tweetIfNotRepliedTo({status, id, name, scorerName, score, solvedRow, isGrowthTweet, wordleNumber}) {
   if(!REPLY_HASH[id]) {
     T.post('statuses/update', { 
       status: status, 
@@ -472,28 +484,29 @@ function tweetIfNotRepliedTo({status, id, name, score, solvedRow, isGrowthTweet,
     }, (err, reply) => {
       REPLY_HASH[id] = true;
         if (err) {
-          console.log(err.message);
+          logError(err);
           /**
            * Hack for Twitter Communities (no API yet)
            */
           if(err.message === 'Reply to a community tweet must also be a community tweet') {
-            console.log('Attempting to quote tweet');
+            console.log('*** Attempting to quote tweet for community *** ');
             T.post('statuses/update', { 
               status: status, 
               attachment_url: `https://twitter.com/${name.substring(1)}/status/${id}`
             }, (err, data) => {
               if(err) {
-                console.log('failed to quote tweet ', err);
-                logger.error((new Date()).toUTCString(),' | failed to quote tweet ', err);
+                logError(' failed to quote tweet ', err);
               }
             });
         }
-        logger.error((new Date()).toUTCString(),' | reply error: ', id, name, score, solvedRow, err);
+        logError('reply error: ', id, name, score, solvedRow, err);
       } else {
         console.log(`Tweeted: ${reply.text} to ${reply.in_reply_to_status_id_str}`);
       }
+
       AnalyzedTweetsDB.write(id, {
         name: name,
+        scorerName,
         score: score,
         solvedRow: solvedRow,
         autoScore: isGrowthTweet,
@@ -592,7 +605,8 @@ function calculateScoreFromWordleMatrix(wordle) {
     return [];
   }
   var lines = text.split('\n');
-  return lines.map((line) => {
+
+  const output = lines.map((line) => {
     var row = Array(5).fill(0, 0);
     
     // Nothing <-- empty row => line.match(/Nothing/gi)
@@ -631,6 +645,14 @@ function calculateScoreFromWordleMatrix(wordle) {
     }
     return row;
   }).flat();
+
+  // If every single line is invalid, then reject this wordle
+  // e.g. single line with only 0s means nothing was matched & not solved
+  if (output.every((val) => val === 0)) {
+    return [];
+  }
+   
+  return output;
 }
 
 function _rowUpdater(row, matches, score) {

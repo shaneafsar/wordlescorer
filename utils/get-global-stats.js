@@ -11,7 +11,9 @@ async function getGlobalStats(date) {
 //     "screenName": "@TEST",
 //     "datetime": 1666109132149
 //   },
-  let data = await GlobalScoreStatsDB.read();
+  let data = await GlobalScoreStatsDB.read().catch((err) => {
+    console.error(err);
+  });
   const scorerList = Object.values(data);
   const wordleScores = {};
   

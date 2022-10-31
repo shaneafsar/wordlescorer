@@ -6,7 +6,9 @@ const formatter = new Intl.NumberFormat().format;
 async function getScorerGlobalStats({solvedRow, wordleNumber, date}) {
   console.log(`*** getting scorers global stats... ***`);
   
-  const globalStats = await getGlobalStats(date);
+ const globalStats = await getGlobalStats(date).catch((err)   => {
+    console.error(err);
+  });
   
   var final = globalStats.filter(item => item.key+'' === wordleNumber + '');
   
@@ -30,7 +32,7 @@ async function getScorerGlobalStats({solvedRow, wordleNumber, date}) {
     
     return {
       wordlePrefix: `Wordle #${wordleNumber}`,
-      aboveTotal: renderAboveTotal ? `Solved above ${aboveTotal} others so far!` : ''
+      aboveTotal: renderAboveTotal ? `Solved above ${aboveTotal} others so far today!` : ''
     };
   }
   return {
