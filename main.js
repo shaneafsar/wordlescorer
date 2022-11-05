@@ -4,6 +4,7 @@ import WordleData from './WordleData.js';
 import getMultiplier from './utils/get-multiplier.js';
 import checkIsSameDay from './utils/is-same-day.js';
 import getWordleNumberFromText from './utils/get-wordle-number-from-text.js';
+import getWordleMatrixFromText from './utils/get-wordle-matrix-from-text.js';
 import getGlobalStats from './utils/get-global-stats.js';
 import getTopScorerInfo from './utils/get-top-scorer-info.js';
 import getFormattedGlobalStats from './utils/get-formatted-global-stats.js';
@@ -11,17 +12,14 @@ import getTopScoreDB from './utils/get-top-score-DB.js';
 import getGlobalScoreDB from './utils/get-global-score-DB.js';
 import isValidWordle from './utils/is-valid-wordle.js';
 import getScorerGlobalStats from './utils/get-scorer-global-stats.js';
-import { SCORE, CODEPOINT_SCORE } from './const/SCORE-CONST.js';
+import { SCORE } from './const/SCORE-CONST.js';
 import COMPLIMENTS from './const/COMPLIMENTS.js';
 import { WORDLE_BOT_ID, WORDLE_BOT_HANDLE } from './const/WORDLE-BOT.js';
-import logger from './logger.js';
 import logError from './utils/log-error.js';
-import debugReplay from './utils/debug-replay.js';
-import app from "./app.js";
-import * as debug$0 from "debug";
-import http from "http";
+import initServer from "./server/init-server.js";
 
 const RUN_GROWTH = true;
+
 
 /**
  * Load env variables from filesystem when developing
@@ -561,25 +559,6 @@ function getPointBonus(solvedRow) {
 }
 
 /**
- * Convert text to a flattened array representing scores for each square.
- * @param {String} text - input text to conver to wordle score array
- * @returns {Number[]}
- */
-function getWordleMatrixFromText(text = '') {
-  var wordle = [];
-  var codePoint, codePointScore;
-  var i = 0;
-  for(; i < text.length; i++) {
-  	codePoint = text.codePointAt(i);
-    codePointScore = CODEPOINT_SCORE.get(codePoint);
-    if(typeof codePointScore === 'number') {
-      wordle.push(codePointScore);
-    }
-  }
-  return wordle;
-}
-
-/**
  * Calculate score
  * @param {Number[]} wordle - array of numbers representing scores for each square
  * @returns {Object} {finalScore: number}
@@ -604,6 +583,9 @@ function calculateScoreFromWordleMatrix(wordle) {
   if(text.trim() === '') {
     return [];
   }
+
+  // TODO: duck-type check the text for appropriate general format before continuing
+   
   var lines = text.split('\n');
 
   const output = lines.map((line) => {
@@ -667,69 +649,5 @@ function _rowUpdater(row, matches, score) {
 // ****************
 // EXPRESS SERVER
 // ****************
- 
-var debug = debug$0.default('static2:server');
-/**
- * Get port from environment and store in Express.
- */
-var port = normalizePort(process.env.PORT || '3000');
-app.set('port', port);
-/**
- * Create HTTP server.
- */
-var server = http.createServer(app);
-/**
- * Listen on provided port, on all network interfaces.
- */
-server.listen(port);
-server.on('error', onError);
-server.on('listening', onListening);
-/**
- * Normalize a port into a number, string, or false.
- */
-function normalizePort(val) {
-    var port = parseInt(val, 10);
-    if (isNaN(port)) {
-        // named pipe
-        return val;
-    }
-    if (port >= 0) {
-        // port number
-        return port;
-    }
-    return false;
-}
-/**
- * Event listener for HTTP server "error" event.
- */
-function onError(error) {
-    if (error.syscall !== 'listen') {
-        throw error;
-    }
-    var bind = typeof port === 'string'
-        ? 'Pipe ' + port
-        : 'Port ' + port;
-    // handle specific listen errors with friendly messages
-    switch (error.code) {
-        case 'EACCES':
-            console.error(bind + ' requires elevated privileges');
-            process.exit(1);
-            break;
-        case 'EADDRINUSE':
-            console.error(bind + ' is already in use');
-            process.exit(1);
-            break;
-        default:
-            throw error;
-    }
-}
-/**
- * Event listener for HTTP server "listening" event.
- */
-function onListening() {
-    var addr = server.address();
-    var bind = typeof addr === 'string'
-        ? 'pipe ' + addr
-        : 'port ' + addr.port;
-    debug('Listening on ' + bind);
-}
+
+initServer();

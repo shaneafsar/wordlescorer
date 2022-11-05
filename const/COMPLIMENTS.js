@@ -7,7 +7,8 @@ const COMPLIMENTS = [
   '👍👍👍',
   '⭐⭐⭐',
   'Congrats, Wordler!',
-  'You are a star!'
+  'You are a star!',
+  'Well done!'
 ];
 
 export default COMPLIMENTS;
