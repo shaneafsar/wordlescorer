@@ -18,8 +18,8 @@ import { WORDLE_BOT_ID, WORDLE_BOT_HANDLE } from './const/WORDLE-BOT.js';
 import logError from './utils/log-error.js';
 import initServer from "./server/init-server.js";
 
-const RUN_GROWTH = true;
 
+const RUN_GROWTH = true;
 
 /**
  * Load env variables from filesystem when developing
@@ -27,6 +27,7 @@ const RUN_GROWTH = true;
 if (process.env.NODE_ENV === "develop") {
   dotenv.config();
 };
+
 
 const TWIT_CONFIG = {
   consumer_key: process.env.consumer_key,
@@ -38,12 +39,13 @@ const TWIT_CONFIG = {
 const AnalyzedTweetsDB = new WordleData('analyzed');
 const LastMentionDB = new WordleData('last-mention');
 const UserGrowthDB = new WordleData('user-growth');
-const TopScoresDB = getTopScoreDB();
-const GlobalScoresDB = getGlobalScoreDB();
+var TopScoresDB = getTopScoreDB();
+var GlobalScoresDB = getGlobalScoreDB();
 
 const PROCESSING = {};
 
 var T = new Twit(TWIT_CONFIG);
+
 
 const REPLY_HASH = await AnalyzedTweetsDB.read();
 const LAST_MENTION = await LastMentionDB.read();
@@ -52,11 +54,13 @@ const GLOBAL_SCORE_HASH = await GlobalScoresDB.read();
 var FINAL_SCORE_TIMEOUT = setDailyTopScoreTimeout(tweetDailyTopScore);
 var FINAL_GLOBAL_STATS_TIMEOUT = setDailyTopScoreTimeout(tweetGlobalStats);
 
+
 var stream = T.stream('statuses/filter', { track: WORDLE_BOT_HANDLE });
 stream.on('tweet', processTweet);
 
 // Let the world know we exist!
 if(RUN_GROWTH) {
+  
   var growthStream = T.stream('statuses/filter', { track: 'Wordle' });
   growthStream.on('tweet', function(tweet) {
 
@@ -192,6 +196,10 @@ async function tweetDailyTopScore(date) {
 
   // Run again for tomorrow!
   FINAL_SCORE_TIMEOUT = setDailyTopScoreTimeout(tweetDailyTopScore);
+
+  // Reset the write DBs
+  TopScoresDB = getTopScoreDB();
+  GlobalScoresDB = getGlobalScoreDB();
 }
 
 /**
@@ -318,7 +326,9 @@ function processTweet(tweet, isGrowthTweet, isReplay) {
             if(parentWordleResult.length === 0) {
               reject({
                 name: screenName,
-                id: id
+                id: id,
+                source: 'wordleResultPromise',
+                message: 'parent tweet has no wordle result'
               })
             } else {
               resolve({ 
