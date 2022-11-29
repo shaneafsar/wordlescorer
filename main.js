@@ -17,6 +17,7 @@ import COMPLIMENTS from './const/COMPLIMENTS.js';
 import { WORDLE_BOT_ID, WORDLE_BOT_HANDLE } from './const/WORDLE-BOT.js';
 import logError from './utils/log-error.js';
 import initServer from "./server/init-server.js";
+import algoliasearch from 'algoliasearch';
 
 
 const RUN_GROWTH = true;
@@ -37,6 +38,7 @@ const TWIT_CONFIG = {
 };
 
 const AnalyzedTweetsDB = new WordleData('analyzed');
+const UsersDB = new WordleData('users');
 const LastMentionDB = new WordleData('last-mention');
 const UserGrowthDB = new WordleData('user-growth');
 var TopScoresDB = getTopScoreDB();
@@ -46,11 +48,17 @@ const PROCESSING = {};
 
 var T = new Twit(TWIT_CONFIG);
 
+const ALGOLIA = algoliasearch(
+  process.env.algolia_app_id, 
+  process.env.algolia_admin_key);
+const ALG_INDEX = ALGOLIA.initIndex('analyzedwordles');
+
 
 const REPLY_HASH = await AnalyzedTweetsDB.read();
 const LAST_MENTION = await LastMentionDB.read();
 const USER_GROWTH_HASH = await UserGrowthDB.read();
 const GLOBAL_SCORE_HASH = await GlobalScoresDB.read();
+const USERS_HASH = await UsersDB.read();
 var FINAL_SCORE_TIMEOUT = setDailyTopScoreTimeout(tweetDailyTopScore);
 var FINAL_GLOBAL_STATS_TIMEOUT = setDailyTopScoreTimeout(tweetGlobalStats);
 
@@ -223,6 +231,7 @@ function processTweet(tweet, isGrowthTweet, isReplay) {
   const parentId = tweet.in_reply_to_status_id_str;
   const tweetText = tweet.text;
   const userId = tweet.user.id_str;
+  const photo = tweet.user.profile_image_url_https;
   const createdAt = new Date(tweet.created_at);
   const createdAtMs = createdAt.getTime();
   const isSameDay = checkIsSameDay(createdAt);
@@ -317,6 +326,7 @@ function processTweet(tweet, isGrowthTweet, isReplay) {
               parentWordleNumber : getWordleNumberFromText(parentAltText);
 
             var parentUserId = data.user.id_str;
+            var parentPhoto = data.user.profile_image_url_https;
             var parentName = '@' + data.user.screen_name;
             var parentTweetId = parentId;
 
@@ -339,6 +349,7 @@ function processTweet(tweet, isGrowthTweet, isReplay) {
                 userId: userId,
                 scorerUserId: parentUserId,
                 scorerName: parentName,
+                scorerPhoto: parentPhoto,
                 scorerTweetId: parentTweetId,
                 datetime: createdAtMs,
                 isGrowthTweet
@@ -363,6 +374,7 @@ function processTweet(tweet, isGrowthTweet, isReplay) {
         userId: userId,
         scorerUserId: userId,
         scorerName: screenName,
+        scorerPhoto: photo,
         scorerTweetId: id,
         datetime: createdAtMs,
         isGrowthTweet
@@ -378,6 +390,7 @@ function processTweet(tweet, isGrowthTweet, isReplay) {
     userId,
     scorerUserId,
     scorerName,
+    scorerPhoto,
     scorerTweetId, 
     datetime,
     isGrowthTweet}) => {
@@ -409,7 +422,9 @@ function processTweet(tweet, isGrowthTweet, isReplay) {
           status: `${name} This ${wordlePrefix} scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${aboveTotal} ${getCompliment(isGrowthTweet)}`,
           id: id,
           isGrowthTweet,
-          scorerName
+          scorerName,
+          scorerPhoto,
+          scorerUserId
         });  
       }
     }).catch(function(obj) {
@@ -482,8 +497,10 @@ function getCompliment(isGrowthTweet) {
  * @param {number} content[].solvedRow
  * @param {boolean} content[].isGrowthTweet
  * @param {string} content[].wordleNumber - wordle number
+ * @param {string} content[].scorerPhoto - url to profile photo
+ * @param {string} content[].scorerUserId - user id of scorer
  */
-function tweetIfNotRepliedTo({status, id, name, scorerName, score, solvedRow, isGrowthTweet, wordleNumber}) {
+function tweetIfNotRepliedTo({status, id, name, scorerName, score, solvedRow, isGrowthTweet, wordleNumber, scorerPhoto, scorerUserId}) {
   if(!REPLY_HASH[id]) {
     T.post('statuses/update', { 
       status: status, 
@@ -512,14 +529,32 @@ function tweetIfNotRepliedTo({status, id, name, scorerName, score, solvedRow, is
         console.log(`Tweeted: ${reply.text} to ${reply.in_reply_to_status_id_str}`);
       }
 
-      AnalyzedTweetsDB.write(id, {
+      let analyzedTweet = {
         name: name,
         scorerName,
         score: score,
         solvedRow: solvedRow,
         autoScore: isGrowthTweet,
-        wordleNumber
-      });
+        wordleNumber,
+        id
+      };
+
+      AnalyzedTweetsDB.write(id, analyzedTweet);
+
+      // Add users photo to the db
+      if(scorerPhoto && scorerUserId && !USERS_HASH[scorerUserId]) {
+        UsersDB.write(scorerUserId, {
+          user_id: scorerUserId,
+          screen_name: scorerName.substring(1),
+          photo: scorerPhoto
+        });
+      }
+
+      analyzedTweet.photoUrl = scorerPhoto || 'https://abs.twimg.com/sticky/default_profile_images/default_profile_normal.png';
+      
+      ALG_INDEX.saveObjects([analyzedTweet], { autoGenerateObjectIDIfNotExist: true })
+      .catch(logError);
+      
     });
   }
 }

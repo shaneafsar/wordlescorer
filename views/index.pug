@@ -1,51 +1,101 @@
 extends layout
 
 block content
-  h1= title
+  <header>
+    <img src="images/logo.png" alt="wordle logo">
+    <h1>#{title}</h1>
+    <ul class="header-contact">
+      <li><a rel="me" href="https://www.twitter.com/scoremywordle">Twitter</a></li>
+      <li><a rel="me" href="https://botsin.space/@scoremywordle">Mastodon (TBD)</a></li>
+    </ul>
+  </header>
 
-  if topScorerInfo && topScorerInfo.wordleNumber
-    <section>
-      <p>Today's current top scorer for Wordle #{topScorerInfo.wordleNumber}:  #{topScorerInfo.name}</p>
-        ul
-          li Score: #{topScorerInfo.score}
-          li Solved on row #{topScorerInfo.solvedRow}
-          li Solved above #{topScorerInfo.aboveTotal} (~#{topScorerInfo.percentage}) other users
-    </section>
+  <div class="spacer"></div>
 
-  table(class='stats')
-    tr
-      th Wordle Number
-      th Unique users
-      th Row 1
-      th Row 2
-      th Row 3
-      th Row 4
-      th Row 5
-      th Row 6
-      th No solve
+  <section id="wordle-stats">
+    
     each val in globalStats 
-      tr
-        td(class='value') #{val.key}
-        td(class='value-sm') #{val.total}
-        td(class='value-sm') #{val.solvedRowCounts[1]} (#{val.solvedRowPercents[1]})
-        td(class='value-sm') #{val.solvedRowCounts[2]} (#{val.solvedRowPercents[2]})
-        td(class='value-sm') #{val.solvedRowCounts[3]} (#{val.solvedRowPercents[3]})
-        td(class='value-sm') #{val.solvedRowCounts[4]} (#{val.solvedRowPercents[4]})
-        td(class='value-sm') #{val.solvedRowCounts[5]} (#{val.solvedRowPercents[5]})
-        td(class='value-sm') #{val.solvedRowCounts[6]} (#{val.solvedRowPercents[6]})
-        td(class='value-sm') #{val.solvedRowCounts[0]} (#{val.solvedRowPercents[0]})
+      article
+        h2 Wordle #{val.key}
+        p Unique users - #{val.total}
+        <h4>Row 1 <span> - #{val.solvedRowCounts[1]} (#{val.solvedRowPercents[1]})</span></h4>
+        <progress max="100" value="#{parseInt(val.solvedRowPercents[1].replace('<',''), 10)}"></progress>
+        <h4>Row 2 <span>- #{val.solvedRowCounts[2]} (#{val.solvedRowPercents[2]})</span></h4>
+        <progress max="100" value="#{parseInt(val.solvedRowPercents[2].replace('<',''), 10)}"></progress>
+        h4 Row 3
+          span - #{val.solvedRowCounts[3]} (#{val.solvedRowPercents[3]})
+        <progress max="100" value="#{parseInt(val.solvedRowPercents[3].replace('<',''), 10)}"></progress>
+        h4 Row 4
+          span - #{val.solvedRowCounts[4]} (#{val.solvedRowPercents[4]})
+        <progress max="100" value="#{parseInt(val.solvedRowPercents[4].replace('<',''), 10)}"></progress>
+        h4 Row 5
+          span - #{val.solvedRowCounts[5]} (#{val.solvedRowPercents[5]})
+        <progress max="100" value="#{parseInt(val.solvedRowPercents[5].replace('<',''), 10)}"></progress>
+        h4 Row 6
+          span - #{val.solvedRowCounts[6]} (#{val.solvedRowPercents[6]})
+        <progress max="100" value="#{parseInt(val.solvedRowPercents[6].replace('<',''), 10)}"></progress>
+        h4 No Solve
+          span - #{val.solvedRowCounts[0]} (#{val.solvedRowPercents[0]})
+        <progress max="100" value="#{parseInt(val.solvedRowPercents[0].replace('<',''), 10)}"></progress>
 
-  table(class='stats')
-    <caption>#{scoreMessage}</caption>
-    tr
-      th Total Manually Scored
-      th Total User Count
-      th Last Updated
-    tr
-      td(class='value') #{scoredCount}
-      td(class='value') #{userCount}
-      td(class='value') #{lastUpdated}
+  </section>
 
+  <div class="spacer"></div>
+
+  <section id="info">
+    if topScorerInfo && topScorerInfo.wordleNumber
+      <article id="top-scorer">
+        <h2>#{topScorerInfo.name}</h2>
+        <h4>Top Scorer of the Day</h4>
+        <ul>
+          <li><p>Score: #{topScorerInfo.score}</p></li>
+          <li><p>Solved on Row #{topScorerInfo.solvedRow}</p></li>
+          <li><p>Beat #{topScorerInfo.aboveTotal} (~#{topScorerInfo.percentage}) other users</p></li>
+        </ul>
+        <aside id="top-score-tweet">
+          <p>#{scoreMessage}</p>
+        </aside>
+      </article>
+    
+    <article id="global-stats">
+      <h3>Last Updated</h3>
+      <h4>#{lastUpdated}</h4>
+      <h3>Total Manually Scored</h3>
+      <h4>#{scoredCount}</h4>
+      <h3>Total User Count</h3>
+      <h4>#{userCount}</h4>
+    </article>
+    
+  </section>
+
+  <div class="spacer"></div>
+
+  <section id="wordle-list">
+    
+    <h2>Posted Wordles</h2>
+    <p>Note: After Thu Oct 20 2022 1:30pm EDT, Wordles with a blue @ are tweets that are scored as a result of the user directly mentioning the bot. Everyone else was randomly selected for scoring.</p>
+  </section>
+
+  <div class="spacer"></div>
+   <section id="wordles">
+    each val in datalist
+      if val.score
+        <article class="wordle">
+          <a class="wordle-title#{val.isManual ? ' mentioned':''}" href="https://www.twitter.com/#{val.name}/status/#{val.id}">#{val.name}</a>
+          <ul>
+            <li>Score: #{val.score}</li>
+            if val.wordleNumber
+              <li>Wordle #{val.wordleNumber}</li>
+            if val.solvedRow
+              <li>Solved on Row #{val.solvedRow}</li>
+            else
+              <li>Not solved</li>
+            <li><time>#{val.datestring}</time></li>
+          </ul>
+        </article>
+  </section>
+
+//-
   table(class='scores')
     <caption>After Thu Oct 20 2022 1:30pm EDT, rows that are highlighted are tweets that are scored as a result of the user directly mentioning the bot. Everyone else was randomly selected for scoring.</caption>
     tr
