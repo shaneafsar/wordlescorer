@@ -68,22 +68,22 @@ progress::-webkit-progress-value {
   background-color: var(--color-highlight);
 }
 
-header {
+header.page-header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   margin-top: 5vh;
 }
-header img {
+header.page-header img {
   width: 9vw;
   height: 9vw;
 }
-header h1 {
+header.page-header h1 {
   margin-left: 3vw;
 }
 
-header .header-contact {
+header.page-header .header-contact {
   flex-basis: 100%;
   display: flex;
   justify-content: center;
@@ -167,6 +167,34 @@ header .header-contact {
 #wordle-list p {
   width: 75%;
   color: var(--text-color-secondary);
+}
+
+/* Style the entity card */
+.wordle {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.wordle header {
+  flex: 74%;
+}
+
+/* Style the entity card's profile image */
+.wordle img {
+  width: 50px;
+  height: 50px;
+  border-radius: 7px;
+}
+
+/* Style the entity card's attributes list */
+.wordle ul {
+  flex: 26%;
+}
+
+/* Style the entity card's attribute labels */
+.wordle .attributes .label {
+  font-weight: bold;
 }
 
 .wordle-title {
@@ -280,6 +308,9 @@ header .header-contact {
   }
   .ais-RefinementList-labelText {
     font-size: 0.8rem;
+  }
+  .wordle header {
+    flex: 65%;
   }
 }
 

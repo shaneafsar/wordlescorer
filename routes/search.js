@@ -87,8 +87,6 @@ const defaultPhotoUrl = 'https://abs.twimg.com/sticky/default_profile_images/def
 
 router.get('/indexdata', function (req, res, next) {
 
-
-  
   const index = client.initIndex('analyzedwordles');
 
   const UsersDB = new WordleData('users');
@@ -108,10 +106,6 @@ router.get('/indexdata', function (req, res, next) {
       item.date_timestamp = item.date_timestamp || Math.floor(item.datetime / 1000);
       item.photoUrl = userMap[item.scorerName.slice(1)]?.photo || defaultPhotoUrl;
 
-      item.isMentioned = item.date_timestamp > 1666286675 && !item.autoScore;
-
-      delete item.autoScore;
-
       delete item.datetime;
       
       return item;
@@ -120,13 +114,15 @@ router.get('/indexdata', function (req, res, next) {
       // Early scored wordles don't have the property, and there was a brief period where invalid alt text could come back as wordleNumber === 0
       return Number.isInteger(item.score) && item.id && (!item.hasOwnProperty('wordleNumber') || item.wordleNumber !== 0);
     });
-  
-    index.saveObjects(formattedData, { autoGenerateObjectIDIfNotExist: true })
-    .then(({ objectIDs }) => {
-        console.log('indexed data');
-        res.send('indexed data');
-    })
-    .catch(console.error);
+
+    
+    // index.saveObjects(formattedData, { autoGenerateObjectIDIfNotExist: true })
+    // .then(({ objectIDs }) => {
+    //     console.log('indexed data');
+    //     res.send('indexed data');
+    // })
+    // .catch(console.error);
+    
     
   });
 });

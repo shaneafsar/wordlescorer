@@ -78,18 +78,20 @@ search.addWidgets([
     templates: {
       item: (val, { html, components }) => html`
         <article class="wordle">
-          <img class='profile-image' src="${val.photoUrl}" alt="profile image for ${val.scorerName}" data-default="https://abs.twimg.com/sticky/default_profile_images/default_profile_normal.png"/>
-          <a class="wordle-title${val.date_timestamp > 1666286675 && !val.autoScore ? ' mentioned':''}" href="https://www.twitter.com/${val.scorerName}/status/${val.id}">
-          ${val.scorerName}</a>
-          <ul>
+          <header>
+            <img class='profile-image' src="${val.photoUrl}" alt="profile image for ${val.scorerName}" data-default="https://abs.twimg.com/sticky/default_profile_images/default_profile_normal.png"/>
+            <a class="wordle-title${val.date_timestamp > 1666286675 && !val.autoScore ? ' mentioned':''}" href="https://www.twitter.com/${val.scorerName}/status/${val.id}">
+            ${val.scorerName}</a>
+          </header>
+          <ul class="attributes">
             ${val.score && html`
-              <li>Score: ${val.score}</li>
+              <li><span class="label">Score:</span> ${val.score}</li>
             `}
             ${val.wordleNumber && html`
-              <li>Wordle ${val.wordleNumber}</li>
+              <li><span class="label">Wordle</span> ${val.wordleNumber}</li>
             `}
             ${val.solvedRow ? html`
-              <li>Solved on Row ${val.solvedRow}</li>
+              <li>Solved on row ${val.solvedRow}</li>
             ` : html`
               <li>Not solved</li>
             `}
