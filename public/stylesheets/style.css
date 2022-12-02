@@ -239,7 +239,7 @@ header .header-contact {
 .wrapper {
   display: grid;
   gap: 20px;
-  grid-template-columns: 33.334% 66.667%;
+  grid-template-columns: 26% 74%;
 }
 
 .left-panel {
@@ -260,6 +260,10 @@ header .header-contact {
   margin-bottom: 2vh;
 }
 
+.ais-RefinementList-labelText {
+ 
+}
+
 @media screen and (min-width: 850px) {
   #info {
     display: flex;
@@ -270,7 +274,22 @@ header .header-contact {
   }
 }
 
-@media screen and (max-width: 500px) {
+@media screen and (max-width: 1060px) { 
+  .wrapper {
+    grid-template-columns: 35% 65%;
+  }
+  .ais-RefinementList-labelText {
+    font-size: 0.8rem;
+  }
+}
+
+@media screen and (max-width: 650px) { 
+  .wrapper {
+    grid-template-columns: 40% 60%;
+  }
+}
+
+@media screen and (max-width: 565px) {
   .wrapper {
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   }
@@ -287,6 +306,16 @@ header .header-contact {
   .left-panel > section,
   .left-panel > div {
     margin-left: 8px;
+    flex: 33.33%;
+  }
+
+  #toggle-auto-score {
+    flex: 100%;
+  }
+
+  .search-container {
+    margin-left: 5vw;
+    margin-right: 5vw;
   }
 
   .ais-Hits-item {
