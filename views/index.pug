@@ -23,19 +23,19 @@ block content
         <h4>Row 2 <span>- #{val.solvedRowCounts[2]} (#{val.solvedRowPercents[2]})</span></h4>
         <progress max="100" value="#{parseInt(val.solvedRowPercents[2].replace('<',''), 10)}"></progress>
         h4 Row 3
-          span - #{val.solvedRowCounts[3]} (#{val.solvedRowPercents[3]})
+          span  - #{val.solvedRowCounts[3]} (#{val.solvedRowPercents[3]})
         <progress max="100" value="#{parseInt(val.solvedRowPercents[3].replace('<',''), 10)}"></progress>
         h4 Row 4
-          span - #{val.solvedRowCounts[4]} (#{val.solvedRowPercents[4]})
+          span  - #{val.solvedRowCounts[4]} (#{val.solvedRowPercents[4]})
         <progress max="100" value="#{parseInt(val.solvedRowPercents[4].replace('<',''), 10)}"></progress>
         h4 Row 5
-          span - #{val.solvedRowCounts[5]} (#{val.solvedRowPercents[5]})
+          span  - #{val.solvedRowCounts[5]} (#{val.solvedRowPercents[5]})
         <progress max="100" value="#{parseInt(val.solvedRowPercents[5].replace('<',''), 10)}"></progress>
         h4 Row 6
-          span - #{val.solvedRowCounts[6]} (#{val.solvedRowPercents[6]})
+          span  - #{val.solvedRowCounts[6]} (#{val.solvedRowPercents[6]})
         <progress max="100" value="#{parseInt(val.solvedRowPercents[6].replace('<',''), 10)}"></progress>
         h4 No Solve
-          span - #{val.solvedRowCounts[0]} (#{val.solvedRowPercents[0]})
+          span  - #{val.solvedRowCounts[0]} (#{val.solvedRowPercents[0]})
         <progress max="100" value="#{parseInt(val.solvedRowPercents[0].replace('<',''), 10)}"></progress>
 
   </section>
@@ -70,6 +70,42 @@ block content
 
   <div class="spacer"></div>
 
+  <div id="searchbox" class="search-container"></div>
+  <div class="wrapper">
+    <aside class="left-panel">
+      <div id="clear-refinements"></div>
+      <div id="stats"></div>
+      <div id="toggle-auto-score"></div>
+
+      <section>
+        <h4>Handles</h4>
+        <div id="name-list"></div>
+      </section>
+
+      <section>
+        <h4>Wordle #</h4>
+        <div id="wordle_number-list"></div>
+      </section>
+
+      <section>
+        <h4>Solved Row</h4>
+        <div id="solved_row-list"></div>
+      </section>
+
+      <section>
+        <h4>Scores</h4>
+        <div id="scores-list"></div>
+      </section>
+
+    </aside>
+  
+    <div class="right-panel">
+      <section id="wordles"></section>
+      <div id="pagination"></div>
+    </div>
+  </div>
+
+//-
   <section id="wordle-list">
     
     <h2>Posted Wordles</h2>
@@ -77,6 +113,7 @@ block content
   </section>
 
   <div class="spacer"></div>
+
    <section id="wordles">
     each val in datalist
       if val.score

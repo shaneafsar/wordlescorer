@@ -535,6 +535,7 @@ function tweetIfNotRepliedTo({status, id, name, scorerName, score, solvedRow, is
         score: score,
         solvedRow: solvedRow,
         autoScore: isGrowthTweet,
+        date_timestamp: Math.floor(Date.now() / 1000),
         wordleNumber,
         id
       };

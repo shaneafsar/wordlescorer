@@ -41,6 +41,9 @@ h4 {
   font-size: clamp(20px, 4vw, 30px);
   margin: 0px;
 }
+h4 > span {
+  font-size: clamp(15px, 3vw, 20px);
+}
 p {
   font-size: clamp(10px, 3vw, 20px);
 }
@@ -166,37 +169,95 @@ header .header-contact {
   color: var(--text-color-secondary);
 }
 
-#wordles {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+.wordle-title {
+  color: var(--text-color-primary);
+  font-size: clamp(15px, 4vw, 20px);
+  transition-duration: 0.4s;
+  margin-left: 1vw;
 }
-.wordle {
-  min-width: 18vw;
+
+.wordle-title:hover {
+  color: var(--text-color-secondary);
+}
+
+.profile-image {
+  width: 48px;
+  height: 48px;
+  vertical-align: middle;
+}
+
+.mentioned {
+  color: var(--color-highlight);
+}
+
+.search-container {
+  margin-left: 10vw;
+  margin-right: 10vw;
+  margin-bottom: 2vh;
+}
+
+.search {
+  font-size: clamp(20px, 4vw, 30px);
+}
+
+.ais-Hits-item {
   border: 3px solid var(--color-secondary);
   border-radius: 7px;
+  transition-duration: 0.5s;
+  box-shadow: 0 2px 5px 0 var(--color-secondary);
   padding: 0px 10px;
   transition-duration: 0.5s;
   margin-left: 10px;
   margin-right: 10px;
   margin-bottom: 20px;
-}
-.wordle:hover {
-  background-color: var(--color-secondary);
-}
-.wordle-title {
-  color: var(--text-color-primary);
-  font-size: clamp(20px, 4vw, 30px);
-  transition-duration: 0.4s;
-}
-.wordle-title:hover {
+  width: auto;
   color: var(--text-color-secondary);
 }
-.wordle-title span {
-  font-size: clamp(30px, 6vw, 55px);
+
+.ais-Hits-item:hover {
+  background-color: var(--color-secondary);
 }
-.mentioned {
-  color: var(--color-highlight);
+
+.ais-Hits-list {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  margin-top: 0;
+  margin-left: 0;
+}
+
+.ais-RefinementList-labelText, 
+.ais-Stats-text,
+.ais-NumericMenu-item {
+  color: var(--text-color-secondary);
+}
+
+.ais-RefinementList-count {
+  margin-left: 4px;
+}
+
+.wrapper {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 33.334% 66.667%;
+}
+
+.left-panel {
+  margin-left: 10vw;
+}
+
+.left-panel h4 {
+  font-size: clamp(18px, 4vw, 24px);
+  margin-top: 8px;
+}
+
+.right-panel {
+  margin-left: 5vw;
+  margin-right: 10vw;
+}
+
+.right-panel div:first-child {
+  margin-bottom: 2vh;
 }
 
 @media screen and (min-width: 850px) {
@@ -206,5 +267,30 @@ header .header-contact {
   }
   #top-scorer {
     max-width: 55%;
+  }
+}
+
+@media screen and (max-width: 500px) {
+  .wrapper {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+  .right-panel {
+    margin-right: 5vw;
+  }
+
+  .left-panel {
+    margin-left: 5vw;
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .left-panel > section,
+  .left-panel > div {
+    margin-left: 8px;
+  }
+
+  .ais-Hits-item {
+    margin-left: 0;
+    margin-right: 0;
   }
 }
