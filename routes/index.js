@@ -65,7 +65,7 @@ router.get('/', function(req, res, next) {
         globalStats: stats,
         scoreMessage: timeTillDailyTopScore,
         topScorerInfo: topScorerInfo,
-        datalist: renderData,
+        //datalist: renderData,
         scoredCount: renderData.filter(item => item.score).length,
         userCount: Object.keys(screenNameHash).length,
         lastUpdated: renderDate

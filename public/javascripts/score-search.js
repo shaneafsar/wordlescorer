@@ -1,12 +1,22 @@
-
-function imageLoadFailure(e) {
-  console.log('failed!', e, arguments);
-}
+const APP_ID = 'EO8V4J92JS';
+const APP_SEARCH_KEY = 'b7f12a56d0c6478b02c0c7891a31e10b';
 
 const search = instantsearch({
   indexName: 'analyzedwordles',
-  searchClient: algoliasearch('EO8V4J92JS', 'b7f12a56d0c6478b02c0c7891a31e10b'),
+  searchClient: algoliasearch(APP_ID, APP_SEARCH_KEY),
+  searchParameters: {
+    clickAnalytics: true,
+  }
 });
+
+const insightsMiddleware = instantsearch.middlewares.createInsightsMiddleware({
+  insightsClient: window.aa,
+  insightsInitParams: {
+    useCookie: true,
+  }
+})
+
+search.use(insightsMiddleware);
 
 search.addWidgets([
   instantsearch.widgets.searchBox({
@@ -76,31 +86,31 @@ search.addWidgets([
   instantsearch.widgets.hits({
     container: '#wordles',
     templates: {
-      item: (val, { html, components }) => html`
-        <article class="wordle">
+      item: function(val, bindEvent) { return `
+        <article class="wordle" ${bindEvent('click', val, 'Wordle clicked')}>
           <header>
             <img class='profile-image' src="${val.photoUrl}" alt="profile image for ${val.scorerName}" data-default="https://abs.twimg.com/sticky/default_profile_images/default_profile_normal.png"/>
-            <a class="wordle-title${val.date_timestamp > 1666286675 && !val.autoScore ? ' mentioned':''}" href="https://www.twitter.com/${val.scorerName}/status/${val.id}">
+            <a class="wordle-title${val.date_timestamp > 1666286675 && !val.autoScore ? ' mentioned':''}" href="https://www.twitter.com/${val.scorerName}/status/${val.id}" target="_blank" ${bindEvent('conversion', val, 'Wordle tweet clicked')}>
             ${val.scorerName}</a>
           </header>
           <ul class="attributes">
-            ${val.score && html`
+            ${val.score && `
               <li><span class="label">Score:</span> ${val.score}</li>
             `}
-            ${val.wordleNumber && html`
+            ${val.wordleNumber && `
               <li><span class="label">Wordle</span> ${val.wordleNumber}</li>
             `}
-            ${val.solvedRow ? html`
+            ${val.solvedRow ? `
               <li>Solved on row ${val.solvedRow}</li>
-            ` : html`
+            ` : `
               <li>Not solved</li>
             `}
-            ${val.date_timestamp && html`
+            ${val.date_timestamp && `
             <li><time>${(new Date(val.date_timestamp * 1000)).toLocaleDateString("en-US")}</time></li>
             `}
           </ul>
         </article>
-      `,
+      `},
     }
   }),
 
@@ -112,3 +122,18 @@ search.addWidgets([
 
 // 5. Start the search!
 search.start();
+
+
+// Initialize algolia insights
+/*
+aa('init', {
+  appId: APP_ID,
+  apiKey: APP_SEARCH_KEY,
+  useCookie: true,  
+});
+
+document.getElementById('wordles').addEventListener('click', (e) => {
+  if(e.target.closest('.ais-Hits-item')) {
+    
+  }
+});*/
