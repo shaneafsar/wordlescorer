@@ -20,7 +20,7 @@ import { calculateScoreFromWordleMatrix } from './utils/calculate-score-from-wor
 import { getCompliment } from './utils/get-compliment.js';
 import { getSolvedRow } from './utils/get-solved-row.js';
 import { getSentenceSuffix } from './utils/get-sentence-suffix.js';
-import { getFormattedDate } from './getFormattedDate.js';
+import { getFormattedDate } from './utils/get-formatted-date.js';
 
 const RUN_GROWTH = true;
 

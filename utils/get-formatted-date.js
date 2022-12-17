@@ -1,3 +1,8 @@
+/**
+ * 
+ * @param {Date} date 
+ * @returns {string}
+ */
 export function getFormattedDate(date) {
   let options = {
     weekday: 'short',
