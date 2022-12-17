@@ -1,5 +1,5 @@
 import isValidWordle from './is-valid-wordle.js';
-import { SCORE } from '../const/SCORE-CONST.js';
+import { SCORE } from '../../const/SCORE-CONST.js';
 
 /**
  * getSolvedRow

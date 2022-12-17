@@ -1,4 +1,4 @@
-import WordleData from '../WordleData.js';
+import WordleData from '../../WordleData.js';
 
 function getGlobalScoreDB(date) {
   if(!date) {

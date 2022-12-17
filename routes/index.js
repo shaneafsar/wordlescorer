@@ -1,8 +1,8 @@
 import * as express from "express";
 import WordleData from '../WordleData.js';
-import getGlobalStats from '../utils/get-global-stats.js';
-import getTopScorerInfo from '../utils/get-top-scorer-info.js';
-import getPercent from '../utils/get-percent.js';
+import getGlobalStats from '../utils/db/get-global-stats.js';
+import getTopScorerInfo from '../utils/db/get-top-scorer-info.js';
+import getPercent from '../utils/display/get-percent.js';
 
 var formatter = new Intl.NumberFormat().format;
 

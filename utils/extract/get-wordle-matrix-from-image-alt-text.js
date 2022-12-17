@@ -1,4 +1,4 @@
-import { SCORE } from '../const/SCORE-CONST.js';
+import { SCORE } from '../../const/SCORE-CONST.js';
 
 /**
  * Converts wa11y.co alt text to a wordle score matrix

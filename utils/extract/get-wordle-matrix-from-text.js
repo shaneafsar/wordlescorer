@@ -1,4 +1,4 @@
-import { CODEPOINT_SCORE } from '../const/SCORE-CONST.js';
+import { CODEPOINT_SCORE } from '../../const/SCORE-CONST.js';
 
 /**
  * Convert text to a flattened array representing scores for each square.

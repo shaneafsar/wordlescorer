@@ -2,25 +2,25 @@ import Twit from 'twit';
 import dotenv  from 'dotenv';
 import WordleData from './WordleData.js';
 import checkIsSameDay from './utils/is-same-day.js';
-import getWordleNumberFromText from './utils/get-wordle-number-from-text.js';
-import getWordleMatrixFromText from './utils/get-wordle-matrix-from-text.js';
-import getWordleMatrixFromImageAltText from './utils/get-wordle-matrix-from-image-alt-text.js'
-import getGlobalStats from './utils/get-global-stats.js';
-import getTopScorerInfo from './utils/get-top-scorer-info.js';
-import getFormattedGlobalStats from './utils/get-formatted-global-stats.js';
-import getTopScoreDB from './utils/get-top-score-DB.js';
-import getGlobalScoreDB from './utils/get-global-score-DB.js';
-import isValidWordle from './utils/is-valid-wordle.js';
-import getScorerGlobalStats from './utils/get-scorer-global-stats.js';
+import getWordleNumberFromText from './utils/extract/get-wordle-number-from-text.js';
+import getWordleMatrixFromText from './utils/extract/get-wordle-matrix-from-text.js';
+import getWordleMatrixFromImageAltText from './utils/extract/get-wordle-matrix-from-image-alt-text.js'
+import getGlobalStats from './utils/db/get-global-stats.js';
+import getTopScorerInfo from './utils/db/get-top-scorer-info.js';
+import getFormattedGlobalStats from './utils/display/get-formatted-global-stats.js';
+import getTopScoreDB from './utils/db/get-top-score-DB.js';
+import getGlobalScoreDB from './utils/db/get-global-score-DB.js';
+import isValidWordle from './utils/calculate/is-valid-wordle.js';
+import getScorerGlobalStats from './utils/db/get-scorer-global-stats.js';
 import { WORDLE_BOT_ID, WORDLE_BOT_HANDLE } from './const/WORDLE-BOT.js';
-import logError from './utils/log-error.js';
+import logError from './utils/debug/log-error.js';
 import initServer from "./server/init-server.js";
 import algoliasearch from 'algoliasearch';
-import { calculateScoreFromWordleMatrix } from './utils/calculate-score-from-wordle-matrix.js';
-import { getCompliment } from './utils/get-compliment.js';
-import { getSolvedRow } from './utils/get-solved-row.js';
-import { getSentenceSuffix } from './utils/get-sentence-suffix.js';
-import { getFormattedDate } from './utils/get-formatted-date.js';
+import { calculateScoreFromWordleMatrix } from './utils/calculate/calculate-score-from-wordle-matrix.js';
+import { getCompliment } from './utils/display/get-compliment.js';
+import { getSolvedRow } from './utils/calculate/get-solved-row.js';
+import { getSentenceSuffix } from './utils/display/get-sentence-suffix.js';
+import { getFormattedDate } from './utils/display/get-formatted-date.js';
 
 const RUN_GROWTH = true;
 

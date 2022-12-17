@@ -1,4 +1,4 @@
-import COMPLIMENTS from '../const/COMPLIMENTS.js';
+import COMPLIMENTS from '../../const/COMPLIMENTS.js';
 
 /**
  * Returns a compliment.

@@ -1,5 +1,5 @@
 import getMultiplier from './get-multiplier.js';
-import { SCORE } from '../const/SCORE-CONST.js';
+import { SCORE } from '../../const/SCORE-CONST.js';
 
 /**
  * Provides a bonus per square based on where the wordle was solved.
