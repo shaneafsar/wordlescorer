@@ -1,24 +1,26 @@
 import Twit from 'twit';
 import dotenv  from 'dotenv';
 import WordleData from './WordleData.js';
-import getMultiplier from './utils/get-multiplier.js';
 import checkIsSameDay from './utils/is-same-day.js';
-import getWordleNumberFromText from './utils/get-wordle-number-from-text.js';
-import getWordleMatrixFromText from './utils/get-wordle-matrix-from-text.js';
-import getWordleMatrixFromImageAltText from './utils/get-wordle-matrix-from-image-alt-text.js'
-import getGlobalStats from './utils/get-global-stats.js';
-import getTopScorerInfo from './utils/get-top-scorer-info.js';
-import getFormattedGlobalStats from './utils/get-formatted-global-stats.js';
-import getTopScoreDB from './utils/get-top-score-DB.js';
-import getGlobalScoreDB from './utils/get-global-score-DB.js';
-import isValidWordle from './utils/is-valid-wordle.js';
-import getScorerGlobalStats from './utils/get-scorer-global-stats.js';
-import { SCORE } from './const/SCORE-CONST.js';
-import COMPLIMENTS from './const/COMPLIMENTS.js';
+import getWordleNumberFromText from './utils/extract/get-wordle-number-from-text.js';
+import getWordleMatrixFromText from './utils/extract/get-wordle-matrix-from-text.js';
+import getWordleMatrixFromImageAltText from './utils/extract/get-wordle-matrix-from-image-alt-text.js'
+import getGlobalStats from './utils/db/get-global-stats.js';
+import getTopScorerInfo from './utils/db/get-top-scorer-info.js';
+import getFormattedGlobalStats from './utils/display/get-formatted-global-stats.js';
+import getTopScoreDB from './utils/db/get-top-score-DB.js';
+import getGlobalScoreDB from './utils/db/get-global-score-DB.js';
+import isValidWordle from './utils/calculate/is-valid-wordle.js';
+import getScorerGlobalStats from './utils/db/get-scorer-global-stats.js';
 import { WORDLE_BOT_ID, WORDLE_BOT_HANDLE } from './const/WORDLE-BOT.js';
-import logError from './utils/log-error.js';
+import logError from './utils/debug/log-error.js';
 import initServer from "./server/init-server.js";
 import algoliasearch from 'algoliasearch';
+import { calculateScoreFromWordleMatrix } from './utils/calculate/calculate-score-from-wordle-matrix.js';
+import { getCompliment } from './utils/display/get-compliment.js';
+import { getSolvedRow } from './utils/calculate/get-solved-row.js';
+import { getSentenceSuffix } from './utils/display/get-sentence-suffix.js';
+import { getFormattedDate } from './utils/display/get-formatted-date.js';
 
 const RUN_GROWTH = true;
 
@@ -146,20 +148,6 @@ setInterval(() => {
     }
   });
 }, 60000);
-
-function getFormattedDate(date) {
-  let options = { 
-    weekday: 'short', 
-    year: 'numeric', 
-    month: 'short', 
-    day: 'numeric' 
-  };
-
-  options.timeZone = 'UTC';
-  options.timeZoneName = 'short';
-
-  return date.toLocaleString('en-US', options);
-}
 
 /**
  * Check if day has ended, tweet top results
@@ -477,16 +465,6 @@ async function updateTopScores({name, score, solvedRow, userId, datetime, isGrow
 
 
 /**
- * Returns a compliment.
- * TODO: Consider adjusting to different ones based on score?
- * @returns {string} a compliment :)
- */
-function getCompliment(isGrowthTweet) {
-  const length = COMPLIMENTS.length;
-  return COMPLIMENTS[Math.floor(Math.random() * length)] + (isGrowthTweet ? ' Mention me in the future, I <3 wordles!' : '');
-}
-
-/**
  * Tweet reply with score/error if it hasn't been recently replied to
  * @param {Object[]} content
  * @param {string} content[].status - tweet text
@@ -558,65 +536,6 @@ function tweetIfNotRepliedTo({status, id, name, scorerName, score, solvedRow, is
       
     });
   }
-}
-
-/**
- * getSolvedRow
- * @param {Number[]} wordle - score matrix
- * @returns {Number} 0-6
- */
-function getSolvedRow(wordle) {
-  if (!isValidWordle(wordle)) {
-    return 0;
-  }
-  const lastFiveBlocks = wordle.slice(-5);
-  if(lastFiveBlocks.filter((e) => e === SCORE.CORRECT).length !== 5) {
-    return 0;
-  }
-  return wordle.length / 5;
-}
-
-/**
- * getSentenceSuffix
- * @param {Number} solvedRowNum 
- * @returns {String} 
- */
-function getSentenceSuffix(solvedRowNum) {
-  if(solvedRowNum === 0) {
-    return '.';
-  }
-  return `, solved on row ${solvedRowNum}.`;
-}
-
-/**
- * Provides a bonus per square based on where the wordle was solved.
- * @param {Number} solvedRow - row number where a solve occured (must be between 1-6)
- * @returns {Number} integer bonus amount
- */
-function getPointBonus(solvedRow) {
-	var bonus = 0;
-  var blocksPerRow = 5;
-  var solvedBlockValue = SCORE.CORRECT;
-  var i = solvedRow;
-  for(; i<=5; i++) {
-  	bonus += solvedBlockValue * blocksPerRow * getMultiplier((solvedRow*5)-1)
-  }
-  return bonus;
-}
-
-/**
- * Calculate score
- * @param {Number[]} wordle - array of numbers representing scores for each square
- * @returns {Object} {finalScore: number}
- */
-function calculateScoreFromWordleMatrix(wordle) {
-  var solvedRowBonus = getPointBonus(wordle.length / 5);
-  var score = wordle.map((element, index) => {
-    return element*getMultiplier(index);
-  }).reduce((previous, current) => {
-  	return previous+current;
-  });
-  return {finalScore: score + solvedRowBonus };
 }
 
 // ****************

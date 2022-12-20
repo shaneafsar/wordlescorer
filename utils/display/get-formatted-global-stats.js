@@ -26,6 +26,11 @@ function formatStatement(rowIndex, solvedRowCount, total) {
   return `\n ${prefix} ${formatter(solvedRowCount)} (${getPercent(solvedRowCount, total)})`;
 }
 
+/**
+ * @typedef {{total: number, key: number, solvedRowCounts: number[]}} WordleScoreStats
+ * @param {WordleScoreStats[]} stats - output from getGlobalStats
+ * @returns {String[]} - array of tweets to send out
+ */
 function getFormattedGlobalStats(stats) {
  var tweets = [];
   

@@ -1,6 +1,6 @@
 import getGlobalStats from './get-global-stats.js';
 import getTopScoreDB from './get-top-score-DB.js';
-import getPercent from './get-percent.js';
+import getPercent from '../display/get-percent.js';
 
 const formatter = new Intl.NumberFormat().format;
 

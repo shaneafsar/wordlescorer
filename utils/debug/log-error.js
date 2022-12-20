@@ -1,4 +1,4 @@
-import logger from '../logger.js';
+import logger from '../../logger.js';
 
 function logError(log) {
   const args = Array.prototype.slice.call(arguments);

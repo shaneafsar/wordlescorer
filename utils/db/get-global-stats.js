@@ -1,5 +1,10 @@
 import getGlobalScoreDB from './get-global-score-DB.js';
 
+/**
+ * @typedef {{total: number, key: number, solvedRowCounts: number[]}} WordleScoreStats
+ * @param {Date} date datetime of global stats to pull 
+ * @returns {WordleScoreStats[]} Returns array of wordle stats
+ */
 async function getGlobalStats(date) {
   const GlobalScoreStatsDB = getGlobalScoreDB(date);
 // userId: {

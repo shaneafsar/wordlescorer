@@ -1,8 +1,14 @@
 import getGlobalStats from './get-global-stats.js';
-import getPercent from './get-percent.js';
+import getPercent from '../display/get-percent.js';
 
 const formatter = new Intl.NumberFormat().format;
 
+/**
+ * Provides formatted text to inform how a particular game ranks based on solved row
+ * TODO Fix JSDoc
+ * @param {Object.{solvedRow: number, wordleNumber: number, date: Date}}
+ * @returns {Promise.{wordlePrefix: string, aboveTotal: string}}
+ */
 async function getScorerGlobalStats({solvedRow, wordleNumber, date}) {
   console.log(`*** getting scorers global stats... ***`);
   
