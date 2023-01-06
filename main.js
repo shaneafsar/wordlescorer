@@ -64,6 +64,9 @@ const USERS_HASH = await UsersDB.read();
 var FINAL_SCORE_TIMEOUT = setDailyTopScoreTimeout(tweetDailyTopScore);
 var FINAL_GLOBAL_STATS_TIMEOUT = setDailyTopScoreTimeout(tweetGlobalStats);
 
+function getTweetText(tweet) {
+  return tweet.extended_tweet?.full_text || tweet.full_text || tweet.text;
+}
 
 var stream = T.stream('statuses/filter', { track: WORDLE_BOT_HANDLE });
 stream.on('tweet', processTweet);
@@ -73,7 +76,7 @@ if(RUN_GROWTH) {
   
   var growthStream = T.stream('statuses/filter', { track: 'Wordle', tweet_mode:'extended' });
   growthStream.on('tweet', function(tweet) {
-    const tweetText = tweet.truncated ? (tweet.extended_tweet?.full_text || tweet.full_text) : tweet.text;
+    const tweetText = getTweetText(tweet);
 
     // get the wordle matrix from the tweet text
     var wordleMatrix = getWordleMatrixFromText(tweetText);
@@ -218,7 +221,7 @@ function setDailyTopScoreTimeout(tweetFunc) {
 function processTweet(tweet, isGrowthTweet, isReplay) {
   const id = tweet.id_str;
   const parentId = tweet.in_reply_to_status_id_str;
-  const tweetText = tweet.truncated ? (tweet.extended_tweet?.full_text || tweet.full_text) : tweet.text;
+  const tweetText = getTweetText(tweet);
   const userId = tweet.user.id_str;
   const photo = tweet.user.profile_image_url_https;
   const createdAt = new Date(tweet.created_at);
@@ -305,8 +308,8 @@ function processTweet(tweet, isGrowthTweet, isReplay) {
           })
           .then(({data}) => {
             var parentAltText = data?.extended_entities?.media?.[0]?.ext_alt_text || '';
-            var parentWordleResult = getWordleMatrixFromText(data.text || data.full_text);
-            var parentWordleNumber = getWordleNumberFromText(data.text || data.full_text);
+            var parentWordleResult = getWordleMatrixFromText(getTweetText(data));
+            var parentWordleNumber = getWordleNumberFromText(getTweetText(data));
 
             parentWordleResult = parentWordleResult.length > 0 ? 
               parentWordleResult : getWordleMatrixFromImageAltText(parentAltText);
