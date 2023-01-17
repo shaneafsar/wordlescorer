@@ -3,7 +3,7 @@ import getGlobalScoreDB from './get-global-score-DB.js';
 /**
  * @typedef {{total: number, key: number, solvedRowCounts: number[]}} WordleScoreStats
  * @param {Date} date datetime of global stats to pull 
- * @returns {WordleScoreStats[]} Returns array of wordle stats
+ * @returns {Promise<WordleScoreStats[]>} Returns array of wordle stats
  */
 async function getGlobalStats(date) {
   const GlobalScoreStatsDB = getGlobalScoreDB(date);
@@ -16,8 +16,8 @@ async function getGlobalStats(date) {
 //     "screenName": "@TEST",
 //     "datetime": 1666109132149
 //   },
-  let data = await GlobalScoreStatsDB.read().catch((err) => {
-    console.error(err);
+  let data = await GlobalScoreStatsDB.read('').catch((err) => {
+    console.error(err);''
   });
   const scorerList = Object.values(data);
   const wordleScores = {};

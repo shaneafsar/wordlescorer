@@ -1,6 +1,6 @@
 import * as debug$0 from "debug";
 import http from "http";
-import app from "../app.js";
+import app from "./app.js";
 
 // ****************
 // EXPRESS SERVER

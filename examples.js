@@ -20,7 +20,7 @@ T.get('statuses/show/:id', {id: '1533961937352105984', include_ext_alt_text: tru
 
 // GET a11y text for testing
 
-T.get('statuses/show/:id', {id: '1488143147368521735', include_ext_alt_text: true}).then(({data}) => {
+T.get('statuses/show/:id', {id: '1608109623889756160', include_ext_alt_text: true}).then(({data}) => {
   var text = data?.extended_entities?.media?.[0]?.ext_alt_text || '';
   console.log(text);
   console.log(getWordleMatrixFromImageAltText(text));
