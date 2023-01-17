@@ -1,4 +1,5 @@
 import Twit from 'twit';
+import { TwitterApi } from 'twitter-api-v2';
 import dotenv  from 'dotenv';
 import WordleData from './WordleData.js';
 import checkIsSameDay from './utils/is-same-day.js';
@@ -21,22 +22,27 @@ import { getCompliment } from './utils/display/get-compliment.js';
 import { getSolvedRow } from './utils/calculate/get-solved-row.js';
 import { getSentenceSuffix } from './utils/display/get-sentence-suffix.js';
 import { getFormattedDate } from './utils/display/get-formatted-date.js';
+import { setDelayedFunction } from './utils/set-delayed-function.js';
+import { login } from 'masto';
+import MastoWordleBot from './MastoWordleBot.js';
+import TwitterWordleBot from './TwitterWordleBot.js';
 
-const RUN_GROWTH = true;
+var RUN_GROWTH = true;
+var isDevelopment = process.env['NODE_ENV'] === 'develop';
 
 /**
  * Load env variables from filesystem when developing
  */
-if (process.env.NODE_ENV === "develop") {
+if (isDevelopment) {
   dotenv.config();
+  RUN_GROWTH = false;
 };
 
-
 const TWIT_CONFIG = {
-  consumer_key: process.env.consumer_key,
-  consumer_secret: process.env.consumer_secret,
-  access_token: process.env.access_token,
-  access_token_secret: process.env.access_token_secret,
+  consumer_key: process.env['consumer_key'],
+  consumer_secret: process.env['consumer_secret'],
+  access_token: process.env['access_token'],
+  access_token_secret: process.env['access_token_secret'],
 };
 
 const AnalyzedTweetsDB = new WordleData('analyzed');
@@ -50,19 +56,82 @@ const PROCESSING = {};
 
 var T = new Twit(TWIT_CONFIG);
 
-const ALGOLIA = algoliasearch(
-  process.env.algolia_app_id, 
-  process.env.algolia_admin_key);
+if(isDevelopment) {
+  T.post = function() { console.log('NOT TWEETING, DEVELOPMENT MODE | ', arguments); };
+}
+
+const ALGOLIA = algoliasearch(process.env['algolia_app_id'] || '', process.env['algolia_admin_key'] || '');
 const ALG_INDEX = ALGOLIA.initIndex('analyzedwordles');
 
 
-const REPLY_HASH = await AnalyzedTweetsDB.read();
-const LAST_MENTION = await LastMentionDB.read();
-const USER_GROWTH_HASH = await UserGrowthDB.read();
-const GLOBAL_SCORE_HASH = await GlobalScoresDB.read();
-const USERS_HASH = await UsersDB.read();
-var FINAL_SCORE_TIMEOUT = setDailyTopScoreTimeout(tweetDailyTopScore);
-var FINAL_GLOBAL_STATS_TIMEOUT = setDailyTopScoreTimeout(tweetGlobalStats);
+await AnalyzedTweetsDB.loadData();
+const LAST_MENTION = await LastMentionDB.read('');
+await UserGrowthDB.loadData();
+await GlobalScoresDB.loadData();
+await UsersDB.loadData();
+
+setDelayedFunction(tweetDailyTopScore);
+setDelayedFunction(tweetGlobalStats);
+
+async function initTwitterBot(globalScores, topScores) {
+  const userGrowth = new WordleData('user-growth');
+  const analyzedPosts = new WordleData('analyzed');
+  const users = new WordleData('users');
+  const lastMention = new WordleData('last-mention');
+  /*const twitterClient = new Twit({
+    consumer_key: process.env['consumer_key'],
+    consumer_secret: process.env['consumer_secret'],
+    access_token: process.env['access_token'],
+    access_token_secret: process.env['access_token_secret'],
+  });*/
+  const twitterClient = new TwitterApi({
+    appKey: TWIT_CONFIG.consumer_key,
+    appSecret: TWIT_CONFIG.consumer_secret,
+    accessToken: TWIT_CONFIG.access_token,
+    accessSecret: TWIT_CONFIG.access_token_secret
+  });
+  await globalScores.loadData();
+  await topScores.loadData();
+  await userGrowth.loadData();
+  await analyzedPosts.loadData();
+  await users.loadData();
+  await lastMention.loadData();
+
+  return new TwitterWordleBot(
+    twitterClient, 
+    globalScores, 
+    topScores,
+    userGrowth,
+    analyzedPosts,
+    users,
+    lastMention);
+}
+
+async function initMastoBot(globalScores, topScores) {
+  const userGrowth = new WordleData('user-growth_masto');
+  const analyzedPosts = new WordleData('analyzed_masto');
+  const users = new WordleData('users_masto');
+  const lastMention = new WordleData('last-mention_masto');
+  const mastoClient = await login({
+    url: process.env['MASTO_URI'] || '',
+    accessToken: process.env['MASTO_ACCESS_TOKEN'] || '',
+  });
+  await globalScores.loadData();
+  await topScores.loadData();
+  await userGrowth.loadData();
+  await analyzedPosts.loadData();
+  await users.loadData();
+  await lastMention.loadData();
+
+  return new MastoWordleBot(
+    mastoClient, 
+    globalScores, 
+    topScores,
+    userGrowth,
+    analyzedPosts,
+    users,
+    lastMention);
+}
 
 
 var stream = T.stream('statuses/filter', { track: WORDLE_BOT_HANDLE });
@@ -86,7 +155,7 @@ if(RUN_GROWTH) {
       var wordleNumber = getWordleNumberFromText(tweet.text);
      
       // get the wordle score
-      var wordleScore = calculateScoreFromWordleMatrix(wordleMatrix).finalScore
+      var wordleScore = calculateScoreFromWordleMatrix(wordleMatrix).finalScore;
 
       // insert into global db if there is a wordle number
       // and solved row is valid
@@ -100,9 +169,7 @@ if(RUN_GROWTH) {
           screenName
         };
 
-  
-        updateGlobalScores(scoreObj);
-      
+        GlobalScoresDB.write(userId, scoreObj);      
 
         const timeAgo = new Date(new Date().getTime() + -30*60000);
         const randomNum = Math.floor(Math.random() * 5);
@@ -110,16 +177,20 @@ if(RUN_GROWTH) {
         // if there are no analyzed tweets in the last 30min, then
         // randomly decide to tweet reply
   
-        if (randomNum === 0 && USER_GROWTH_HASH['lastCheckTime']?.lastCheckTime <= timeAgo) {
-          var lastCheckTime = { lastCheckTime: Date.now()};
+        if (randomNum === 0 && 
+          UserGrowthDB.hasKey('lastCheckTime') && 
+          UserGrowthDB.readSync('lastCheckTime').lastCheckTime <= timeAgo) {
+
+          const lastCheckTime = { lastCheckTime: Date.now()};
           UserGrowthDB.write('lastCheckTime', lastCheckTime);
-          UserGrowthDB.write(userId, lastCheckTime);
+  
           // Exit if already scored, we don't want to bother them!
-          if (USER_GROWTH_HASH[userId] || USER_GROWTH_HASH[screenName]) {
+          if (UserGrowthDB.hasKey(userId) || UserGrowthDB.hasKey(screenName)) {
             return;
           }
-          USER_GROWTH_HASH[userId] = lastCheckTime;
-          USER_GROWTH_HASH['lastCheckTime'] = lastCheckTime;
+
+          UserGrowthDB.write(userId, lastCheckTime);
+
           processTweet(tweet, true);
         }
       }
@@ -131,23 +202,25 @@ if(RUN_GROWTH) {
  * Reading mentions since communities is not availble via API yet
  * API docs inticate rate-limit of 75 calls per 15min (12s per call).
  */
-setInterval(() => {
-  T.get('statuses/mentions_timeline', { 
-    since_id: LAST_MENTION.since_id || '1526808148031447042', 
-    count: 200,
-    include_entities: true
-  }).then(({data}) => {
-    if(data.length > 0) {
-      LAST_MENTION['since_id'] = data[0].id_str;
-      LastMentionDB.write('since_id', data[0].id_str);  
-      data.forEach((tweet) => { 
-        processTweet(tweet);
-      });
-    } else {
-      // console.log(`no more mentions as of ${new Date().toUTCString()}`);
-    }
-  });
-}, 60000);
+if (!isDevelopment && LAST_MENTION.since_id) {
+  setInterval(() => {
+    T.get('statuses/mentions_timeline', { 
+      since_id: LAST_MENTION.since_id, 
+      count: 200,
+      include_entities: true
+    }).then(({data}) => {
+      if(data.length > 0) {
+        LAST_MENTION['since_id'] = data[0].id_str;
+        LastMentionDB.write('since_id', data[0].id_str);  
+        data.forEach((tweet) => { 
+          processTweet(tweet);
+        });
+      } else {
+        // console.log(`no more mentions as of ${new Date().toUTCString()}`);
+      }
+    });
+  }, 60000);
+}
 
 /**
  * Check if day has ended, tweet top results
@@ -168,7 +241,7 @@ async function tweetGlobalStats(date) {
   });
 
   // Run again for tomorrow!
-  FINAL_GLOBAL_STATS_TIMEOUT = setDailyTopScoreTimeout(tweetGlobalStats);
+  setDelayedFunction(tweetGlobalStats);
 }
 
 /**
@@ -191,27 +264,11 @@ async function tweetDailyTopScore(date) {
   }
 
   // Run again for tomorrow!
-  FINAL_SCORE_TIMEOUT = setDailyTopScoreTimeout(tweetDailyTopScore);
+  setDelayedFunction(tweetDailyTopScore);
 
   // Reset the write DBs
   TopScoresDB = getTopScoreDB();
   GlobalScoresDB = getGlobalScoreDB();
-}
-
-/**
-1. This function takes an argument called tweetFunc
- 2. It then creates a new Date object called finalTime, and sets the time to 24 hours from now
- 3. Then it creates a new Date object called currentDate, and gets the current time in milliseconds
- 4. Then it logs a message to the console that says how many hours until the final score
-*/
-function setDailyTopScoreTimeout(tweetFunc) {
-  const finalTime = new Date().setUTCHours(24,0,0,0);
-  const currentDate = new Date();
-  const currentTime = currentDate.getTime();
-  console.log(`\n *** \n ${tweetFunc.name} happening in about ${((finalTime - currentTime)/1000/60/60).toFixed(2)} hours \n *** \n`);
-  return setTimeout(() => {
-    tweetFunc(currentDate);
-  }, finalTime - currentTime);
 }
 
 function processTweet(tweet, isGrowthTweet, isReplay) {
@@ -230,7 +287,7 @@ function processTweet(tweet, isGrowthTweet, isReplay) {
      * Bail early if this tweet has been processed or is 
      * processing.
      */  
-    if(REPLY_HASH[id] || PROCESSING[id]) {
+    if(AnalyzedTweetsDB.readSync(id) || PROCESSING[id]) {
       return;
     }
   
@@ -267,26 +324,39 @@ function processTweet(tweet, isGrowthTweet, isReplay) {
   const wordleResultPromise = new Promise((resolve, reject) => {
     // If @mention tweet & alt text contains no wordle text, then try checking
     // the parent tweet.
-    if(wordleResult.length === 0) {
-      
-      // If there's no parent tweet && not a growth tweet, then bail out.
-      if (parentId && isGrowthTweet !== true) {
+    if(isValidWordle(wordleResult)) {
+      resolve({ 
+        wordle: wordleResult, 
+        wordleNumStr: wordleNumber,
+        id: id,
+        name: screenName,
+        userId: userId,
+        scorerUserId: userId,
+        scorerName: screenName,
+        scorerPhoto: photo,
+        scorerTweetId: id,
+        datetime: createdAtMs,
+        isGrowthTweet
+      });
+
+     // If there's a parent Id and not a growth tweet, then continue.
+    } else if (parentId && isGrowthTweet !== true) {
+
 
         /**
          * Bail early if the parent tweet has been processed or is 
          * processing.
          */
-        if(!isReplay) {
-          if(REPLY_HASH[parentId] || PROCESSING[parentId]) {
-            reject({
-              name: screenName,
-              id: id,
-              parentId: parentId,
-              message: 'already processed parentId',
-              source: 'wordleResultPromise'
-            });
-            return;
-          }
+        if(!isReplay && 
+          (AnalyzedTweetsDB.readSync(parentId) || PROCESSING[parentId])) { 
+          reject({
+            name: screenName,
+            id: id,
+            parentId: parentId,
+            message: 'already processed parentId',
+            source: 'wordleResultPromise'
+          });
+          return;
         }
 
         
@@ -303,32 +373,20 @@ function processTweet(tweet, isGrowthTweet, isReplay) {
             
           })
           .then(({data}) => {
-            var parentAltText = data?.extended_entities?.media?.[0]?.ext_alt_text || '';
-            var parentWordleResult = getWordleMatrixFromText(data.text);
-            var parentWordleNumber = getWordleNumberFromText(data.text);
+            const parentAltText = data?.extended_entities?.media?.[0]?.ext_alt_text || '';
+            const parentTextContent = data.text;
 
-            parentWordleResult = parentWordleResult.length > 0 ? 
-              parentWordleResult : getWordleMatrixFromImageAltText(parentAltText);
+            const parentWordleResult = getWordleMatrixFromOptions(parentTextContent, parentAltText);
+            const parentWordleNumber = getWordleNumberFromText(parentTextContent) || getWordleNumberFromText(parentAltText);
 
-            parentWordleNumber = parentWordleResult.length > 0 ? 
-              parentWordleNumber : getWordleNumberFromText(parentAltText);
 
-            var parentUserId = data.user.id_str;
-            var parentPhoto = data.user.profile_image_url_https;
-            var parentName = '@' + data.user.screen_name;
-            var parentTweetId = parentId;
-
-            // BUG: Need to refactor to include parent tweet context
+            const parentUserId = data.user.id_str;
+            const parentPhoto = data.user.profile_image_url_https;
+            const parentName = '@' + data.user.screen_name;
+            const parentTweetId = parentId;
 
             // Reject if there's no result from the text or the alt text on the parent
-            if(parentWordleResult.length === 0) {
-              reject({
-                name: screenName,
-                id: id,
-                source: 'wordleResultPromise',
-                message: 'parent tweet has no wordle result'
-              })
-            } else {
+            if(isValidWordle(parentWordleResult)) {
               resolve({ 
                 wordle: parentWordleResult,
                 wordleNumStr: parentWordleNumber,
@@ -342,30 +400,22 @@ function processTweet(tweet, isGrowthTweet, isReplay) {
                 datetime: createdAtMs,
                 isGrowthTweet
               });
+            } else {
+              reject({
+                name: screenName,
+                id: id,
+                source: 'wordleResultPromise',
+                message: 'parent tweet has no wordle result'
+              });
             }
           });
-      } else {
-        // If there's no parent or it's a growth tweet, then there's nothing else to check. Bail out!
-        reject({
-          name: screenName,
-          id: id,
-          source: 'wordleResultPromise',
-          message: 'No parentId or is growth tweet'
-        });
-      }
     } else {
-      resolve({ 
-        wordle: wordleResult, 
-        wordleNumStr: wordleNumber,
-        id: id,
+      // If there's no parent or it's a growth tweet, then there's nothing else to check. Bail out!
+      reject({
         name: screenName,
-        userId: userId,
-        scorerUserId: userId,
-        scorerName: screenName,
-        scorerPhoto: photo,
-        scorerTweetId: id,
-        datetime: createdAtMs,
-        isGrowthTweet
+        id: id,
+        source: 'wordleResultPromise',
+        message: 'No wordleResult, no parentId or is growth tweet'
       });
     }
   });
@@ -387,33 +437,57 @@ function processTweet(tweet, isGrowthTweet, isReplay) {
 
     /**
      * Add to today's scores if tweet happened today
+     * Only allow one score per user
      */
     if(isSameDay) {
-      updateTopScores({ 
-        name: scorerName, 
-        userId: scorerUserId,
-        wordleNumber: wordleNumStr,
-        score, 
-        solvedRow, 
+      TopScoresDB.write(scorerUserId, {
+        name: scorerName,
+        score,
+        solvedRow,
         datetime,
-        isGrowthTweet
+        autoScore: isGrowthTweet,
+        wordleNumber: wordleNumStr
       });
     }
 
     getScorerGlobalStats({solvedRow, wordleNumber: wordleNumStr, date: new Date()}).then(({wordlePrefix, aboveTotal}) => {
-      if (!isReplay) {
-        tweetIfNotRepliedTo({
-          name: name,
-          score: score,
-          solvedRow: solvedRow,
-          wordleNumber: wordleNumStr,
-          status: `${name} This ${wordlePrefix} scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${aboveTotal} ${getCompliment(isGrowthTweet)}`,
-          id: id,
-          isGrowthTweet,
-          scorerName,
-          scorerPhoto,
-          scorerUserId
-        });  
+      if (!isReplay && !AnalyzedTweetsDB.readSync(id)) {
+
+        const status = `${name} This ${wordlePrefix} scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${aboveTotal} ${getCompliment(isGrowthTweet)}`;
+
+        T.post('statuses/update', { 
+          status, 
+          in_reply_to_status_id: id, 
+          auto_populate_reply_metadata: true 
+        }, (err, reply) => {
+
+          handlePostCallback({
+            name,
+            score,
+            solvedRow,
+            wordleNumber: wordleNumStr,
+            date_timestamp: Math.floor(Date.now() / 1000),
+            id: id,
+            autoScore: isGrowthTweet,
+            scorerName
+          },{
+            scorerName,
+            scorerPhoto,
+            scorerUserId
+          });
+
+          if(err) {
+            logError('reply error: ', id, name, score, solvedRow, err);
+            /**
+             * Hack for Twitter Communities (no API yet)
+             */
+            if(err.message === 'Reply to a community tweet must also be a community tweet') {
+              replyToCommunityTweet(status, name, id);
+            }
+          } else {
+            console.log(`Tweeted: ${reply.text} to ${reply.in_reply_to_status_id_str}`);
+          }
+        }); 
       }
     }).catch(function(obj) {
       if (obj.name && obj.id) {
@@ -422,119 +496,65 @@ function processTweet(tweet, isGrowthTweet, isReplay) {
         });
         logError(' getScorerGlobalStats failure ', obj);
       } else {
-        logError('unable to tweet reply failure: ', obj);
+        logError(' no name or postId to write to DB ', obj);
       }
     });
   }).catch(logError);
 }
 
-
-async function updateGlobalScores({
-    wordleNumber,
-    wordleScore,
-    solvedRow,
-    tweetId,
-    userId,
-    screenName,
-  }) {
-  const scoreObj = {
-    wordleNumber,
-    wordleScore,
-    solvedRow,
-    tweetId,
-    userId,
-    screenName,
-  };
-  GLOBAL_SCORE_HASH[userId] = scoreObj;
-  return await GlobalScoresDB.write(userId, scoreObj);
-}
-
-async function updateTopScores({name, score, solvedRow, userId, datetime, isGrowthTweet, wordleNumber}) {
-  /**
-   * Only allow one score per user
-   */
-  return await TopScoresDB.write(userId, {
-      name,
-      score,
-      solvedRow,
-      datetime,
-      autoScore: isGrowthTweet,
-      wordleNumber
-    });
+function replyToCommunityTweet(status, name, id) {
+  console.log('*** Attempting to quote tweet for community *** ');
+  T.post('statuses/update', { 
+    status: status, 
+    attachment_url: `https://twitter.com/${name.substring(1)}/status/${id}`
+  }, (err, reply) => {
+    if(err) {
+      logError(' failed to quote tweet ', err);
+    } else {
+      console.log(`Tweeted: ${reply.text} to ${reply.in_reply_to_status_id_str}`);
+    }
+  });
 }
 
 
 /**
- * Tweet reply with score/error if it hasn't been recently replied to
- * @param {Object[]} content
- * @param {string} content[].status - tweet text
- * @param {string} content[].id - reply id
- * @param {string} content[].name - tweet requester account name
- * @param {string} content[].scorerName - scorer account name
- * @param {number} content[].score - calculated score
- * @param {number} content[].solvedRow
- * @param {boolean} content[].isGrowthTweet
- * @param {string} content[].wordleNumber - wordle number
- * @param {string} content[].scorerPhoto - url to profile photo
- * @param {string} content[].scorerUserId - user id of scorer
+ * Handle post reply data saving
+ * @param {Object[]} analyzedTweet
+ * @param {string} analyzedTweet[].id - reply id
+ * @param {string} analyzedTweet[].name - tweet requester account name
+ * @param {string} analyzedTweet[].scorerName - scorer account name
+ * @param {number} analyzedTweet[].score - calculated score
+ * @param {number} analyzedTweet[].solvedRow
+ * @param {boolean} analyzedTweet[].autoScore
+ * @param {string} analyzedTweet[].wordleNumber - wordle number
+ * @param {number} analyzedTweet[].date_timestamp
+ * @param {Object[]} scorer
+ * @param {string} scorer[].scorerPhoto - url to profile photo
+ * @param {string} scorer[].scorerUserId - user id of scorer
+ * @param {string} scorer[].scorerName - scorer account name
  */
-function tweetIfNotRepliedTo({status, id, name, scorerName, score, solvedRow, isGrowthTweet, wordleNumber, scorerPhoto, scorerUserId}) {
-  if(!REPLY_HASH[id]) {
-    T.post('statuses/update', { 
-      status: status, 
-      in_reply_to_status_id: id, 
-      auto_populate_reply_metadata: true 
-    }, (err, reply) => {
-      REPLY_HASH[id] = true;
-        if (err) {
-          logError(err);
-          /**
-           * Hack for Twitter Communities (no API yet)
-           */
-          if(err.message === 'Reply to a community tweet must also be a community tweet') {
-            console.log('*** Attempting to quote tweet for community *** ');
-            T.post('statuses/update', { 
-              status: status, 
-              attachment_url: `https://twitter.com/${name.substring(1)}/status/${id}`
-            }, (err, data) => {
-              if(err) {
-                logError(' failed to quote tweet ', err);
-              }
-            });
-        }
-        logError('reply error: ', id, name, score, solvedRow, err);
-      } else {
-        console.log(`Tweeted: ${reply.text} to ${reply.in_reply_to_status_id_str}`);
-      }
+function handlePostCallback(analyzedTweet, scorer) {
 
-      let analyzedTweet = {
-        name: name,
-        scorerName,
-        score: score,
-        solvedRow: solvedRow,
-        autoScore: isGrowthTweet,
-        date_timestamp: Math.floor(Date.now() / 1000),
-        wordleNumber,
-        id
-      };
+  AnalyzedTweetsDB.write(analyzedTweet.id, analyzedTweet);
 
-      AnalyzedTweetsDB.write(id, analyzedTweet);
-
-      // Add users photo to the db
-      if(scorerPhoto && scorerUserId && !USERS_HASH[scorerUserId]) {
-        UsersDB.write(scorerUserId, {
-          user_id: scorerUserId,
-          screen_name: scorerName.substring(1),
-          photo: scorerPhoto
-        });
-      }
-
-      analyzedTweet.photoUrl = scorerPhoto || 'https://abs.twimg.com/sticky/default_profile_images/default_profile_normal.png';
-      
-      ALG_INDEX.saveObjects([analyzedTweet], { autoGenerateObjectIDIfNotExist: true })
-      .catch(logError);
-      
+  const { scorerPhoto, scorerUserId, scorerName } = scorer;
+  // Add users photo to the db
+  if(scorerPhoto && scorerName && scorerUserId) {
+    UsersDB.write(scorerUserId, {
+      user_id: scorerUserId,
+      screen_name: scorerName.substring(1),
+      photo: scorerPhoto
     });
+  }
+  
+  const algoliaObject = {
+    ...analyzedTweet,
+    photoUrl: scorerPhoto || 'https://abs.twimg.com/sticky/default_profile_images/default_profile_normal.png'
+  };
+  
+  if(!isDevelopment) {
+    ALG_INDEX.saveObjects([algoliaObject], { autoGenerateObjectIDIfNotExist: true })
+    .catch(logError);
   }
 }
 

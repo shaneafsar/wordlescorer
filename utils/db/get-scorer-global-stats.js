@@ -4,15 +4,24 @@ import getPercent from '../display/get-percent.js';
 const formatter = new Intl.NumberFormat().format;
 
 /**
- * Provides formatted text to inform how a particular game ranks based on solved row
- * TODO Fix JSDoc
- * @param {Object.{solvedRow: number, wordleNumber: number, date: Date}}
- * @returns {Promise.{wordlePrefix: string, aboveTotal: string}}
+ * Calculated result from wordle matrix
+ * @typedef {Object} GlobalStatsResult
+ * @property {string} wordlePrefix
+ * @property {string} aboveTotal
  */
-async function getScorerGlobalStats({solvedRow, wordleNumber, date}) {
+
+/**
+ * Provides formatted text to inform how a particular game ranks based on solved row
+ * @param {Object} input
+ * @param {number} input.solvedRow 
+ * @param {number} input.wordleNumber 
+ * @param {Date} input.date
+ * @returns {Promise<GlobalStatsResult>}
+ */
+async function getScorerGlobalStats({ solvedRow, wordleNumber, date }) {
   console.log(`*** getting scorers global stats... ***`);
   
- const globalStats = await getGlobalStats(date).catch((err)   => {
+  const globalStats = await getGlobalStats(date).catch((err)   => {
     console.error(err);
   });
   
@@ -22,7 +31,7 @@ async function getScorerGlobalStats({solvedRow, wordleNumber, date}) {
   
     const solvedRowCounts =  final[0].solvedRowCounts.slice(0);
     solvedRowCounts.push(final[0].solvedRowCounts[0]);
-    const globalStatsTotal = final[0].total;
+    //const globalStatsTotal = final[0].total;
   
     let aboveTotal = 0;
     if (solvedRow > 0 && solvedRow < 7) {
@@ -34,11 +43,10 @@ async function getScorerGlobalStats({solvedRow, wordleNumber, date}) {
     
     //let percentage = getPercent(scorer.aboveTotal, globalStatsTotal);
     const renderAboveTotal = aboveTotal > 1;
-    aboveTotal = formatter(aboveTotal);
     
     return {
       wordlePrefix: `Wordle #${wordleNumber}`,
-      aboveTotal: renderAboveTotal ? `Solved above ${aboveTotal} others so far today!` : ''
+      aboveTotal: renderAboveTotal ? `Solved above ${formatter(aboveTotal)} others so far today!` : ''
     };
   }
   return {
