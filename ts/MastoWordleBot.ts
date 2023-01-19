@@ -11,8 +11,11 @@ import { getSentenceSuffix } from '../utils/display/get-sentence-suffix.js';
 import logError from '../utils/debug/log-error.js';
 import type { SearchIndex } from 'algoliasearch';
 import { JSDOM } from 'jsdom';
+import logConsole from '../utils/debug/log-console.js';
 
+//FINAL TODOs: add env variables to prevent write, compile, npm start
 
+const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
 const SINCE_ID = 'since_id';
 
 interface ProccessOptions {
@@ -29,7 +32,7 @@ interface GlobalScore {
   wordleNumber?: number;
   wordleScore?: number;
   solvedRow?: number;
-  postId?: string;
+  url?: string;
   userId?: string;
   screenName?: string;
   source: WordleSource
@@ -65,10 +68,6 @@ interface AuthorInfo {
   screenName: string;
   photo: string;
 }
-
-//FINAL TODOs: add env variables to prevent write, compile, npm start
-
-const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
 
 function getAltTextList(medias: Attachment[]): string[] {
   return medias.map(media => {
@@ -247,12 +246,12 @@ export default class MastoWordleBot {
     const isSameDay = checkIsSameDay(createdAtDate);  
 
      const scoreObj:GlobalScore = {
+       screenName,
        wordleNumber,
        wordleScore,
        solvedRow,
-       postId,
+       url,
        userId,
-       screenName,
        source: WordleSource.Mastodon
      };
 
@@ -265,12 +264,13 @@ export default class MastoWordleBot {
      if(isSameDay) {
        this.topScores.write(userId, {
            screenName,
+           wordleNumber,
            score: wordleScore,
            solvedRow,
            datetime: createdAtMs,
            autoScore: isGrowth,
-           wordleNumber,
-           url
+           url,
+           source: WordleSource.Mastodon
        });
      }
   }
@@ -284,11 +284,14 @@ export default class MastoWordleBot {
       const { wordlePrefix, aboveTotal } = await getScorerGlobalStats({solvedRow, wordleNumber, date: new Date()});
       const status = this.buildStatus(screenName, wordlePrefix, wordleScore, solvedRow, aboveTotal, isGrowth);
 
-      await this.masto.statuses.create({ 
-        status,
-        inReplyToId: postId 
-      });
-
+      if(!IS_DEVELOPMENT) {
+        await this.masto.statuses.create({ 
+          status,
+          inReplyToId: postId 
+        });
+      } else {
+        logConsole(`Mastodon reply to ${postId}: ${status}`);
+      }
 
     } catch(e) {
         logError('failed to get globalScorerGlobalStats & reply | ', e);
@@ -315,7 +318,7 @@ export default class MastoWordleBot {
     this.userGrowth.write(userId, { lastCheckTime: Date.now()});
 
     /**
-     * Bail early if this tweet has been processed or is 
+     * Bail early if this post has been processed or is 
      * processing.
      */  
     if(this.analyzedPosts.readSync(postId) || this.PROCESSING.has(postId)) {

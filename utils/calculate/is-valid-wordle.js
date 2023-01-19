@@ -6,7 +6,7 @@
  * @returns {Boolean} true if array is a valid Wordle game
  */
 function isValidWordle(wordle, wordleNumber, solvedRow) {
-  
+
   if (wordle.length === 0 || wordle.length % 5 !== 0) {
     return false;
   }
@@ -15,7 +15,7 @@ function isValidWordle(wordle, wordleNumber, solvedRow) {
     return false;
   }
 
-  if(Number.isInteger(solvedRow)) {
+  if(typeof solvedRow !== 'undefined' && Number.isInteger(solvedRow)) {
     return solvedRow < 7;
   }
   return true;

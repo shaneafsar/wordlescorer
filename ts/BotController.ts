@@ -17,6 +17,7 @@ import logError from '../utils/debug/log-error.js';
 import getTopScorerInfo from '../utils/db/get-top-scorer-info.js';
 import { getFormattedDate } from '../utils/display/get-formatted-date.js';
 import { getCompliment } from '../utils/display/get-compliment';
+import logConsole from '../utils/debug/log-console';
 
 const TWIT_CONFIG = {
     consumer_key: process.env['consumer_key'],
@@ -33,6 +34,8 @@ const TWITTER_OAUTH_V1: TwitterApiTokens = {
 };
 
 const TWITTER_OAUTH_V2: string = process.env['bearer_token'] || '';
+
+const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
 
 const ALGOLIA_AUTH = {
     appId: process.env['algolia_app_id'] || '', 
@@ -70,11 +73,19 @@ export default class BotController {
 
     async buildBots() {
         try {
-            this.TWordleBot = await this.initTwitterBot();
-            this.TWordleBot.initialize();
+            const [TWordleBot, MWordleBot] = await Promise.all([
+                this.initTwitterBot(),
+                this.initMastoBot()
+            ]);
+
+            this.TWordleBot = TWordleBot;
+            this.MWordleBot = MWordleBot;
+
+            await this.TWordleBot.initialize();
             console.log('*** Initialized Twitter Bot ***');
 
-            this.MWordleBot = await this.initMastoBot();
+
+            await this.MWordleBot.initialize();
             console.log('*** Initialized Mastodon Bot ***');
 
         } catch (e) {
@@ -94,13 +105,16 @@ export default class BotController {
             // Wait one minute between posts
             const timeoutVal = 60000 * (index + 1);
             setTimeout(async () => {
-                const [tResult, mResult] = await Promise.all([
-                    this.TOAuthV1Client.v2.tweet(item),
-                    this.MClient.statuses.create({ status: item })
-                ]);      
-                console.log(tResult);
-                console.log(mResult);
-                
+                if(!IS_DEVELOPMENT) {
+                    const [tResult, mResult] = await Promise.all([
+                        this.TOAuthV1Client.v2.tweet(item),
+                        this.MClient?.statuses.create({ status: item })
+                    ]);      
+                    logConsole('Global tweet result: ', tResult);
+                    logConsole('Global masto result: ', mResult);
+                } else {
+                    logConsole('Global devmode result: ', item);
+                }
             }, timeoutVal);
         });
         
@@ -108,16 +122,20 @@ export default class BotController {
         setDelayedFunction(this.postGlobalStats.bind(this));
     }
 
+
     async postDailyTopScore(date: Date) {
         const scorer = await getTopScorerInfo(date);
-        let scorerText = '';
         
-        if(scorer) {
-          scorerText = `${scorer.name}! They scored ${scorer.score} points for Wordle ${scorer.wordleNumber} and solved it on row ${scorer.solvedRow}! That's better than ${scorer.aboveTotal} (~${scorer.percentage}) other users. ${getCompliment()}`;
-          const finalStatus = `The top scorer for ${getFormattedDate(date)} is: ${scorerText}`;
+        if (scorer) {
+            const scorerText = `${scorer.screenName}! They scored ${scorer.score} points for Wordle ${scorer.wordleNumber} and solved it on row ${scorer.solvedRow}! That's better than ${scorer.aboveTotal} (~${scorer.percentage}) other users. ${getCompliment()}`;
+            const finalStatus = `The top scorer for ${getFormattedDate(date)} is: ${scorerText}`;
 
-          this.TOAuthV1Client.v2.tweet(finalStatus);
-          this.MClient.statuses.create({ status: finalStatus });
+            if(!IS_DEVELOPMENT) {
+                this.TOAuthV1Client.v2.tweet(finalStatus);
+                this.MClient?.statuses.create({ status: finalStatus });
+            } else {
+                logConsole(`Daily top score post | ${finalStatus} | Scorer: ${scorer}`);
+            }
         }
 
         // Run again for tomorrow!
