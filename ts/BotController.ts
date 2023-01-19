@@ -1,6 +1,6 @@
 import algoliasearch, { SearchIndex } from 'algoliasearch';
-import TwitterWordleBot from "./TwitterWordleBot";
-import MastoWordleBot from './MastoWordleBot';
+import TwitterWordleBot from "./bots/TwitterWordleBot";
+import MastoWordleBot from './bots/MastoWordleBot';
 import type { MastoClient } from 'masto';
 import getGlobalScoreDB from '../utils/db/get-global-score-DB.js';
 import getTopScoreDB from '../utils/db/get-top-score-DB.js';
@@ -71,7 +71,13 @@ export default class BotController {
         this.WordleSearchIndex = algSearchInst.initIndex('analyzedwordles');
     }
 
-    async buildBots() {
+    static async initialize():Promise<BotController> {
+        const botController = new BotController();
+        await botController.buildBots();
+        return botController;
+    }
+
+    private async buildBots() {
         try {
             const [TWordleBot, MWordleBot] = await Promise.all([
                 this.initTwitterBot(),

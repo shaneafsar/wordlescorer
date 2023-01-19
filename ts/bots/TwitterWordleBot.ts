@@ -1,4 +1,4 @@
-import type WordleData from '../WordleData.js';
+import type WordleData from '../../WordleData.js';
 import type { SearchIndex } from 'algoliasearch';
 import { 
     ETwitterStreamEvent, 
@@ -15,17 +15,17 @@ import {
     ReferencedTweetV2,
     TweetV1
 } from 'twitter-api-v2';
-import { calculateScoreFromWordleMatrix } from '../utils/calculate/calculate-score-from-wordle-matrix.js';
-import { getSolvedRow } from '../utils/calculate/get-solved-row.js';
-import isValidWordle from '../utils/calculate/is-valid-wordle.js';
-import { getWordleNumberFromList } from '../utils/extract/get-wordle-number-from-text.js';
-import getWordleMatrixFromList from '../utils/extract/get-wordle-matrix-from-list.js';
-import checkIsSameDay from '../utils/is-same-day.js';
-import getScorerGlobalStats from '../utils/db/get-scorer-global-stats.js';
-import { getCompliment } from '../utils/display/get-compliment.js';
-import { getSentenceSuffix } from '../utils/display/get-sentence-suffix.js';
-import logError from '../utils/debug/log-error.js';
-import logConsole from '../utils/debug/log-console.js';
+import { calculateScoreFromWordleMatrix } from '../../utils/calculate/calculate-score-from-wordle-matrix.js';
+import { getSolvedRow } from '../../utils/calculate/get-solved-row.js';
+import isValidWordle from '../../utils/calculate/is-valid-wordle.js';
+import { getWordleNumberFromList } from '../../utils/extract/get-wordle-number-from-text.js';
+import getWordleMatrixFromList from '../../utils/extract/get-wordle-matrix-from-list.js';
+import checkIsSameDay from '../../utils/is-same-day.js';
+import getScorerGlobalStats from '../../utils/db/get-scorer-global-stats.js';
+import { getCompliment } from '../../utils/display/get-compliment.js';
+import { getSentenceSuffix } from '../../utils/display/get-sentence-suffix.js';
+import logError from '../../utils/debug/log-error.js';
+import logConsole from '../../utils/debug/log-console.js';
 
 const WORDLE_BOT_ID = '1422211304996155393';
 const WORDLE_BOT_HANDLE = '@ScoreMyWordle';
