@@ -1,17 +1,17 @@
 import type { Attachment, MastoClient, Notification, Status } from 'masto';
-import isValidWordle from '../utils/calculate/is-valid-wordle.js';
-import { getSolvedRow } from '../utils/calculate/get-solved-row.js';
-import { getWordleNumberFromList } from '../utils/extract/get-wordle-number-from-text.js';
-import { calculateScoreFromWordleMatrix } from '../utils/calculate/calculate-score-from-wordle-matrix.js';
-import type WordleData from '../WordleData.js';
-import checkIsSameDay from '../utils/is-same-day.js';
-import getWordleMatrixFromList from '../utils/extract/get-wordle-matrix-from-list.js';
-import getScorerGlobalStats from '../utils/db/get-scorer-global-stats.js';
-import { getSentenceSuffix } from '../utils/display/get-sentence-suffix.js';
-import logError from '../utils/debug/log-error.js';
+import isValidWordle from '../../utils/calculate/is-valid-wordle.js';
+import { getSolvedRow } from '../../utils/calculate/get-solved-row.js';
+import { getWordleNumberFromList } from '../../utils/extract/get-wordle-number-from-text.js';
+import { calculateScoreFromWordleMatrix } from '../../utils/calculate/calculate-score-from-wordle-matrix.js';
+import type WordleData from '../../WordleData.js';
+import checkIsSameDay from '../../utils/is-same-day.js';
+import getWordleMatrixFromList from '../../utils/extract/get-wordle-matrix-from-list.js';
+import getScorerGlobalStats from '../../utils/db/get-scorer-global-stats.js';
+import { getSentenceSuffix } from '../../utils/display/get-sentence-suffix.js';
+import logError from '../../utils/debug/log-error.js';
 import type { SearchIndex } from 'algoliasearch';
 import { JSDOM } from 'jsdom';
-import logConsole from '../utils/debug/log-console.js';
+import logConsole from '../../utils/debug/log-console.js';
 
 //FINAL TODOs: add env variables to prevent write, compile, npm start
 
@@ -44,7 +44,7 @@ interface AlgoliaIndexObject {
   solvedRow: number;
   wordleNumber: number;
   date_timestamp: number;
-  id: string;
+  url: string;
   autoScore: boolean;
   scorerName: string;
   photoUrl: string;
@@ -110,6 +110,8 @@ export default class MastoWordleBot {
       this.masto.stream.streamUser(), 
       this.masto.stream.streamTagTimeline('Wordle')
     ]);
+  
+    await this.processRecentMentions();
 
     // Add handlers
     tagTimeline.on('update', this.handleUpdate);
@@ -151,7 +153,7 @@ export default class MastoWordleBot {
     const wordleMatrix = getWordleMatrixFromList(listOfContent);
     const userId = status.account.acct; //status.account.id;
     const screenName = '@' + status.account.acct;
-    const postId = status.id;
+    const url = status.url || '';
     const wordleNumber = getWordleNumberFromList(listOfContent);
     const solvedRow = getSolvedRow(wordleMatrix);
 
@@ -163,7 +165,7 @@ export default class MastoWordleBot {
         wordleNumber,
         wordleScore,
         solvedRow,
-        postId,
+        url,
         userId,
         screenName,
         source: WordleSource.Mastodon
@@ -213,7 +215,7 @@ export default class MastoWordleBot {
         solvedRow,
         wordleNumber,
         date_timestamp: Math.floor(Date.now() / 1000),
-        id: url,
+        url,
         autoScore: isGrowth,
         scorerName: screenName,
         source: WordleSource.Mastodon
@@ -238,7 +240,7 @@ export default class MastoWordleBot {
   private async writeScoresToDB(
     { wordleScore, wordleNumber, solvedRow} : WordleInfo,
     { userId, screenName } : AuthorInfo,
-    { postId, url, createdAt }: PostInfo,
+    { url, createdAt }: PostInfo,
     { isGrowth }: ProccessOptions) {
 
     const createdAtDate = new Date(createdAt);

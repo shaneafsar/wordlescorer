@@ -7,7 +7,7 @@
   "scripts": {
     "test": "main.js",
     "start": "nodemon -x 'node main.js || touch main.js'",
-    "local": "NODE_ENV=develop nodemon main.js",
+    "local": "NODE_ENV=develop nodemon dist/main.js",
     "replit": "nodemon main.js"
   },
   "repository": {
