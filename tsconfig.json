@@ -1,10 +1,10 @@
 {
     "extends": "@tsconfig/node18-strictest-esm",
+    "include": ["ts/**/*"],
     "compilerOptions": {
       "lib": [
          "esnext.asynciterable"
        ],
-    },
-    "rootDir": "ts/",
-    "outDir": "dist/"
+       "outDir": "dist/"
+    }
 }

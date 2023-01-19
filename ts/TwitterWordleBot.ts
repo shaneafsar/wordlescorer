@@ -25,6 +25,7 @@ import getScorerGlobalStats from '../utils/db/get-scorer-global-stats.js';
 import { getCompliment } from '../utils/display/get-compliment.js';
 import { getSentenceSuffix } from '../utils/display/get-sentence-suffix.js';
 import logError from '../utils/debug/log-error.js';
+import logConsole from '../utils/debug/log-console.js';
 
 const WORDLE_BOT_ID = '1422211304996155393';
 const WORDLE_BOT_HANDLE = '@ScoreMyWordle';
@@ -430,21 +431,25 @@ export default class TwitterWordleBot {
      * @param id {string} id of tweet to reply or quote tweet (if a community tweet)
      */
     private sendReply(status: string, id: string) {
-        this.TOauth1.v2.reply(status, id).then(result => {
-            console.log(`Tweeted: ${result.data.text} to ${result.data.id}`);
-        }).catch((e) => {
-            logError('TOauth1.v2.reply error | ', e);
-            if(e.data?.detail === 'You are not permitted to create a non Community Tweet in reply to a Community Tweet.' ||
-                e.data?.detail === 'Reply to a community tweet must also be a community tweet') {
-                    
-                this.TOauth1.v2.quote(status, id).then(quoteResult => {
-                    console.log(`Quoted: ${quoteResult.data.text} to ${quoteResult.data.id}`);
-                }).catch((quoteError) => {
-                    logError('TOauth1.v2.quote error | ', quoteError);
-                });
+        if(!IS_DEVELOPMENT) {
+            this.TOauth1.v2.reply(status, id).then(result => {
+                console.log(`Tweeted: ${result.data.text} to ${result.data.id}`);
+            }).catch((e) => {
+                logError('TOauth1.v2.reply error | ', e);
+                if(e.data?.detail === 'You are not permitted to create a non Community Tweet in reply to a Community Tweet.' ||
+                    e.data?.detail === 'Reply to a community tweet must also be a community tweet') {
+                        
+                    this.TOauth1.v2.quote(status, id).then(quoteResult => {
+                        console.log(`Quoted: ${quoteResult.data.text} to ${quoteResult.data.id}`);
+                    }).catch((quoteError) => {
+                        logError('TOauth1.v2.quote error | ', quoteError);
+                    });
 
-            }
-        });
+                }
+            });
+        } else {
+            logConsole(`Would have tweeted: ${status} to ${id}`);
+        }
     }
 
     private addToIndex(objectToIndex: AlgoliaIndexObject) {

@@ -1,6 +1,6 @@
 /**
  * 1. This function takes an argument called delayedFunc
- * 2. It then creates a new Date object called finalTime, and sets the time to 24 hours from now
+ * 2. It then creates a new Date object called finalTime, and sets the time to the top of the next day
  * 3. Then it creates a new Date object called currentDate, and gets the current time in milliseconds
  * 4. Then it logs a message to the console that says how many hours until the final score
  * @param {function} delayedFunc 
