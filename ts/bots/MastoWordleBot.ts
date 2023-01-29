@@ -1,32 +1,30 @@
-import type { Attachment, MastoClient, Notification, Status } from 'masto';
-import isValidWordle from '../../utils/calculate/is-valid-wordle.js';
-import { getSolvedRow } from '../../utils/calculate/get-solved-row.js';
-import { getWordleNumberFromList } from '../../utils/extract/get-wordle-number-from-text.js';
-import { calculateScoreFromWordleMatrix } from '../../utils/calculate/calculate-score-from-wordle-matrix.js';
-import type WordleData from '../../WordleData.js';
-import checkIsSameDay from '../../utils/is-same-day.js';
-import getWordleMatrixFromList from '../../utils/extract/get-wordle-matrix-from-list.js';
-import getScorerGlobalStats from '../../utils/db/get-scorer-global-stats.js';
-import { getSentenceSuffix } from '../../utils/display/get-sentence-suffix.js';
-import logError from '../../utils/debug/log-error.js';
+import type { mastodon } from 'masto';
+import isValidWordle from '../../js/calculate/is-valid-wordle.js';
+import { getSolvedRow } from '../../js/calculate/get-solved-row.js';
+import { getWordleNumberFromList } from '../../js/extract/get-wordle-number-from-text.js';
+import { calculateScoreFromWordleMatrix } from '../../js/calculate/calculate-score-from-wordle-matrix.js';
+import type WordleData from '../../js/WordleData.js';
+import checkIsSameDay from '../../js/is-same-day.js';
+import getWordleMatrixFromList from '../../js/extract/get-wordle-matrix-from-list.js';
+import getScorerGlobalStats from '../../js/db/get-scorer-global-stats.js';
+import { getSentenceSuffix } from '../../js/display/get-sentence-suffix.js';
+import logError from '../../js/debug/log-error.js';
 import type { SearchIndex } from 'algoliasearch';
+import WordleSource from '../enum/WordleSource.js';
 import { JSDOM } from 'jsdom';
-import logConsole from '../../utils/debug/log-console.js';
+import logConsole from '../../js/debug/log-console.js';
+import { getCompliment } from '../../js/display/get-compliment.js';
 
 //FINAL TODOs: add env variables to prevent write, compile, npm start
 
 const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
+const ALLOW_LIST = new Set<String>(['@shaneafsar@mastodon.online', '@bbhart@noc.social']);
 const SINCE_ID = 'since_id';
 
 interface ProccessOptions {
   isGrowth: boolean;
   isParent: boolean;
 };
-
-enum WordleSource {
-  Twitter = 'twitter',
-  Mastodon = 'mastodon'
-}
 
 interface GlobalScore {
   wordleNumber?: number;
@@ -69,14 +67,14 @@ interface AuthorInfo {
   photo: string;
 }
 
-function getAltTextList(medias: Attachment[]): string[] {
+function getAltTextList(medias: mastodon.v1.MediaAttachment[]): string[] {
   return medias.map(media => {
       return media.description || '';
   })
 }
 
 export default class MastoWordleBot {
-  private masto: MastoClient;
+  private masto: mastodon.Client;
   private AlgoliaIndex: SearchIndex;
   private globalScores: WordleData;
   private userGrowth: WordleData;
@@ -87,7 +85,7 @@ export default class MastoWordleBot {
 
   private PROCESSING: Set<String> = new Set<String>();
 
-  constructor(masto: MastoClient,
+  constructor(masto: mastodon.Client,
     algoliaIndex: SearchIndex, 
     globalScores: WordleData, 
     topScores: WordleData,
@@ -107,15 +105,15 @@ export default class MastoWordleBot {
 
   async initialize() {
     const [userTimeline, tagTimeline] = await Promise.all([
-      this.masto.stream.streamUser(), 
-      this.masto.stream.streamTagTimeline('Wordle')
+      this.masto.v1.stream.streamUser(), 
+      this.masto.v1.stream.streamTagTimeline('Wordle')
     ]);
   
     await this.processRecentMentions();
 
     // Add handlers
-    tagTimeline.on('update', this.handleUpdate);
-    userTimeline.on('notification', this.handleNotification);
+    tagTimeline.on('update', this.handleUpdate.bind(this));
+    userTimeline.on('notification', this.handleNotification.bind(this));
 
   }
 
@@ -124,17 +122,19 @@ export default class MastoWordleBot {
    * Useful for cold starts or catching up after (un)expected downtime.
    */
   private async processRecentMentions() {
-    const lastNotifId = this.lastMention.readSync(SINCE_ID) as string || null;
-    const notifs = await this.masto.notifications.fetchMany({ limit: 100, sinceId: lastNotifId });
-    while(!notifs.done) {
-      for(const notif of notifs.value) {
-        // If newer, then save as last mention id.
-        if(lastNotifId !== null && notif.id.localeCompare(lastNotifId) > 0){
-          this.lastMention.write(SINCE_ID, notif.id);
-        }
-        if(notif.type === 'mention' && notif.status !== null && notif.status !== undefined) {
-          this.processPost(notif.status, {isGrowth: false, isParent: false});
-        }
+    let lastNotifId = this.lastMention.readSync(SINCE_ID) as string || null;
+    const notifs = await this.masto.v1.notifications.list({ limit: 100, sinceId: lastNotifId });
+
+    for(const notif of notifs) {
+      // If newer, then save as last mention id. iF non existent, then add it.
+      if(lastNotifId !== null && notif.id.localeCompare(lastNotifId) > 0){
+        this.lastMention.write(SINCE_ID, notif.id);
+      } else if (!lastNotifId) {
+        lastNotifId = notif.id;
+        this.lastMention.write(SINCE_ID, notif.id);
+      }
+      if(notif.type === 'mention' && notif.status !== null && notif.status !== undefined) {
+        this.processPost(notif.status, {isGrowth: false, isParent: false});
       }
     }
   }
@@ -142,46 +142,61 @@ export default class MastoWordleBot {
   /**
    * Saves valid wordle results into daily global 
    * Per sever rules, no random "growth" related replies will be made here like
-   * in the twitter version of the bot
+   * in the twitter version of the bot. This will only reply if the bot is followed explicitly
+   * by the hashtagged update.
    * @param status received status from stream
    */
-  private async handleUpdate(status: Status) {
+  private async handleUpdate(status: mastodon.v1.Status) {
 
-    const textContent = this.getWordleText(status.content) || '';
-    const altTexts = getAltTextList(status.mediaAttachments);
-    const listOfContent = [textContent, ...altTexts];
-    const wordleMatrix = getWordleMatrixFromList(listOfContent);
-    const userId = status.account.acct; //status.account.id;
-    const screenName = '@' + status.account.acct;
-    const url = status.url || '';
-    const wordleNumber = getWordleNumberFromList(listOfContent);
-    const solvedRow = getSolvedRow(wordleMatrix);
+    const relationships = await this.masto.v1.accounts.fetchRelationships([status.account.id]);
+    // There should only ever be 1 here, but api returns as array
+    let isFollowingBot = relationships[0]?.followedBy || false;
+  
+    if(isFollowingBot) {
 
-    if (isValidWordle(wordleMatrix, wordleNumber, solvedRow)) {
+      this.processPost(status, {isGrowth: false, isParent: false});
 
-      const wordleScore = calculateScoreFromWordleMatrix(wordleMatrix).finalScore;
+    } else {
 
-      const scoreObj:GlobalScore = {
-        wordleNumber,
-        wordleScore,
-        solvedRow,
-        url,
-        userId,
-        screenName,
-        source: WordleSource.Mastodon
-      };
+      const textContent = this.getWordleText(status.content) || '';
+      const altTexts = getAltTextList(status.mediaAttachments);
+      const listOfContent = [textContent, ...altTexts];
+      const wordleMatrix = getWordleMatrixFromList(listOfContent);
+      const userId = status.account.acct; //status.account.id;
+      const screenName = '@' + status.account.acct;
+      const url = status.url || '';
+      const wordleNumber = getWordleNumberFromList(listOfContent);
+      const solvedRow = getSolvedRow(wordleMatrix);
 
-      this.globalScores.write(userId, scoreObj);
+    
+
+      if (isValidWordle(wordleMatrix, wordleNumber, solvedRow)) {
+
+        const wordleScore = calculateScoreFromWordleMatrix(wordleMatrix).finalScore;
+
+        const scoreObj:GlobalScore = {
+          wordleNumber,
+          wordleScore,
+          solvedRow,
+          url,
+          userId,
+          screenName,
+          source: WordleSource.Mastodon
+        };
+
+        this.globalScores.write(userId, scoreObj);
+      }
     }
   }
 
-  private async handleNotification(notification: Notification) {
+  private async handleNotification(notification: mastodon.v1.Notification) {
     if(notification.type === 'follow') {
       //await this.masto.accounts.follow(notification.account.id);
     }
 
     if (notification.type === 'mention' && notification.status) {
       this.lastMention.write(SINCE_ID, notification.id);
+
       this.processPost(notification.status, { isGrowth: false, isParent: false});
     }
   }
@@ -207,7 +222,7 @@ export default class MastoWordleBot {
   private async addToIndices(
     { wordleScore, wordleNumber, solvedRow } : WordleInfo,
     { userId, screenName, photo } : AuthorInfo,
-    { url }: PostInfo,
+    { url, postId }: PostInfo,
     { isGrowth }: ProccessOptions) {
 
     const analyzedPost = {
@@ -221,7 +236,7 @@ export default class MastoWordleBot {
         source: WordleSource.Mastodon
     };
 
-    await this.analyzedPosts.write(url, analyzedPost);
+    await this.analyzedPosts.write(postId, analyzedPost);
 
     if(photo && userId) {
         this.users.write(userId, {
@@ -283,26 +298,27 @@ export default class MastoWordleBot {
     { postId }: PostInfo,
     { isGrowth }: ProccessOptions) {
     try {
-      const { wordlePrefix, aboveTotal } = await getScorerGlobalStats({solvedRow, wordleNumber, date: new Date()});
+      const { wordlePrefix, aboveTotal } = await getScorerGlobalStats({solvedRow, wordleNumber, date: new Date()}, this.globalScores);
       const status = this.buildStatus(screenName, wordlePrefix, wordleScore, solvedRow, aboveTotal, isGrowth);
 
-      if(!IS_DEVELOPMENT) {
-        await this.masto.statuses.create({ 
+      const shouldPostRealStatus = !IS_DEVELOPMENT || (IS_DEVELOPMENT && ALLOW_LIST.has(screenName));
+
+      if(shouldPostRealStatus) {
+        await this.masto.v1.statuses.create({ 
           status,
           inReplyToId: postId 
         });
-      } else {
-        logConsole(`Mastodon reply to ${postId}: ${status}`);
       }
+      logConsole(`MastoBot | ${IS_DEVELOPMENT ? 'DEVMODE' : ''} reply to ${postId}: ${status}`);
 
     } catch(e) {
-        logError('failed to get globalScorerGlobalStats & reply | ', e);
+        logError('MastoBot | failed to get globalScorerGlobalStats & reply | ', e);
     } finally {
         this.PROCESSING.delete(postId);
     }
   }
 
-  private async processPost(status: Status, options: ProccessOptions) {
+  private async processPost(status: mastodon.v1.Status, options: ProccessOptions) {
     const { isGrowth, isParent } = options;
     const url = status.url || '';
     const textContent = this.getWordleText(status.content) || '';
@@ -363,7 +379,7 @@ export default class MastoWordleBot {
       !this.PROCESSING.has(parentId)) {
         
       try {
-        const context = await this.masto.statuses.fetchContext(status.id);
+        const context = await this.masto.v1.statuses.fetchContext(status.id);
         if(context.ancestors.length > 0) {
           this.processPost(context.ancestors.pop()!, { isGrowth: false, isParent: true});
         } else {

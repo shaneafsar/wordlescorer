@@ -1,23 +1,30 @@
 import algoliasearch, { SearchIndex } from 'algoliasearch';
-import TwitterWordleBot from "./bots/TwitterWordleBot";
-import MastoWordleBot from './bots/MastoWordleBot';
-import type { MastoClient } from 'masto';
-import getGlobalScoreDB from '../utils/db/get-global-score-DB.js';
-import getTopScoreDB from '../utils/db/get-top-score-DB.js';
-import { setDelayedFunction } from '../utils/set-delayed-function.js';
-import WordleData from "../WordleData.js";
+import TwitterWordleBot from "./bots/TwitterWordleBot.js";
+import MastoWordleBot from './bots/MastoWordleBot.js';
+import type { mastodon } from 'masto';
+import getGlobalScoreDB from '../js/db/get-global-score-DB.js';
+import getTopScoreDB from '../js/db/get-top-score-DB.js';
+import { setDelayedFunction } from '../js/set-delayed-function.js';
+import WordleData from "../js/WordleData.js";
 import { 
     TwitterApi, 
     TwitterApiTokens 
 } from "twitter-api-v2";
 import { login } from 'masto';
-import getGlobalStats from '../utils/db/get-global-stats.js';
-import getFormattedGlobalStats from '../utils/display/get-formatted-global-stats.js';
-import logError from '../utils/debug/log-error.js';
-import getTopScorerInfo from '../utils/db/get-top-scorer-info.js';
-import { getFormattedDate } from '../utils/display/get-formatted-date.js';
-import { getCompliment } from '../utils/display/get-compliment';
-import logConsole from '../utils/debug/log-console';
+import getGlobalStats from '../js/db/get-global-stats.js';
+import getFormattedGlobalStats from '../js/display/get-formatted-global-stats.js';
+import logError from '../js/debug/log-error.js';
+import getTopScorerInfo from '../js/db/get-top-scorer-info.js';
+import { getFormattedDate } from '../js/display/get-formatted-date.js';
+import { getCompliment } from '../js/display/get-compliment.js';
+import logConsole from '../js/debug/log-console.js';
+import dotenv  from 'dotenv';
+
+const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
+
+if (IS_DEVELOPMENT) {
+    dotenv.config();
+};
 
 const TWIT_CONFIG = {
     consumer_key: process.env['consumer_key'],
@@ -35,7 +42,7 @@ const TWITTER_OAUTH_V1: TwitterApiTokens = {
 
 const TWITTER_OAUTH_V2: string = process.env['bearer_token'] || '';
 
-const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
+
 
 const ALGOLIA_AUTH = {
     appId: process.env['algolia_app_id'] || '', 
@@ -47,15 +54,17 @@ const MASTO_AUTH = {
     accessToken: process.env['MASTO_ACCESS_TOKEN'] || ''
 };
 
+const ENABLE_TWITTER_BOT = false;
+
 
 export default class BotController {
-    private GlobalScores: WordleData = getGlobalScoreDB();
-    private TopScores: WordleData = getTopScoreDB();
+    private GlobalScores: WordleData;
+    private TopScores: WordleData;
 
     private TOAuthV1Client: TwitterApi;
     private TOAuthV2Client: TwitterApi;
 
-    private MClient: MastoClient | undefined;
+    private MClient: mastodon.Client | undefined;
 
     private WordleSearchIndex: SearchIndex;
 
@@ -67,14 +76,25 @@ export default class BotController {
         this.TOAuthV1Client = new TwitterApi(TWITTER_OAUTH_V1);
         this.TOAuthV2Client = new TwitterApi(TWITTER_OAUTH_V2);
 
+        this.GlobalScores = getGlobalScoreDB();
+        this.TopScores = getTopScoreDB();
+
         const algSearchInst = algoliasearch(ALGOLIA_AUTH.appId, ALGOLIA_AUTH.adminKey);
         this.WordleSearchIndex = algSearchInst.initIndex('analyzedwordles');
     }
 
     static async initialize():Promise<BotController> {
         const botController = new BotController();
+        await botController.loadScoreData();
         await botController.buildBots();
+        setDelayedFunction(botController.postDailyTopScore.bind(botController));
+        setDelayedFunction(botController.postGlobalStats.bind(botController));
         return botController;
+    }
+
+    private async loadScoreData() {
+        await this.GlobalScores.loadData();
+        await this.TopScores.loadData();
     }
 
     private async buildBots() {
@@ -87,12 +107,14 @@ export default class BotController {
             this.TWordleBot = TWordleBot;
             this.MWordleBot = MWordleBot;
 
-            await this.TWordleBot.initialize();
-            console.log('*** Initialized Twitter Bot ***');
+            if(ENABLE_TWITTER_BOT) {
+                await this.TWordleBot.initialize();
+                console.log('*** BotController:  Initialized Twitter Bot ***');
+            }
 
 
             await this.MWordleBot.initialize();
-            console.log('*** Initialized Mastodon Bot ***');
+            console.log('*** BotController:  Initialized Mastodon Bot ***');
 
         } catch (e) {
             logError('Error initializing twitter & mastodon bots | ', e);
@@ -100,8 +122,10 @@ export default class BotController {
     }
 
     private reloadGlobalScores() {
+        console.log('*** BotController: reloadGlobalScores');
         this.GlobalScores = getGlobalScoreDB();
         this.TopScores = getTopScoreDB();
+        this.loadScoreData();
     }
 
     async postGlobalStats(date: Date) {
@@ -114,12 +138,12 @@ export default class BotController {
                 if(!IS_DEVELOPMENT) {
                     const [tResult, mResult] = await Promise.all([
                         this.TOAuthV1Client.v2.tweet(item),
-                        this.MClient?.statuses.create({ status: item })
+                        this.MClient?.v1.statuses.create({ status: item })
                     ]);      
-                    logConsole('Global tweet result: ', tResult);
-                    logConsole('Global masto result: ', mResult);
+                    logConsole('postGlobalStats tweet result: ', tResult);
+                    logConsole('postGlobalStats masto result: ', mResult);
                 } else {
-                    logConsole('Global devmode result: ', item);
+                    logConsole('postGlobalStats DEVMODE result: ', item);
                 }
             }, timeoutVal);
         });
@@ -133,15 +157,22 @@ export default class BotController {
         const scorer = await getTopScorerInfo(date);
         
         if (scorer) {
-            const scorerText = `${scorer.screenName}! They scored ${scorer.score} points for Wordle ${scorer.wordleNumber} and solved it on row ${scorer.solvedRow}! That's better than ${scorer.aboveTotal} (~${scorer.percentage}) other users. ${getCompliment()}`;
-            const finalStatus = `The top scorer for ${getFormattedDate(date)} is: ${scorerText}`;
+            const formattedDate = getFormattedDate(date);
+            const scorerAppend = `They scored ${scorer.score} points for Wordle ${scorer.wordleNumber} and solved it on row ${scorer.solvedRow}! That's better than ${scorer.aboveTotal} (~${scorer.percentage}) other users. ${getCompliment()}`;
+            const scorerNameOnly = `${scorer.screenName}!`;
+            const finalStatus = `The top scorer for ${formattedDate} is: ${scorerNameOnly} ${scorerAppend}`;
+
+            // Send a separate status for mastodon. 
+            // If the winner is from twitter, need to append @twitter.com to the username.
+            const mastodonStatus = scorer.source !== 'mastodon' ? 
+            `The top scorer for ${formattedDate} is: ${scorer.screenName}@twitter.com! ${scorerAppend}` : 
+            finalStatus;
 
             if(!IS_DEVELOPMENT) {
                 this.TOAuthV1Client.v2.tweet(finalStatus);
-                this.MClient?.statuses.create({ status: finalStatus });
-            } else {
-                logConsole(`Daily top score post | ${finalStatus} | Scorer: ${scorer}`);
+                this.MClient?.v1.statuses.create({ status: mastodonStatus });
             }
+            logConsole(`Daily top score ${IS_DEVELOPMENT? 'DEVMODE' : ''} Masto | ${mastodonStatus}`);
         }
 
         // Run again for tomorrow!
@@ -189,8 +220,6 @@ export default class BotController {
         }
 
         await Promise.all([
-            this.GlobalScores.loadData(),
-            this.TopScores.loadData(),
             userGrowth.loadData(),
             analyzedPosts.loadData(),
             users.loadData(),

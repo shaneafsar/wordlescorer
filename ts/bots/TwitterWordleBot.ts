@@ -1,4 +1,4 @@
-import type WordleData from '../../WordleData.js';
+import type WordleData from '../../js/WordleData.js';
 import type { SearchIndex } from 'algoliasearch';
 import { 
     ETwitterStreamEvent, 
@@ -15,17 +15,17 @@ import {
     ReferencedTweetV2,
     TweetV1
 } from 'twitter-api-v2';
-import { calculateScoreFromWordleMatrix } from '../../utils/calculate/calculate-score-from-wordle-matrix.js';
-import { getSolvedRow } from '../../utils/calculate/get-solved-row.js';
-import isValidWordle from '../../utils/calculate/is-valid-wordle.js';
-import { getWordleNumberFromList } from '../../utils/extract/get-wordle-number-from-text.js';
-import getWordleMatrixFromList from '../../utils/extract/get-wordle-matrix-from-list.js';
-import checkIsSameDay from '../../utils/is-same-day.js';
-import getScorerGlobalStats from '../../utils/db/get-scorer-global-stats.js';
-import { getCompliment } from '../../utils/display/get-compliment.js';
-import { getSentenceSuffix } from '../../utils/display/get-sentence-suffix.js';
-import logError from '../../utils/debug/log-error.js';
-import logConsole from '../../utils/debug/log-console.js';
+import { calculateScoreFromWordleMatrix } from '../../js/calculate/calculate-score-from-wordle-matrix.js';
+import { getSolvedRow } from '../../js/calculate/get-solved-row.js';
+import isValidWordle from '../../js/calculate/is-valid-wordle.js';
+import { getWordleNumberFromList } from '../../js/extract/get-wordle-number-from-text.js';
+import getWordleMatrixFromList from '../../js/extract/get-wordle-matrix-from-list.js';
+import checkIsSameDay from '../../js/is-same-day.js';
+import getScorerGlobalStats from '../../js/db/get-scorer-global-stats.js';
+import { getCompliment } from '../../js/display/get-compliment.js';
+import { getSentenceSuffix } from '../../js/display/get-sentence-suffix.js';
+import logError from '../../js/debug/log-error.js';
+import logConsole from '../../js/debug/log-console.js';
 
 const WORDLE_BOT_ID = '1422211304996155393';
 const WORDLE_BOT_HANDLE = '@ScoreMyWordle';
@@ -349,8 +349,8 @@ export default class TwitterWordleBot {
             }
  
             try {
-                const { wordlePrefix, aboveTotal } = await getScorerGlobalStats({solvedRow, wordleNumber, date: new Date()});
-                const status = this.buildStatus(name, wordlePrefix, score, solvedRow, aboveTotal, isGrowthTweet);
+                const { wordlePrefix, aboveTotal } = await getScorerGlobalStats({solvedRow, wordleNumber, date: new Date()}, this.globalScores);
+                const status = this.buildStatus(screenName, wordlePrefix, score, solvedRow, aboveTotal, isGrowthTweet);
 
                 this.sendReply(status, id);
 
@@ -362,7 +362,7 @@ export default class TwitterWordleBot {
                     date_timestamp: Math.floor(Date.now() / 1000),
                     id,
                     autoScore: isGrowthTweet,
-                    scorerName: name
+                    scorerName: screenName
                 };
 
                 this.analyzedPosts.write(id, analyzedTweet);
@@ -394,6 +394,7 @@ export default class TwitterWordleBot {
             
             try {
                 const result = await this.TOauth2.v2.tweets([parentId], API_OPTIONS as Tweetv2FieldsParams);
+                logConsole(result);
                 if(result.data.length > 0) {
                     const includes = result.includes as ApiV2Includes;
                     this.processTweetList(result.data, includes, {isGrowthTweet, isParent: true});
@@ -433,14 +434,14 @@ export default class TwitterWordleBot {
     private sendReply(status: string, id: string) {
         if(!IS_DEVELOPMENT) {
             this.TOauth1.v2.reply(status, id).then(result => {
-                console.log(`Tweeted: ${result.data.text} to ${result.data.id}`);
+                logConsole(`Tweeted: ${result.data.text} to ${result.data.id}`);
             }).catch((e) => {
                 logError('TOauth1.v2.reply error | ', e);
                 if(e.data?.detail === 'You are not permitted to create a non Community Tweet in reply to a Community Tweet.' ||
                     e.data?.detail === 'Reply to a community tweet must also be a community tweet') {
                         
                     this.TOauth1.v2.quote(status, id).then(quoteResult => {
-                        console.log(`Quoted: ${quoteResult.data.text} to ${quoteResult.data.id}`);
+                        logConsole(`Quoted: ${quoteResult.data.text} to ${quoteResult.data.id}`);
                     }).catch((quoteError) => {
                         logError('TOauth1.v2.quote error | ', quoteError);
                     });
@@ -448,7 +449,7 @@ export default class TwitterWordleBot {
                 }
             });
         } else {
-            logConsole(`Would have tweeted: ${status} to ${id}`);
+            logConsole(`TwitterBot devmode tweet: ${status} to ${id}`);
         }
     }
 
