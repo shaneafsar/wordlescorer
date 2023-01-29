@@ -2,13 +2,17 @@
   "name": "wordlescorer",
   "version": "1.0.0",
   "description": "",
-  "main": "main.js",
+  "main": "dist/ts/main.js",
   "type": "module",
   "scripts": {
     "test": "main.js",
     "start": "nodemon -x 'node main.js || touch main.js'",
-    "local": "NODE_ENV=develop nodemon dist/main.js",
-    "replit": "nodemon main.js"
+    "local": "npm run file-copy && NODE_ENV=develop NODE_OPTIONS=--max-old-space-size=4096 node dist/ts/main.js",
+    "debug": "npm run file-copy && NODE_ENV=develop NODE_OPTIONS=--max-old-space-size=4096 node --inspect-brk dist/ts/main.js",
+    "ui-only": "node dist/ts/server.js",
+    "file-copy": "cp -R ./web/routes ./dist/web/ && cp -R ./web/views ./dist/web/ && cp -R ./web/static ./dist/web/",
+    "clear-db": "rm -r ./db/*",
+    "compile": "tsc"
   },
   "repository": {
     "type": "git",
@@ -37,13 +41,13 @@
     "algoliasearch": "^4.14.2",
     "cookie-parser": "^1.4.6",
     "debug": "^4.3.4",
-    "dotenv": "^14.3.2",
+    "dotenv": "^16.0.3",
     "express": "^4.18.1",
     "fs": "0.0.1-security",
     "http-errors": "^2.0.0",
-    "jsdom": "^20.0.3",
-    "lowdb": "^3.0.0",
-    "masto": "^4.11.1",
+    "jsdom": "^21.1.0",
+    "lowdb": "^5.0.5",
+    "masto": "^5.7.0",
     "morgan": "^1.10.0",
     "node": "^18.12.1",
     "nodemon": "^2.0.15",
@@ -55,6 +59,8 @@
   },
   "devDependencies": {
     "@tsconfig/node18-strictest-esm": "^1.0.1",
+    "@types/express": "^4.17.15",
+    "@types/http-errors": "^2.0.1",
     "@types/node": "^18.11.18"
   }
 }
