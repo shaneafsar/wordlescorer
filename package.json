@@ -7,6 +7,7 @@
   "scripts": {
     "test": "main.js",
     "start": "nodemon -x 'node main.js || touch main.js'",
+    "beta": "npm run file-copy && NODE_ENV=develop nodemon -x 'node main.js || touch main.js'",
     "local": "npm run file-copy && NODE_ENV=develop NODE_OPTIONS=--max-old-space-size=4096 node dist/ts/main.js",
     "debug": "npm run file-copy && NODE_ENV=develop NODE_OPTIONS=--max-old-space-size=4096 node --inspect-brk dist/ts/main.js",
     "ui-only": "node dist/ts/server.js",
