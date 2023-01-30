@@ -64,7 +64,7 @@ async function getTopScorerInfo(date) {
         return 1;
     }
    });
-   console.log(scorerList);
+  
   return scorerList?.[0] || null;
 }
 
