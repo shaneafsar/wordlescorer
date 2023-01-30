@@ -10,7 +10,7 @@ var formatter = new Intl.NumberFormat().format;
 var router = express.Router();
 /* GET home page. */
 router.get('/', (_req, res) => {
-  console.log('loading data...');
+  console.log('[web] loading data...');
   const currentDate = new Date();
   const AnalyzedTweetsDB = new WordleData('analyzed');
   AnalyzedTweetsDB.read().then(data => {
