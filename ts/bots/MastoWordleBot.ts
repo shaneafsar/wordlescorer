@@ -18,6 +18,7 @@ import { getCompliment } from '../../js/display/get-compliment.js';
 //FINAL TODOs: add env variables to prevent write, compile, npm start
 
 const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
+const BOT_ID = '109338521888714827';
 const ALLOW_LIST = new Set<String>(['@shaneafsar@mastodon.online', '@bbhart@noc.social']);
 const SINCE_ID = 'since_id';
 
@@ -111,6 +112,10 @@ export default class MastoWordleBot {
   
     await this.processRecentMentions();
 
+    // TEMP: add followers to allowlist
+    const followers = await this.masto.v1.accounts.listFollowers(BOT_ID);
+    followers.forEach(follower => ALLOW_LIST.add(`@${follower.acct}`));
+
     // Add handlers
     tagTimeline.on('update', this.handleUpdate.bind(this));
     userTimeline.on('notification', this.handleNotification.bind(this));
@@ -191,6 +196,7 @@ export default class MastoWordleBot {
 
   private async handleNotification(notification: mastodon.v1.Notification) {
     if(notification.type === 'follow') {
+      ALLOW_LIST.add(`@${notification.account.acct}`);
       //await this.masto.accounts.follow(notification.account.id);
     }
 
