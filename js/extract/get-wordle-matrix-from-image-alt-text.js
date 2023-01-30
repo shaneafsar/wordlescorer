@@ -11,10 +11,15 @@ import { SCORE } from '../const/SCORE-CONST.js';
     return [];
   }
 
-  // TODO: duck-type check the text for appropriate general format before continuing
+  // TODO: check the text for appropriate general format before continuing
    
   var lines = text.split('\n');
-
+  
+  // If we only get back one line, try splitting by period.
+  if(lines.length === 1) {
+    lines = text.split('.');
+  }
+  
   const output = lines.map((line) => {
     var row = Array(5).fill(0, 0);
     

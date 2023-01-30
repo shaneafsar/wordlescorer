@@ -14,6 +14,8 @@ export default function getWordleMatrixFromList(list) {
     let wordleMatrix = [];
     for(const item of list) {
         wordleMatrix = getWordleMatrixFromText(item);
+        console.log('wordleMatrix prealt ', wordleMatrix);
+        console.log('isValid wordle ', isValidWordle(wordleMatrix));
         if(isValidWordle(wordleMatrix)){
             return wordleMatrix;
         }
