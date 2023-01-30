@@ -25,3 +25,16 @@ T.get('statuses/show/:id', {id: '1608109623889756160', include_ext_alt_text: tru
   console.log(text);
   console.log(getWordleMatrixFromImageAltText(text));
 });
+
+
+/*
+https://socel.net/@tomwe/109773963630240355
+#Wordle 589 4/6
+Analysis...
+⬛🟨⬛🟨⬛  197 words left.
+🟨⬛⬛⬛🟨  17 words left.
+⬛⬛⬛⬛🟨  5 words left.
+🟩🟩🟩🟩🟩  1 words left.
+https://www.stevedegroof.com/word-check.html
+#WordleWarriors
+*/
