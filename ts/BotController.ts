@@ -173,6 +173,8 @@ export default class BotController {
                 this.MClient?.v1.statuses.create({ status: mastodonStatus });
             }
             logConsole(`Daily top score ${IS_DEVELOPMENT? 'DEVMODE' : ''} Masto | ${mastodonStatus}`);
+        } else {
+            logConsole(`No top scorer found today`);
         }
 
         // Run again for tomorrow!
