@@ -36,7 +36,17 @@ search.addWidgets([
   instantsearch.widgets.refinementList({
     container: '#wordle_number-list',
     attribute: 'wordleNumber',
-    sortBy: ['name:desc']
+    sortBy: ['name:desc'],
+    transformItems(items) {
+      return items.map(item => { 
+        if (item.label === '0') { 
+          const label = 'Unknown';
+          item.label = label;
+          item.highlighted = label;
+        } 
+        return item; 
+      });
+    }
   }),
   
   instantsearch.widgets.refinementList({

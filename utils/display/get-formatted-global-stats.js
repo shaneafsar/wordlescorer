@@ -44,11 +44,13 @@ function getFormattedGlobalStats(stats) {
   // Push not solved to end of array
   sortedRowCounts.push(statsRow.solvedRowCounts[0]);
    
-  var statement = `In the last 24 hours for Wordle ${statsRow.key}, I found ${formatter(total)} unique users with the following solution distribution:`
+  var statement = `In the last 24 hours for Wordle ${statsRow.key}, I found ${formatter(total)} unique users with the following distribution:`
    
   for (var j = 0; j < sortedRowCounts.length; j++) {
     statement += formatStatement(j, sortedRowCounts[j], total);
   }
+
+  statement += '\n After Feb 9, I may stop working (see profile)';
    
   tweets.push(statement);
    
