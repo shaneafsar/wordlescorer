@@ -1,10 +1,10 @@
 # wordlescorer
 
 ## Intro
-This node script runs and watches a specific bot account on Mastodon (@ScoreMyWordle@botsin.space)[https://botsin.space/@scoremywordle] and Twitter ([@ScoreMyWordle](https://twitter.com/ScoreMyWordle)) and replies to anyone who asks with a score of their wordle output. The more characters that are solved earlier in the puzzle, the more points you get!
+This node script runs and watches a specific bot account on Mastodon [@ScoreMyWordle@botsin.space](https://botsin.space/@scoremywordle) and Twitter [@ScoreMyWordle](https://twitter.com/ScoreMyWordle) and replies to anyone who asks with a score of their wordle output. The more characters that are solved earlier in the puzzle, the more points you get!
 
 ### Features
-* At-mention (@ScoreMyWordle@botsin.space)[https://botsin.space/@scoremywordle] or [@ScoreMyWordle](https://twitter.com/ScoreMyWordle) in your post with a Wordle output (or in a reply), and it'll tweet back a response with a score. (Note: limited support in Twitter Communities, you will be quote-tweeted).
+* At-mention [@ScoreMyWordle@botsin.space](https://botsin.space/@scoremywordle) or [@ScoreMyWordle](https://twitter.com/ScoreMyWordle) in your post with a Wordle output (or in a reply), and it'll tweet back a response with a score. (Note: limited support in Twitter Communities, you will be quote-tweeted).
 * Supports reading the default square emoji wordle output (including the high contrast version of the emojis)
 * Supports reading wa11y.co alt text on wordle images or in the post's content if there's no default wordle square emoji output
 * Posts the top Wordler of the day ranked by score, row solved, then tweet time.
