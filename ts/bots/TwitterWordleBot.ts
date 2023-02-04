@@ -395,7 +395,7 @@ export default class TwitterWordleBot {
             try {
                 const result = await this.TOauth2.v2.tweets([parentId], API_OPTIONS as Tweetv2FieldsParams);
                 logConsole(result);
-                if(result.data.length > 0) {
+                if(result.data?.length > 0) {
                     const includes = result.includes as ApiV2Includes;
                     this.processTweetList(result.data, includes, {isGrowthTweet, isParent: true});
                 }
