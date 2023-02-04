@@ -29,6 +29,6 @@ This node script runs and watches a specific bot account on Mastodon [@ScoreMyWo
 * https://www.powerlanguage.co.uk/wordle/ | [@powerlanguish](https://twitter.com/powerlanguish) - for creating wordle!
 * https://wa11y.co/ | [@antagonistapp](https://twitter.com/antagonistapp) - for creating an accessible alt-text version of the game's output
 * [@ishabazz](https://twitter.com/ishabazz) & many others - for posting wordle images with alt text & slight variations I could test with.
-* Mastodon for providing an amazing API, and [masto.js](https://github.com/neet/masto.js) for making it super easy to work with! Thanks, (neet)[https://github.com/neet]!
+* Mastodon for providing an amazing API, and [masto.js](https://github.com/neet/masto.js) for making it super easy to work with! Thanks, [neet](https://github.com/neet)!
 * https://developer.twitter.com/ - for Twitter's API access (RIP to free access)
 * https://www.linode.com/docs/guides/nodejs-twitter-bot/ - for providing the basis for setting up the very initial node script
