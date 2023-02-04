@@ -116,7 +116,7 @@ search.addWidgets([
         <article class="wordle" ${bindEvent('click', val, 'Wordle clicked')}>
           <header>
             <img class='profile-image' src="${val.photoUrl}" alt="profile image for ${val.scorerName}" data-default="https://abs.twimg.com/sticky/default_profile_images/default_profile_normal.png"/>
-            <a class="wordle-title${val.date_timestamp > 1666286675 && !val.autoScore ? ' mentioned':''}" href="https://www.twitter.com/${val.scorerName}/status/${val.id}" target="_blank" ${bindEvent('conversion', val, 'Wordle tweet clicked')}>
+            <a class="wordle-title${val.date_timestamp > 1666286675 && !val.autoScore ? ' mentioned':''}" href="${val.source !== 'mastodon' ? `https://www.twitter.com/${val.scorerName}/status/${val.id}` : `${val.url}`}" target="_blank" ${bindEvent('conversion', val, 'Wordle tweet clicked')}>
             ${val.scorerName}</a>
           </header>
           <ul class="attributes">

@@ -45,7 +45,7 @@ block content
   <section id="info">
     if topScorerInfo && topScorerInfo.wordleNumber
       <article id="top-scorer">
-        <h2>#{topScorerInfo.screenName}</h2>
+        <h2>#{topScorerInfo.screenName || topScorerInfo.name}</h2>
         <h4>Top Scorer of the Day</h4>
         <ul>
           <li><p>Wordle #{topScorerInfo.wordleNumber}</p></li>
