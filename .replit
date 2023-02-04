@@ -1,5 +1,5 @@
 language = "nodejs"
-run = "npm start"
+run = "npm run beta"
 
 [nix]
 channel = "stable-22_05"

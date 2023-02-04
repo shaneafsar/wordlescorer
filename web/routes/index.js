@@ -44,7 +44,6 @@ router.get('/', (_req, res) => {
       getTopScorerInfo(currentDate)]).then(results => {
       const stats = results[0];
       const topScorerInfo = results[1];
-      
       // Add percents to each stat
       stats.forEach(item => {
         item.solvedRowPercents = item.solvedRowCounts.map(row => {

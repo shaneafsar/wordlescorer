@@ -54,7 +54,7 @@ const MASTO_AUTH = {
     accessToken: process.env['MASTO_ACCESS_TOKEN'] || ''
 };
 
-const ENABLE_TWITTER_BOT = false;
+const ENABLE_TWITTER_BOT = true;
 
 
 export default class BotController {
