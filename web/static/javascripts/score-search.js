@@ -37,11 +37,13 @@ search.addWidgets([
   instantsearch.widgets.refinementList({
     container: '#wordle_number-list',
     attribute: 'wordleNumber',
+    sortBy: ['name:desc'],
     transformItems(items) {
       return items.map(item => { 
         if (item.label === '0') { 
-          item.label = 'Unknown';
-          item.highlighted = 'Unknown';
+          const label = 'Unknown';
+          item.label = label;
+          item.highlighted = label;
         } 
         return item; 
       });
@@ -52,13 +54,27 @@ search.addWidgets([
     container: '#solved_row-list',
     attribute: 'solvedRow',
     transformItems(items) {
-      return items.map(item => { 
+      const list = items.map(item => { 
         if (item.label === '0') { 
           item.label = 'Not solved';
           item.highlighted = 'Not solved';
-        } 
+        } else {
+          item.highlighted = `Row ${item.label}`;
+        }
         return item; 
       });
+      list.sort((a,b) => { 
+        var numA = Number(a.label);
+        var numB = Number(b.label);
+        if(isNaN(numA)) { 
+          return Number.MAX_VALUE - numB; 
+        } 
+        if(isNaN(numB)) { 
+          return numA - Number.MAX_VALUE; 
+        } 
+        return numA - numB; 
+      })
+      return list;
     }
   }),
 
@@ -72,7 +88,7 @@ search.addWidgets([
     transformItems(items) {
       return items.map(item => { 
         if (item.label === 'true') { 
-          const label = 'Filter to auto-scored results'
+          const label = 'Auto-scored'
           item.label = label;
           item.highlighted = label;
         } 

@@ -134,17 +134,24 @@ async function initMastoBot(globalScores, topScores) {
 }
 
 
+function getTweetText(tweet) {
+  return tweet.extended_tweet?.full_text || tweet.full_text || tweet.text;
+}
+
 var stream = T.stream('statuses/filter', { track: WORDLE_BOT_HANDLE });
 stream.on('tweet', processTweet);
 
 // Let the world know we exist!
 if(RUN_GROWTH) {
   
-  var growthStream = T.stream('statuses/filter', { track: 'Wordle' });
+
+  var growthStream = T.stream('statuses/filter', { track: 'Wordle', tweet_mode:'extended' });
   growthStream.on('tweet', function(tweet) {
+    const tweetText = getTweetText(tweet);
 
     // get the wordle matrix from the tweet text
-    var wordleMatrix = getWordleMatrixFromText(tweet.text);
+    var wordleMatrix = getWordleMatrixFromText(tweetText);
+
     var solvedRow = getSolvedRow(wordleMatrix);
     if (wordleMatrix.length !== 0 && isValidWordle(wordleMatrix)) {
 
@@ -152,7 +159,7 @@ if(RUN_GROWTH) {
       const screenName = '@' + tweet.user.screen_name;
       
       // get the wordle number from the text
-      var wordleNumber = getWordleNumberFromText(tweet.text);
+      var wordleNumber = getWordleNumberFromText(tweetText);
      
       // get the wordle score
       var wordleScore = calculateScoreFromWordleMatrix(wordleMatrix).finalScore;
@@ -274,7 +281,8 @@ async function tweetDailyTopScore(date) {
 function processTweet(tweet, isGrowthTweet, isReplay) {
   const id = tweet.id_str;
   const parentId = tweet.in_reply_to_status_id_str;
-  const tweetText = tweet.text;
+  const tweetText = getTweetText(tweet);
+
   const userId = tweet.user.id_str;
   const photo = tweet.user.profile_image_url_https;
   const createdAt = new Date(tweet.created_at);
@@ -360,7 +368,7 @@ function processTweet(tweet, isGrowthTweet, isReplay) {
         }
 
         
-        T.get('statuses/show/:id', { id: parentId, include_ext_alt_text: true })
+        T.get('statuses/show/:id', { id: parentId, include_ext_alt_text: true, tweet_mode: 'extended' })
           .catch((err) => {
 
             reject({
