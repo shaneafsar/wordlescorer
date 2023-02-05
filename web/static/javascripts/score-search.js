@@ -92,6 +92,11 @@ search.addWidgets([
           item.label = label;
           item.highlighted = label;
         } 
+        if (item.label === 'false') { 
+          const label = 'Not Auto-scored'
+          item.label = label;
+          item.highlighted = label;
+        } 
         return item; 
       });
     }
