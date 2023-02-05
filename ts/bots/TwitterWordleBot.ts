@@ -272,7 +272,11 @@ export default class TwitterWordleBot {
         const tweet = result.data;
         const includes = new TwitterV2IncludesHelper(result);
         const id = tweet.id;
-        const parentId = tweet.in_reply_to_user_id;
+        const parentUserId = tweet.in_reply_to_user_id;
+        let parentId:string | undefined = '';
+        if(parentUserId) {
+            parentId = tweet.referenced_tweets?.[0]?.id
+        }
         const tweetText = tweet.text;
         const author = includes.author(tweet);
         const name = author?.name || '';
