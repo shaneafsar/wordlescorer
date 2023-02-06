@@ -41,6 +41,10 @@ async function getTopScorerInfo(date) {
 
     scorerList.forEach(scorer => {
       scorer.aboveTotal = 0;
+      // If it's not solved, the row is 0
+      if(scorer.solvedRow === 0) {
+        scorer.solvedRow = 7;
+      }
       var iteratorStart = scorer.solvedRow + 1;
       for(var i = iteratorStart; i < solvedRowCounts.length; i++) {
         scorer.aboveTotal += solvedRowCounts[i];
