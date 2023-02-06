@@ -50,7 +50,10 @@ block content
         <ul>
           <li><p>Wordle #{topScorerInfo.wordleNumber}</p></li>
           <li><p>Score: #{topScorerInfo.score}</p></li>
-          <li><p>Solved on Row #{topScorerInfo.solvedRow}</p></li>
+          if topScorerInfo.solvedRow === 0
+            <li><p>Not solved</p></li>
+          else
+            <li><p>Solved on Row #{topScorerInfo.solvedRow}</p></li>
           <li><p>Beat #{topScorerInfo.aboveTotal} (~#{topScorerInfo.percentage}) other users</p></li>
         </ul>
         <aside id="top-score-tweet">
