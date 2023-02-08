@@ -307,15 +307,15 @@ export default class MastoWordleBot {
       const { wordlePrefix, aboveTotal } = await getScorerGlobalStats({solvedRow, wordleNumber, date: new Date()}, this.globalScores);
       const status = this.buildStatus(screenName, wordlePrefix, wordleScore, solvedRow, aboveTotal, isGrowth);
 
-      const shouldPostRealStatus = !IS_DEVELOPMENT || ALLOW_LIST.has(screenName);
+      const shouldPostRealStatus = !IS_DEVELOPMENT || (IS_DEVELOPMENT && ALLOW_LIST.has(screenName));
 
       if(shouldPostRealStatus) {
         await this.masto.v1.statuses.create({ 
           status,
           inReplyToId: postId 
         });
+        logConsole(`MastoBot | ${IS_DEVELOPMENT ? 'DEVMODE' : ''} reply to ${postId}: ${status}`);
       }
-      logConsole(`MastoBot | ${IS_DEVELOPMENT ? 'DEVMODE' : ''} reply to ${postId}: ${status}`);
 
     } catch(e) {
         logError('MastoBot | failed to get globalScorerGlobalStats & reply | ', e);
@@ -350,7 +350,7 @@ export default class MastoWordleBot {
     }
 
     this.PROCESSING.add(postId);
-
+    console.log('isValidWordle ', isValidWordle(wordleMatrix, wordleNumber, solvedRow), wordleMatrix, wordleNumber, solvedRow);
     if (isValidWordle(wordleMatrix, wordleNumber, solvedRow)) {
 
       const wordleInfo: WordleInfo = {

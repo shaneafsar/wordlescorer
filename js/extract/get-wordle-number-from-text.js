@@ -5,7 +5,7 @@
  * @returns {Number}
  */
 function getWordleNumberFromText(text = '') {
-  let wordle = text.match(/(?<=Wordle\s?)(\d+)/g);
+  let wordle = text.match(/(?<=Wordle\s?)(\d+)/gi);
   if(wordle === null) {
       return 0;
   }
