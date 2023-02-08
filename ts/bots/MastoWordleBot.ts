@@ -167,7 +167,8 @@ export default class MastoWordleBot {
       const altTexts = getAltTextList(status.mediaAttachments);
       const listOfContent = [textContent, ...altTexts];
       const wordleMatrix = getWordleMatrixFromList(listOfContent);
-      const userId = status.account.acct; //status.account.id;
+      // Add domain for local users
+      const userId = status.account.acct.indexOf('@') > -1 ? status.account.acct : status.account.acct+'@botsin.space'; 
       const screenName = '@' + status.account.acct;
       const url = status.url || '';
       const wordleNumber = getWordleNumberFromList(listOfContent);
@@ -197,7 +198,9 @@ export default class MastoWordleBot {
   private async handleNotification(notification: mastodon.v1.Notification) {
     if(notification.type === 'follow') {
       ALLOW_LIST.add(`@${notification.account.acct}`);
-      //await this.masto.accounts.follow(notification.account.id);
+      this.masto.v1.accounts.follow(notification.account.id, {
+        reblogs: false
+      });
     }
 
     if (notification.type === 'mention' && notification.status) {
@@ -220,7 +223,7 @@ export default class MastoWordleBot {
     if(!IS_DEVELOPMENT) {
         this.AlgoliaIndex.saveObjects([objectToIndex], { autoGenerateObjectIDIfNotExist: true })
         .catch((e) => {
-            logError('Algolia saveObjects error | ', e);
+            logError('MastoBot | Algolia saveObjects error | ', e);
         });
     }
   }
@@ -350,8 +353,12 @@ export default class MastoWordleBot {
     }
 
     this.PROCESSING.add(postId);
-    console.log('isValidWordle ', isValidWordle(wordleMatrix, wordleNumber, solvedRow), wordleMatrix, wordleNumber, solvedRow);
-    if (isValidWordle(wordleMatrix, wordleNumber, solvedRow)) {
+
+    const isValid = isValidWordle(wordleMatrix, wordleNumber, solvedRow);
+    logConsole(`${postId} | ${screenName} isValidWordle? `, isValid, 
+      ' | wordleMatrix: ', wordleMatrix, ' | wordle number: ', wordleNumber, '| solvedRow: ', solvedRow);
+
+    if (isValid) {
 
       const wordleInfo: WordleInfo = {
         wordleScore: calculateScoreFromWordleMatrix(wordleMatrix).finalScore,

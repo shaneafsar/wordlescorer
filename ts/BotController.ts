@@ -18,7 +18,7 @@ import getTopScorerInfo from '../js/db/get-top-scorer-info.js';
 import { getFormattedDate } from '../js/display/get-formatted-date.js';
 import { getCompliment } from '../js/display/get-compliment.js';
 import logConsole from '../js/debug/log-console.js';
-import dotenv  from 'dotenv';
+import dotenv from 'dotenv';
 
 const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
 
@@ -107,25 +107,24 @@ export default class BotController {
             this.TWordleBot = TWordleBot;
             this.MWordleBot = MWordleBot;
 
+            await this.MWordleBot.initialize();
+            console.log('*** BotController:  Initialized Mastodon Bot ***');
+
             if(ENABLE_TWITTER_BOT) {
                 await this.TWordleBot.initialize();
                 console.log('*** BotController:  Initialized Twitter Bot ***');
             }
-
-
-            await this.MWordleBot.initialize();
-            console.log('*** BotController:  Initialized Mastodon Bot ***');
 
         } catch (e) {
             logError('Error initializing twitter & mastodon bots | ', e);
         }
     }
 
-    private reloadGlobalScores() {
-        console.log('*** BotController: reloadGlobalScores');
+    private async reloadGlobalScores() {
+        console.log('*** BotController: reloadGlobalScores ***');
         this.GlobalScores = getGlobalScoreDB();
         this.TopScores = getTopScoreDB();
-        this.loadScoreData();
+        await this.loadScoreData();
     }
 
     async postGlobalStats(date: Date) {
@@ -180,7 +179,7 @@ export default class BotController {
         // Run again for tomorrow!
         setDelayedFunction(this.postDailyTopScore.bind(this));
 
-        this.reloadGlobalScores();
+        await this.reloadGlobalScores();
     }
 
     private async initTwitterBot() {
