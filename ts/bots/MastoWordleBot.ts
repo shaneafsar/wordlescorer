@@ -156,7 +156,7 @@ export default class MastoWordleBot {
     const relationships = await this.masto.v1.accounts.fetchRelationships([status.account.id]);
     // There should only ever be 1 here, but api returns as array
     let isFollowingBot = relationships[0]?.followedBy || false;
-  
+    logConsole('isFollowing Masto bot? ', isFollowingBot);
     if(isFollowingBot) {
 
       this.processPost(status, {isGrowth: false, isParent: false});
@@ -307,7 +307,7 @@ export default class MastoWordleBot {
       const { wordlePrefix, aboveTotal } = await getScorerGlobalStats({solvedRow, wordleNumber, date: new Date()}, this.globalScores);
       const status = this.buildStatus(screenName, wordlePrefix, wordleScore, solvedRow, aboveTotal, isGrowth);
 
-      const shouldPostRealStatus = !IS_DEVELOPMENT || (IS_DEVELOPMENT && ALLOW_LIST.has(screenName));
+      const shouldPostRealStatus = !IS_DEVELOPMENT || ALLOW_LIST.has(screenName);
 
       if(shouldPostRealStatus) {
         await this.masto.v1.statuses.create({ 
