@@ -5,12 +5,12 @@
  * @returns {Number}
  */
 function getWordleNumberFromText(text = '') {
-  let wordle = text.match(/(?<=Wordle\s?)(\d+)/gi);
-  if(wordle === null) {
+  let wordle = text.match(/wordle\s*#?\s*(\d+)/i);
+  if(wordle === null || wordle.length < 2) {
       return 0;
   }
-  //convert wordle[0] to number
-  return parseInt(wordle[0]);
+  //convert wordle[1] to number
+  return parseInt(wordle?.[1] || '0');
 }
 
 /**
