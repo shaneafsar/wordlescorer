@@ -157,11 +157,12 @@ export default class TwitterWordleBot {
     }
 
     async initialize() {
-        await this.updateStreamRules();
-        await this.startStream();
+        //await this.updateStreamRules();
+        //await this.startStream();
         this.subscribeToMentionsV1();
     }
 
+    // @ts-ignore
     private async updateStreamRules() {
         try {
             const rules = await this.TOauth2.v2.streamRules();
@@ -179,6 +180,7 @@ export default class TwitterWordleBot {
         }
     }
 
+    // @ts-ignore
     private async startStream() {
         try {
             const stream = await this.TOauth2.v2.searchStream(API_OPTIONS as Partial<TweetSearchV2StreamParams>);
@@ -438,7 +440,7 @@ export default class TwitterWordleBot {
     private sendReply(status: string, id: string) {
         if(!IS_DEVELOPMENT) {
             this.TOauth1.v2.reply(status, id).then(result => {
-                logConsole(`Tweeted: ${result.data.text} to ${result.data.id}`);
+                logConsole(`Tweeted: ${result.data.text} to ${result.data.id} | parent: ${id}`);
             }).catch((e) => {
                 logError('TOauth1.v2.reply error | ', e);
                 if(e.data?.detail === 'You are not permitted to create a non Community Tweet in reply to a Community Tweet.' ||

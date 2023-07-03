@@ -105,3 +105,4 @@ dist
 
 #Filesystem DB ignore
 **/db.*.json
+db/*

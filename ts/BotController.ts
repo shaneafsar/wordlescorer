@@ -18,6 +18,7 @@ import getTopScorerInfo from '../js/db/get-top-scorer-info.js';
 import { getFormattedDate } from '../js/display/get-formatted-date.js';
 import { getCompliment } from '../js/display/get-compliment.js';
 import logConsole from '../js/debug/log-console.js';
+//import ScoreQueue from "../web/routes/score.js";
 import dotenv from 'dotenv';
 
 const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
@@ -56,6 +57,9 @@ const MASTO_AUTH = {
 
 const ENABLE_TWITTER_BOT = true;
 
+/*ScoreQueue.enqueue("top-scorer", {
+  scoreDate: new Date(),
+});*/
 
 export default class BotController {
     private GlobalScores: WordleData;
@@ -153,6 +157,7 @@ export default class BotController {
 
 
     async postDailyTopScore(date: Date) {
+      
         const scorer = await getTopScorerInfo(date);
         
         if (scorer) {
@@ -183,8 +188,8 @@ export default class BotController {
     }
 
     private async initTwitterBot() {
-        const userGrowth = new WordleData('user-growth');
-        const analyzedPosts = new WordleData('analyzed');
+        const userGrowth = new WordleData('user-growth-twt-2023-05-26');
+        const analyzedPosts = new WordleData('analyzed-twt-2023-05-26');
         const users = new WordleData('users');
         const lastMention = new WordleData('last-mention');
 

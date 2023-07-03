@@ -169,6 +169,16 @@ header.page-header .header-contact {
   color: var(--text-color-secondary);
 }
 
+.search-container {
+  margin-left: 10vw;
+  margin-right: 10vw;
+  margin-bottom: 2vh;
+}
+
+.search {
+  font-size: clamp(20px, 4vw, 30px);
+}
+
 /* Style the entity card */
 .wordle {
   display: flex;
@@ -216,16 +226,6 @@ header.page-header .header-contact {
 
 .mentioned {
   color: var(--color-highlight);
-}
-
-.search-container {
-  margin-left: 10vw;
-  margin-right: 10vw;
-  margin-bottom: 2vh;
-}
-
-.search {
-  font-size: clamp(20px, 4vw, 30px);
 }
 
 .ais-Hits-item {
