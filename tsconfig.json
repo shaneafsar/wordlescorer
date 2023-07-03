@@ -6,6 +6,7 @@
          "esnext.asynciterable"
        ],
        "outDir": "dist/",
-       "sourceMap": true
+       "sourceMap": true,
+       "ignoreDeprecations": "5.0"
     }
 }
