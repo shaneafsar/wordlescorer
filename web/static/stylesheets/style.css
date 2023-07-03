@@ -188,6 +188,9 @@ header.page-header .header-contact {
 
 .wordle header {
   flex: 74%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /* Style the entity card's profile image */
