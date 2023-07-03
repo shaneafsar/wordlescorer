@@ -37,6 +37,7 @@
     "delay": 2500
   },
   "dependencies": {
+    "@taskless/express": "^3.6.2",
     "@types/jsdom": "^20.0.1",
     "@types/twit": "^2.2.31",
     "algoliasearch": "^4.14.2",
