@@ -37,6 +37,7 @@
     "delay": 2500
   },
   "dependencies": {
+    "@atproto/api": "^0.3.13",
     "@types/jsdom": "^21.1.1",
     "@types/twit": "^2.2.31",
     "algoliasearch": "^4.18.0",

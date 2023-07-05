@@ -1,6 +1,9 @@
 import algoliasearch, { SearchIndex } from 'algoliasearch';
 import TwitterWordleBot from "./bots/TwitterWordleBot.js";
 import MastoWordleBot from './bots/MastoWordleBot.js';
+import BlueskyWordleBot from './bots/BlueskyWordleBot.js';
+import type { BskyAgent } from "@atproto/api";
+import atproto from "@atproto/api";
 import type { mastodon } from 'masto';
 import getGlobalScoreDB from '../js/db/get-global-score-DB.js';
 import getTopScoreDB from '../js/db/get-top-score-DB.js';
@@ -18,7 +21,6 @@ import getTopScorerInfo from '../js/db/get-top-scorer-info.js';
 import { getFormattedDate } from '../js/display/get-formatted-date.js';
 import { getCompliment } from '../js/display/get-compliment.js';
 import logConsole from '../js/debug/log-console.js';
-//import ScoreQueue from "../web/routes/score.js";
 import dotenv from 'dotenv';
 
 const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
@@ -43,8 +45,6 @@ const TWITTER_OAUTH_V1: TwitterApiTokens = {
 
 const TWITTER_OAUTH_V2: string = process.env['bearer_token'] || '';
 
-
-
 const ALGOLIA_AUTH = {
     appId: process.env['algolia_app_id'] || '', 
     adminKey: process.env['algolia_admin_key'] || ''
@@ -55,11 +55,15 @@ const MASTO_AUTH = {
     accessToken: process.env['MASTO_ACCESS_TOKEN'] || ''
 };
 
-const ENABLE_TWITTER_BOT = true;
+const BSKY_AUTH = {
+    identifier: process.env['BSKY_USERNAME'] || '',
+    password: process.env['BSKY_PASSWORD'] || '',
+};
 
-/*ScoreQueue.enqueue("top-scorer", {
-  scoreDate: new Date(),
-});*/
+const ENABLE_TWITTER_BOT = true;
+const ENABLE_MASTO_BOT = true;
+const ENABLE_BSKY_BOT = true;
+
 
 export default class BotController {
     private GlobalScores: WordleData;
@@ -70,10 +74,13 @@ export default class BotController {
 
     private MClient: mastodon.Client | undefined;
 
+    private BAgent: BskyAgent | undefined;
+
     private WordleSearchIndex: SearchIndex;
 
     private TWordleBot: TwitterWordleBot | undefined;
     private MWordleBot: MastoWordleBot | undefined;
+    private BSkyBot: BlueskyWordleBot | undefined;
 
 
     constructor() {
@@ -83,7 +90,7 @@ export default class BotController {
         this.GlobalScores = getGlobalScoreDB();
         this.TopScores = getTopScoreDB();
 
-        const algSearchInst = algoliasearch(ALGOLIA_AUTH.appId, ALGOLIA_AUTH.adminKey);
+        const algSearchInst = algoliasearch.default(ALGOLIA_AUTH.appId, ALGOLIA_AUTH.adminKey);
         this.WordleSearchIndex = algSearchInst.initIndex('analyzedwordles');
     }
 
@@ -103,24 +110,34 @@ export default class BotController {
 
     private async buildBots() {
         try {
-            const [TWordleBot, MWordleBot] = await Promise.all([
+            const [TWordleBot, MWordleBot, BSkyBot] = await Promise.all([
                 this.initTwitterBot(),
-                this.initMastoBot()
+                this.initMastoBot(),
+                this.initBskyBot()
             ]);
 
             this.TWordleBot = TWordleBot;
             this.MWordleBot = MWordleBot;
+            this.BSkyBot = BSkyBot;
 
-            await this.MWordleBot.initialize();
-            console.log('*** BotController:  Initialized Mastodon Bot ***');
+            if(ENABLE_MASTO_BOT) {
+                await this.MWordleBot.initialize();
+                console.log('*** BotController:  Initialized Mastodon Bot ***');
+            }
+
+            if(ENABLE_BSKY_BOT) {
+                await this.BSkyBot.initialize();
+                console.log('*** BotController:  Initialized Bluesky Bot ***');
+            }
 
             if(ENABLE_TWITTER_BOT) {
                 await this.TWordleBot.initialize();
                 console.log('*** BotController:  Initialized Twitter Bot ***');
             }
 
+
         } catch (e) {
-            logError('Error initializing twitter & mastodon bots | ', e);
+            logError('Error initializing bots | ', e);
         }
     }
 
@@ -139,12 +156,14 @@ export default class BotController {
             const timeoutVal = 60000 * (index + 1);
             setTimeout(async () => {
                 if(!IS_DEVELOPMENT) {
-                    const [tResult, mResult] = await Promise.all([
+                    const [tResult, mResult, bResult] = await Promise.all([
                         this.TOAuthV1Client.v2.tweet(item),
-                        this.MClient?.v1.statuses.create({ status: item })
+                        this.MClient?.v1.statuses.create({ status: item }),
+                        this.BAgent?.post({ text: item})
                     ]);      
                     logConsole('postGlobalStats tweet result: ', tResult);
                     logConsole('postGlobalStats masto result: ', mResult);
+                    logConsole('postGlobalStats bluesky result: ', bResult);
                 } else {
                     logConsole('postGlobalStats DEVMODE result: ', item);
                 }
@@ -168,15 +187,17 @@ export default class BotController {
 
             // Send a separate status for mastodon. 
             // If the winner is from twitter, need to append @twitter.com to the username.
-            const mastodonStatus = scorer.source !== 'mastodon' ? 
+            // Note: twitter bot currently isn't setting source
+            const mastodonStatus = (scorer.source !== 'mastodon' && scorer.source !== 'bluesky') ? 
             `The top scorer for ${formattedDate} is: ${scorer.screenName}@twitter.com! ${scorerAppend}` : 
             finalStatus;
 
             if(!IS_DEVELOPMENT) {
                 this.TOAuthV1Client.v2.tweet(finalStatus);
                 this.MClient?.v1.statuses.create({ status: mastodonStatus });
+                this.BAgent?.post({ text: mastodonStatus });
             }
-            logConsole(`Daily top score ${IS_DEVELOPMENT? 'DEVMODE' : ''} Masto | ${mastodonStatus}`);
+            logConsole(`Daily top score ${IS_DEVELOPMENT? 'DEVMODE' : ''} | ${mastodonStatus}`);
         } else {
             logConsole(`No top scorer found today`);
         }
@@ -212,6 +233,34 @@ export default class BotController {
           analyzedPosts,
           users,
           lastMention);
+    }
+
+    private async initBskyBot() {
+        const userGrowth = new WordleData('user-growth_bsky');
+        const analyzedPosts = new WordleData('analyzed_bsky');
+        const users = new WordleData('users_bsky');
+        
+        if(!this.BAgent) {
+            this.BAgent = new atproto.BskyAgent({
+                service: 'https://bsky.social',
+              });
+            await this.BAgent.login(BSKY_AUTH);
+        }
+
+        await Promise.all([
+            userGrowth.loadData(),
+            analyzedPosts.loadData(),
+            users.loadData(),
+        ]);
+      
+        return new BlueskyWordleBot(
+            this.BAgent,
+            this.WordleSearchIndex,
+            this.GlobalScores, 
+            this.TopScores,
+            userGrowth,
+            analyzedPosts,
+            users);
     }
 
     private async initMastoBot() {
