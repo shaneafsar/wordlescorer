@@ -1,6 +1,7 @@
 enum WordleSource {
     Twitter = 'twitter',
-    Mastodon = 'mastodon'
+    Mastodon = 'mastodon',
+    Bluesky = 'bluesky'
 }
 
 export default WordleSource;
