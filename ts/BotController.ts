@@ -45,8 +45,6 @@ const TWITTER_OAUTH_V1: TwitterApiTokens = {
 
 const TWITTER_OAUTH_V2: string = process.env['bearer_token'] || '';
 
-
-
 const ALGOLIA_AUTH = {
     appId: process.env['algolia_app_id'] || '', 
     adminKey: process.env['algolia_admin_key'] || ''
@@ -62,8 +60,9 @@ const BSKY_AUTH = {
     password: process.env['BSKY_PASSWORD'] || '',
 };
 
-const ENABLE_TWITTER_BOT = false;
-const ENABLE_MASTO_BOT = false;
+const ENABLE_TWITTER_BOT = true;
+const ENABLE_MASTO_BOT = true;
+const ENABLE_BSKY_BOT = true;
 
 
 export default class BotController {
@@ -126,8 +125,10 @@ export default class BotController {
                 console.log('*** BotController:  Initialized Mastodon Bot ***');
             }
 
-            await this.BSkyBot.initialize();
-            console.log('*** BotController:  Initialized Bluesky Bot ***');
+            if(ENABLE_BSKY_BOT) {
+                await this.BSkyBot.initialize();
+                console.log('*** BotController:  Initialized Bluesky Bot ***');
+            }
 
             if(ENABLE_TWITTER_BOT) {
                 await this.TWordleBot.initialize();
