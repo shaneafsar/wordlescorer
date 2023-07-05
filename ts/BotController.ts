@@ -2,7 +2,8 @@ import algoliasearch, { SearchIndex } from 'algoliasearch';
 import TwitterWordleBot from "./bots/TwitterWordleBot.js";
 import MastoWordleBot from './bots/MastoWordleBot.js';
 import BlueskyWordleBot from './bots/BlueskyWordleBot.js';
-import { BskyAgent } from '@atproto/api';
+import type { BskyAgent } from "@atproto/api";
+import atproto from "@atproto/api";
 import type { mastodon } from 'masto';
 import getGlobalScoreDB from '../js/db/get-global-score-DB.js';
 import getTopScoreDB from '../js/db/get-top-score-DB.js';
@@ -90,7 +91,7 @@ export default class BotController {
         this.GlobalScores = getGlobalScoreDB();
         this.TopScores = getTopScoreDB();
 
-        const algSearchInst = algoliasearch(ALGOLIA_AUTH.appId, ALGOLIA_AUTH.adminKey);
+        const algSearchInst = algoliasearch.default(ALGOLIA_AUTH.appId, ALGOLIA_AUTH.adminKey);
         this.WordleSearchIndex = algSearchInst.initIndex('analyzedwordles');
     }
 
@@ -239,7 +240,7 @@ export default class BotController {
         const users = new WordleData('users_bsky');
         
         if(!this.BAgent) {
-            this.BAgent = new BskyAgent({
+            this.BAgent = new atproto.BskyAgent({
                 service: 'https://bsky.social',
               });
             await this.BAgent.login(BSKY_AUTH);

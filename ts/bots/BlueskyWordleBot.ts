@@ -1,4 +1,4 @@
-import { BskyAgent, AppBskyNotificationListNotifications, AppBskyFeedPost, AppBskyEmbedImages, AppBskyActorDefs } from '@atproto/api'
+import type { BskyAgent, AppBskyNotificationListNotifications, AppBskyFeedPost, AppBskyEmbedImages } from '@atproto/api';
 import isValidWordle from '../../js/calculate/is-valid-wordle.js';
 import { getSolvedRow } from '../../js/calculate/get-solved-row.js';
 import { getWordleNumberFromList } from '../../js/extract/get-wordle-number-from-text.js';
@@ -20,6 +20,11 @@ const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
 
 const POLLING_INTERVAL = 10000;
 
+interface BskyAuthor { 
+  avatar?: string;
+  did: string;
+  handle: string;
+}
 
 interface ProccessOptions {
   isGrowth: boolean;
@@ -145,13 +150,16 @@ export default class BlueskyWordleBot {
       const notifs: AppBskyNotificationListNotifications.Notification[] = await this.getNotifications();
 
       for await (const notif of notifs) {
-        if(AppBskyFeedPost.isRecord(notif.record)) {
-          const res = AppBskyFeedPost.validateRecord(notif.record);
-          
-          if(res.success) {
-            this.processPost(notif.record, {uri: notif.uri, cid: notif.cid}, notif.author, {isGrowth: false, isParent: false});
-          }
-        }
+
+
+        this.processPost(
+          notif.record as AppBskyFeedPost.Record, 
+          { uri: notif.uri, cid: notif.cid}, 
+          { did: notif.author.did, handle: notif.author.handle, avatar: notif.author.avatar },
+          { isGrowth: false, isParent: false}
+        );
+
+
       }
 
       if (notifs.length > 0) {
@@ -167,15 +175,17 @@ export default class BlueskyWordleBot {
         // uri from search result = at://{user.did}/{tid}
         const uris = searchResults.map(result => `at://${result.user.did}/${result.tid}`);
 
-        const postResponse = await this.agent.getPosts({uris});
+        // Cant' go beyond 25, otherwise we'll get a 400 Invalid Request error: "XRPCError: Error: uris must not have more than 25 elements"
+        const postResponse = await this.agent.getPosts({uris: uris.slice(0,25)});
         for await (const post of postResponse.data.posts) {
-          if(AppBskyFeedPost.isRecord(post.record)){
-            const res = AppBskyFeedPost.validateRecord(post.record);
-            if(res.success) {
-              
-              this.processPost(post.record, {uri: post.uri, cid: post.cid}, post.author, {isGrowth: true, isParent: false});
-            }
-          }
+
+          this.processPost(
+            post.record as AppBskyFeedPost.Record, 
+            { uri: post.uri, cid: post.cid }, 
+            { did: post.author.did, handle: post.author.handle, avatar: post.author.avatar }, 
+            { isGrowth: true, isParent: false }
+          );
+
         }
         
       }
@@ -198,7 +208,11 @@ export default class BlueskyWordleBot {
     for (const notif of notifs.data.notifications) {
       if (notif.reason !== 'mention') {
         if(notif.reason === 'follow') {
-          this.agent.follow(notif.author.did);
+          // Warning! We need to check if we're already following this user, otherwise we'll annoy them with notifs until
+          // this notification falls off the first page of our bot account.
+          if(!notif.author.viewer?.followedBy){
+            this.agent.follow(notif.author.did);
+          }
         }    
         continue;
       }
@@ -304,14 +318,16 @@ export default class BlueskyWordleBot {
 
   private async replyWordleScore(
     { wordleScore, wordleNumber, solvedRow} : WordleInfo,
-    { screenName } : AuthorInfo,
+    { screenName, userId } : AuthorInfo,
     { postId, replyRef, url }: PostInfo,
     { isGrowth }: ProccessOptions) {
     try {
       const { wordlePrefix, aboveTotal } = await getScorerGlobalStats({solvedRow, wordleNumber, date: new Date()}, this.globalScores);
       const status = this.buildStatus(screenName, wordlePrefix, wordleScore, solvedRow, aboveTotal, isGrowth);
 
-      const shouldPostRealStatus = !IS_DEVELOPMENT;
+      // We should only reply at most once to new users who havent @-mentioned us before
+      const isGrowthAlreadyChecked = isGrowth && this.userGrowth.hasKey(userId);
+      const shouldPostRealStatus = !IS_DEVELOPMENT && !isGrowthAlreadyChecked;
       
       if(shouldPostRealStatus) {
        await this.agent.post({ 
@@ -321,6 +337,8 @@ export default class BlueskyWordleBot {
       }
       logConsole(`BskyBot | ${IS_DEVELOPMENT ? 'DEVMODE' : ''} reply to ${url}: ${status}`);
 
+      this.userGrowth.write(userId, { lastCheckTime: Date.now()});
+
     } catch(e) {
         logError('BskyBot | failed to get globalScorerGlobalStats & reply | ', e);
     } finally {
@@ -328,17 +346,14 @@ export default class BlueskyWordleBot {
     }
   }
 
-  private async processPost(status: AppBskyFeedPost.Record, {uri, cid} : {uri:string, cid:string}, author: AppBskyActorDefs.ProfileViewBasic, options: ProccessOptions) {
+  private async processPost(status: AppBskyFeedPost.Record, {uri, cid} : {uri:string, cid:string}, author: BskyAuthor, options: ProccessOptions) {
     const { isGrowth, isParent } = options;
     const postHash = uri.split('/').pop() as string;
     const url = `https://bsky.app/profile/${author.handle}/post/${postHash}`;
 
     const textContent = status.text || '';
-    const altTexts = (status.embed as any).images?.map((image:AppBskyEmbedImages.Image) => { 
-      if(AppBskyEmbedImages.isImage(image)) {
-        return image.alt;
-      }
-      return '';
+    const altTexts = status.embed && (status.embed as any).images?.map((image:AppBskyEmbedImages.Image) => { 
+      return image.alt;
     }) || [];
     const listOfContent = [textContent, ...altTexts];
     const wordleMatrix = getWordleMatrixFromList(listOfContent);
@@ -368,8 +383,6 @@ export default class BlueskyWordleBot {
       ' | wordleMatrix: ', wordleMatrix, ' | wordle number: ', wordleNumber, '| solvedRow: ', solvedRow);
 
     if (isValid) {
-
-      this.userGrowth.write(userId, { lastCheckTime: Date.now()});
 
       const wordleInfo: WordleInfo = {
         wordleScore: calculateScoreFromWordleMatrix(wordleMatrix).finalScore,
@@ -413,8 +426,12 @@ export default class BlueskyWordleBot {
         const parentRecord = (parentThread?.data?.thread?.post as any)?.record;
         const parentAuthor = (parentThread?.data?.thread?.post as any)?.author;
 
-        if(AppBskyFeedPost.isRecord(parentRecord) && AppBskyActorDefs.isProfileViewBasic(parentAuthor)) {
-          this.processPost(parentRecord, {uri: parentPost.uri, cid: parentPost.cid}, parentAuthor, { isGrowth: false, isParent: true});
+        if(parentRecord && parentAuthor && parentAuthor.handle && parentAuthor.did) {
+          this.processPost(
+            parentRecord as AppBskyFeedPost.Record, 
+            { uri: parentPost.uri, cid: parentPost.cid }, 
+            { did: parentAuthor.did, handle: parentAuthor.handle, avatar: parentAuthor.avatar }, 
+            { isGrowth: false, isParent: true});
         } else {
           logError('BskyBot | unable to retreive parent status | ', parentPost);
         }
