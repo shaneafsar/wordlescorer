@@ -151,19 +151,26 @@ export default class BotController {
     async postGlobalStats(date: Date) {
         const stats = await getGlobalStats(date);
         const formattedStats = getFormattedGlobalStats(stats);
-        formattedStats.forEach((item, index) => {
+        // Only post the most popular one.
+        const singleFormattedStat = [formattedStats[0]];
+        singleFormattedStat.forEach((item, index) => {
             // Wait one minute between posts
             const timeoutVal = 60000 * (index + 1);
             setTimeout(async () => {
                 if(!IS_DEVELOPMENT) {
-                    const [tResult, mResult, bResult] = await Promise.all([
-                        this.TOAuthV1Client.v2.tweet(item),
-                        this.MClient?.v1.statuses.create({ status: item }),
-                        this.BAgent?.post({ text: item})
-                    ]);      
-                    logConsole('postGlobalStats tweet result: ', tResult);
-                    logConsole('postGlobalStats masto result: ', mResult);
-                    logConsole('postGlobalStats bluesky result: ', bResult);
+
+                    this.TOAuthV1Client.v2.tweet(item).catch((err) => {
+                        logError('postGlobalStats tweet error: ', err);
+                    });
+
+                    this.MClient?.v1.statuses.create({ status: item }).catch((err) => {
+                        logError('postGlobalStats masto error: ', err);
+                    });
+
+                    this.BAgent?.post({ text: item}).catch((err) => {
+                        logError('postGlobalStats bsky error: ', err);
+                    });
+
                 } else {
                     logConsole('postGlobalStats DEVMODE result: ', item);
                 }
