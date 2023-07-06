@@ -379,10 +379,11 @@ export default class BlueskyWordleBot {
     this.PROCESSING.add(postId);
 
     const isValid = isValidWordle(wordleMatrix, wordleNumber, solvedRow);
-    logConsole(`${postId} | ${screenName} isValidWordle? `, isValid, 
-      ' | wordleMatrix: ', wordleMatrix, ' | wordle number: ', wordleNumber, '| solvedRow: ', solvedRow);
 
     if (isValid) {
+
+      logConsole(`${postId} | ${screenName} isValidWordle? `, isValid, 
+      ' | wordleMatrix: ', wordleMatrix, ' | wordle number: ', wordleNumber, '| solvedRow: ', solvedRow);
 
       const wordleInfo: WordleInfo = {
         wordleScore: calculateScoreFromWordleMatrix(wordleMatrix).finalScore,
