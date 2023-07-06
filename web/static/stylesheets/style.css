@@ -95,8 +95,12 @@ header.page-header .header-contact {
   font-size: clamp(10px, 2vw, 15px);
 }
 
+.header-contact li {
+  border-left: 1px solid var(--color-secondary);
+}
+
 .header-contact li:first-child {
-  border-right: 1px solid var(--color-secondary);
+  border-left: 0px;
 }
 
 .spacer {
