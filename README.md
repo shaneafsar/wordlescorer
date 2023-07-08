@@ -3,7 +3,7 @@
 ## Intro
 This node script runs and watches a specific bot account and replies to anyone who asks with a score of their wordle output. The more characters that are solved earlier in the puzzle, the more points you get!
 
-The bot currently runs on [Twitter](https://twitter.com/ScoreMyWordle), [Mastodon](https://botsin.space/@scoremywordle), and [Bluesky](https://bsky.app/profile/scoremywordle.bsky.social. 
+The bot currently runs on [Twitter](https://twitter.com/ScoreMyWordle), [Mastodon](https://botsin.space/@scoremywordle), and [Bluesky](https://bsky.app/profile/scoremywordle.bsky.social). 
 
 ### Features
 * At-mention [@ScoreMyWordle](https://twitter.com/ScoreMyWordle) in your tweet with a Wordle output (or in a reply), and it'll tweet back a response with a score. (Note: limited support in Communities, you will be quote-tweeted).
