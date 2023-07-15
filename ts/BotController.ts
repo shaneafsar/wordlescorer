@@ -4,7 +4,7 @@ import MastoWordleBot from './bots/MastoWordleBot.js';
 import BlueskyWordleBot from './bots/BlueskyWordleBot.js';
 import type { BskyAgent } from "@atproto/api";
 import atproto from "@atproto/api";
-import type { mastodon } from 'masto';
+import { mastodon } from 'masto';
 import getGlobalScoreDB from '../js/db/get-global-score-DB.js';
 import getTopScoreDB from '../js/db/get-top-score-DB.js';
 import { setDelayedFunction } from '../js/set-delayed-function.js';
@@ -167,9 +167,13 @@ export default class BotController {
                         logError('postGlobalStats masto error: ', err);
                     });
 
-                    this.BAgent?.post({ text: item}).catch((err) => {
-                        logError('postGlobalStats bsky error: ', err);
-                    });
+                    if(this.BAgent) {
+                        const rt = new atproto.RichText({text: item});
+                        await rt.detectFacets(this.BAgent);
+                        this.BAgent.post({ text: rt.text, facets: rt.facets}).catch((err) => {
+                            logError('postGlobalStats bsky error: ', err);
+                        });
+                    }
 
                 } else {
                     logConsole('postGlobalStats DEVMODE result: ', item);
@@ -202,7 +206,11 @@ export default class BotController {
             if(!IS_DEVELOPMENT) {
                 this.TOAuthV1Client.v2.tweet(finalStatus);
                 this.MClient?.v1.statuses.create({ status: mastodonStatus });
-                this.BAgent?.post({ text: mastodonStatus });
+                if(this.BAgent) {
+                    const rt = new atproto.RichText({text: mastodonStatus});
+                    await rt.detectFacets(this.BAgent);
+                    this.BAgent.post({ text: rt.text, facets: rt.facets})
+                }
             }
             logConsole(`Daily top score ${IS_DEVELOPMENT? 'DEVMODE' : ''} | ${mastodonStatus}`);
         } else {

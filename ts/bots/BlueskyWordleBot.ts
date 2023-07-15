@@ -1,4 +1,4 @@
-import type { BskyAgent, AppBskyNotificationListNotifications, AppBskyFeedPost, AppBskyEmbedImages } from '@atproto/api';
+import { BskyAgent, AppBskyNotificationListNotifications, AppBskyFeedPost, AppBskyEmbedImages, RichText } from '@atproto/api';
 import isValidWordle from '../../js/calculate/is-valid-wordle.js';
 import { getSolvedRow } from '../../js/calculate/get-solved-row.js';
 import { getWordleNumberFromList } from '../../js/extract/get-wordle-number-from-text.js';
@@ -329,9 +329,12 @@ export default class BlueskyWordleBot {
       const isGrowthAlreadyChecked = isGrowth && this.userGrowth.hasKey(userId);
       const shouldPostRealStatus = !IS_DEVELOPMENT && !isGrowthAlreadyChecked;
       
+      const rt = new RichText({ text: status });
+      await rt.detectFacets(this.agent);
       if(shouldPostRealStatus) {
        await this.agent.post({ 
-          text: status, 
+          text: rt.text, 
+          facets: rt.facets,
           reply: replyRef
         });
       }
