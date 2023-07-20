@@ -159,7 +159,7 @@ export default class TwitterWordleBot {
     async initialize() {
         //await this.updateStreamRules();
         //await this.startStream();
-        this.subscribeToMentionsV1();
+        // this.subscribeToMentionsV1();
     }
 
     // @ts-ignore
