@@ -57,7 +57,7 @@ router.get('/', (_req, res) => {
 
       const finalTime = new Date().setUTCHours(24,0,0,0);
       const currentTime = currentDate.getTime();
-      const timeTillDailyTopScore = `Daily Top Score tweet happening in about ${((finalTime - currentTime)/1000/60/60).toFixed(2)} hours!`;
+      const timeTillDailyTopScore = `Daily Top Score post happening in about ${((finalTime - currentTime)/1000/60/60).toFixed(2)} hours!`;
 
       //Render page
       res.render('index.pug', { 
