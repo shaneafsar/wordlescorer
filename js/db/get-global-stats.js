@@ -5,9 +5,10 @@ import getGlobalScoreDB from './get-global-score-DB.js';
  * @typedef {{total: number, key: number, solvedRowCounts: number[]}} WordleScoreStats
  * @param {Date} date datetime of global stats to pull 
  * @param {WordleData} [globalScoreDB] instance of globalScoreDB
+ * @param {Boolean} [forceMongo] force mongo to be used
  * @returns {Promise<WordleScoreStats[]>} Returns array of wordle stats
  */
-async function getGlobalStats(date, globalScoreDB) {
+async function getGlobalStats(date, globalScoreDB, forceMongo = false) {
   const GlobalScoreStatsDB =  globalScoreDB || getGlobalScoreDB(date);
 // userId: {
 //     "wordleNumber": 486,
@@ -18,10 +19,12 @@ async function getGlobalStats(date, globalScoreDB) {
 //     "screenName": "@TEST",
 //     "datetime": 1666109132149
 //   },
-  let data = await GlobalScoreStatsDB.read().catch((err) => {
+  let data = await GlobalScoreStatsDB.read(null, date, forceMongo).catch((err) => {
     console.error(err);
   });
-  const scorerList = Object.values(data);
+
+  //If it's an array, then we're pulling from mongo
+  const scorerList = Array.isArray(data) ? data : Object.values(data);
   const wordleScores = {};
   
   scorerList.forEach(item => {

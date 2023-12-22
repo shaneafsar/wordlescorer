@@ -326,7 +326,7 @@ export default class BlueskyWordleBot {
       const status = this.buildStatus(screenName, wordlePrefix, wordleScore, solvedRow, aboveTotal, isGrowth);
 
       // We should only reply at most once to new users who havent @-mentioned us before
-      const isGrowthAlreadyChecked = isGrowth && this.userGrowth.hasKey(userId);
+      const isGrowthAlreadyChecked = isGrowth && await this.userGrowth.hasKeyAsync(userId);
       const shouldPostRealStatus = !IS_DEVELOPMENT && !isGrowthAlreadyChecked;
       
       const rt = new atproto.RichText({ text: status });
@@ -375,7 +375,12 @@ export default class BlueskyWordleBot {
      * Bail early if this post has been processed or is 
      * processing.
      */  
-    if(this.analyzedPosts.readSync(postId) || this.PROCESSING.has(postId)) {
+    if(this.PROCESSING.has(postId)) {
+      return;
+    }
+
+    const post = await this.analyzedPosts.read(postId);
+    if(post) {
       return;
     }
 
@@ -420,29 +425,32 @@ export default class BlueskyWordleBot {
     } else if(
       parentPost && 
       !isGrowth &&
-      !isParent && 
-      !this.analyzedPosts.hasKey(parentPost.uri) &&
+      !isParent &&
       !this.PROCESSING.has(parentPost.uri)) {
-        
-      try {
-        
-        const parentThread = await this.agent.getPostThread({ uri: parentPost.uri });
-        const parentRecord = (parentThread?.data?.thread?.post as any)?.record;
-        const parentAuthor = (parentThread?.data?.thread?.post as any)?.author;
 
-        if(parentRecord && parentAuthor && parentAuthor.handle && parentAuthor.did) {
-          this.processPost(
-            parentRecord as AppBskyFeedPost.Record, 
-            { uri: parentPost.uri, cid: parentPost.cid }, 
-            { did: parentAuthor.did, handle: parentAuthor.handle, avatar: parentAuthor.avatar }, 
-            { isGrowth: false, isParent: true});
-        } else {
-          logError('BskyBot | unable to retreive parent status | ', parentPost);
+      const hasId = await this.analyzedPosts.hasKeyAsync(parentPost.uri);
+      
+      if(!hasId) {
+        try {
+          
+          const parentThread = await this.agent.getPostThread({ uri: parentPost.uri });
+          const parentRecord = (parentThread?.data?.thread?.post as any)?.record;
+          const parentAuthor = (parentThread?.data?.thread?.post as any)?.author;
+  
+          if(parentRecord && parentAuthor && parentAuthor.handle && parentAuthor.did) {
+            this.processPost(
+              parentRecord as AppBskyFeedPost.Record, 
+              { uri: parentPost.uri, cid: parentPost.cid }, 
+              { did: parentAuthor.did, handle: parentAuthor.handle, avatar: parentAuthor.avatar }, 
+              { isGrowth: false, isParent: true});
+          } else {
+            logError('BskyBot | unable to retreive parent status | ', parentPost);
+          }
+        } catch (e) {
+          logError('BskyBot | error finding parent post, request failed | ', e);
+        } finally {
+          this.PROCESSING.delete(postId);
         }
-      } catch (e) {
-        logError('BskyBot | error finding parent post, request failed | ', e);
-      } finally {
-        this.PROCESSING.delete(postId);
       }
 
     }

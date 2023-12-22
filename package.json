@@ -13,6 +13,7 @@
     "ui-only": "node dist/ts/server.js",
     "file-copy": "cp -R ./web/routes ./dist/web/ && cp -R ./web/views ./dist/web/ && cp -R ./web/static ./dist/web/",
     "clear-db": "rm -r ./db/*",
+    "migrate-db": "node migrate-to-mongo.js",
     "compile": "tsc"
   },
   "repository": {
@@ -50,6 +51,7 @@
     "jsdom": "^22.1.0",
     "lowdb": "^5.1.0",
     "masto": "^5.11.3",
+    "mongodb": "^6.2.0",
     "morgan": "^1.10.0",
     "node": "^18.12.1",
     "nodemon": "^2.0.22",

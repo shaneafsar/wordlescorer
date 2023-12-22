@@ -5,9 +5,9 @@ import getPercent from '../display/get-percent.js';
 
 const formatter = new Intl.NumberFormat().format;
 
-async function getTopScorerInfo(date) {
+async function getTopScorerInfo(date, forceMongo = false) {
   const TopScoreDB = getTopScoreDB(date);
-  const globalStats = await getGlobalStats(date).catch((err)   => {
+  const globalStats = await getGlobalStats(date, null, forceMongo).catch((err)   => {
     console.error(err);
   });
   /**
@@ -22,10 +22,10 @@ async function getTopScorerInfo(date) {
    *    }
    * }
    */
-  let data = await TopScoreDB.read().catch((err) => {
+  let data = await TopScoreDB.read(null, date, forceMongo).catch((err) => {
     console.error(err);
   });
-  let scorerList = Object.values(data);
+  let scorerList = Array.isArray(data) ? data : Object.values(data);
   // Select the most likely wordle that we care about today, filter to those people
   if (globalStats.length > 1) {
     

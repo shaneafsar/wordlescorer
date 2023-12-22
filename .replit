@@ -4,3 +4,6 @@ run = "npm run start"
 
 [nix]
 channel = "stable-22_05"
+
+[deployment]
+deploymentTarget = "gce"

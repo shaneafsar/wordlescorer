@@ -1,5 +1,4 @@
 import algoliasearch, { SearchIndex } from 'algoliasearch';
-import TwitterWordleBot from "./bots/TwitterWordleBot.js";
 import MastoWordleBot from './bots/MastoWordleBot.js';
 import BlueskyWordleBot from './bots/BlueskyWordleBot.js';
 import type { BskyAgent } from "@atproto/api";
@@ -9,10 +8,6 @@ import getGlobalScoreDB from '../js/db/get-global-score-DB.js';
 import getTopScoreDB from '../js/db/get-top-score-DB.js';
 import { setDelayedFunction } from '../js/set-delayed-function.js';
 import WordleData from "../js/WordleData.js";
-import { 
-    TwitterApi, 
-    TwitterApiTokens 
-} from "twitter-api-v2";
 import { login } from 'masto';
 import getGlobalStats from '../js/db/get-global-stats.js';
 import getFormattedGlobalStats from '../js/display/get-formatted-global-stats.js';
@@ -29,22 +24,6 @@ if (IS_DEVELOPMENT) {
     dotenv.config();
 };
 
-const TWIT_CONFIG = {
-    consumer_key: process.env['consumer_key'],
-    consumer_secret: process.env['consumer_secret'],
-    access_token: process.env['access_token'],
-    access_token_secret: process.env['access_token_secret'],
-};
-
-const TWITTER_OAUTH_V1: TwitterApiTokens = {
-    appKey: TWIT_CONFIG.consumer_key || '',
-    appSecret: TWIT_CONFIG.consumer_secret || '',
-    accessToken: TWIT_CONFIG.access_token || '',
-    accessSecret: TWIT_CONFIG.access_token_secret || ''
-};
-
-const TWITTER_OAUTH_V2: string = process.env['bearer_token'] || '';
-
 const ALGOLIA_AUTH = {
     appId: process.env['algolia_app_id'] || '', 
     adminKey: process.env['algolia_admin_key'] || ''
@@ -60,7 +39,6 @@ const BSKY_AUTH = {
     password: process.env['BSKY_PASSWORD'] || '',
 };
 
-const ENABLE_TWITTER_BOT = true;
 const ENABLE_MASTO_BOT = true;
 const ENABLE_BSKY_BOT = true;
 
@@ -69,23 +47,17 @@ export default class BotController {
     private GlobalScores: WordleData;
     private TopScores: WordleData;
 
-    private TOAuthV1Client: TwitterApi;
-    private TOAuthV2Client: TwitterApi;
-
     private MClient: mastodon.Client | undefined;
 
     private BAgent: BskyAgent | undefined;
 
     private WordleSearchIndex: SearchIndex;
 
-    private TWordleBot: TwitterWordleBot | undefined;
     private MWordleBot: MastoWordleBot | undefined;
     private BSkyBot: BlueskyWordleBot | undefined;
 
 
     constructor() {
-        this.TOAuthV1Client = new TwitterApi(TWITTER_OAUTH_V1);
-        this.TOAuthV2Client = new TwitterApi(TWITTER_OAUTH_V2);
 
         this.GlobalScores = getGlobalScoreDB();
         this.TopScores = getTopScoreDB();
@@ -110,13 +82,11 @@ export default class BotController {
 
     private async buildBots() {
         try {
-            const [TWordleBot, MWordleBot, BSkyBot] = await Promise.all([
-                this.initTwitterBot(),
+            const [MWordleBot, BSkyBot] = await Promise.all([
                 this.initMastoBot(),
                 this.initBskyBot()
             ]);
 
-            this.TWordleBot = TWordleBot;
             this.MWordleBot = MWordleBot;
             this.BSkyBot = BSkyBot;
 
@@ -128,11 +98,6 @@ export default class BotController {
             if(ENABLE_BSKY_BOT) {
                 await this.BSkyBot.initialize();
                 console.log('*** BotController:  Initialized Bluesky Bot ***');
-            }
-
-            if(ENABLE_TWITTER_BOT) {
-                await this.TWordleBot.initialize();
-                console.log('*** BotController:  Initialized Twitter Bot ***');
             }
 
 
@@ -158,10 +123,6 @@ export default class BotController {
             const timeoutVal = 60000 * (index + 1);
             setTimeout(async () => {
                 if(!IS_DEVELOPMENT) {
-
-                    this.TOAuthV1Client.v2.tweet(item).catch((err) => {
-                        logError('postGlobalStats tweet error: ', err);
-                    });
 
                     this.MClient?.v1.statuses.create({ status: item }).catch((err) => {
                         logError('postGlobalStats masto error: ', err);
@@ -204,7 +165,6 @@ export default class BotController {
             finalStatus;
 
             if(!IS_DEVELOPMENT) {
-                this.TOAuthV1Client.v2.tweet(finalStatus);
                 this.MClient?.v1.statuses.create({ status: mastodonStatus });
                 if(this.BAgent) {
                     const rt = new atproto.RichText({text: mastodonStatus});
@@ -221,33 +181,6 @@ export default class BotController {
         setDelayedFunction(this.postDailyTopScore.bind(this));
 
         await this.reloadGlobalScores();
-    }
-
-    private async initTwitterBot() {
-        const userGrowth = new WordleData('user-growth-twt-2023-05-26');
-        const analyzedPosts = new WordleData('analyzed-twt-2023-05-26');
-        const users = new WordleData('users');
-        const lastMention = new WordleData('last-mention');
-
-        await Promise.all([
-            this.GlobalScores.loadData(),
-            this.TopScores.loadData(),
-            userGrowth.loadData(),
-            analyzedPosts.loadData(),
-            users.loadData(),
-            lastMention.loadData()
-        ]);
-      
-        return new TwitterWordleBot(
-          this.TOAuthV2Client,
-          this.TOAuthV1Client,
-          this.WordleSearchIndex,
-          this.GlobalScores, 
-          this.TopScores,
-          userGrowth,
-          analyzedPosts,
-          users,
-          lastMention);
     }
 
     private async initBskyBot() {

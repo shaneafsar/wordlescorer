@@ -127,7 +127,7 @@ export default class MastoWordleBot {
    * Useful for cold starts or catching up after (un)expected downtime.
    */
   private async processRecentMentions() {
-    let lastNotifId = this.lastMention.readSync(SINCE_ID) as string || null;
+    let lastNotifId = await this.lastMention.read(SINCE_ID) as string || null;
     const notifs = await this.masto.v1.notifications.list({ limit: 100, sinceId: lastNotifId });
 
     for(const notif of notifs) {
@@ -348,7 +348,12 @@ export default class MastoWordleBot {
      * Bail early if this post has been processed or is 
      * processing.
      */  
-    if(this.analyzedPosts.readSync(postId) || this.PROCESSING.has(postId)) {
+    if(this.PROCESSING.has(postId)) {
+      return;
+    }
+
+    const post = await this.analyzedPosts.read(postId);
+    if(post) {
       return;
     }
 
@@ -388,22 +393,23 @@ export default class MastoWordleBot {
       parentId && 
       !isGrowth &&
       !isParent && 
-      !this.analyzedPosts.hasKey(parentId) &&
       !this.PROCESSING.has(parentId)) {
-        
-      try {
-        const context = await this.masto.v1.statuses.fetchContext(status.id);
-        if(context.ancestors.length > 0) {
-          this.processPost(context.ancestors.pop()!, { isGrowth: false, isParent: true});
-        } else {
-          logError('unable to retreive parent status | ', context);
-        }
-      } catch (e) {
-        logError('error finding parent post, request failed | ', e);
-      } finally {
-        this.PROCESSING.delete(postId);
-      }
 
+      const hasId = await this.analyzedPosts.hasKeyAsync(parentId);
+      if(!hasId) {
+        try {
+            const context = await this.masto.v1.statuses.fetchContext(status.id);
+            if(context.ancestors.length > 0) {
+              this.processPost(context.ancestors.pop()!, { isGrowth: false, isParent: true});
+            } else {
+              logError('unable to retreive parent status | ', context);
+            }
+          } catch (e) {
+            logError('error finding parent post, request failed | ', e);
+          } finally {
+            this.PROCESSING.delete(postId);
+          }
+      }
     }
   }
 }
