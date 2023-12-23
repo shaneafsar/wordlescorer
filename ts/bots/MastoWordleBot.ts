@@ -127,7 +127,8 @@ export default class MastoWordleBot {
    * Useful for cold starts or catching up after (un)expected downtime.
    */
   private async processRecentMentions() {
-    let lastNotifId = await this.lastMention.read(SINCE_ID) as string || null;
+    let lastNotifId = await this.lastMention.read(SINCE_ID, null, true) as string || null;
+    //console.log('mastobot notif | ', lastNotifId);
     const notifs = await this.masto.v1.notifications.list({ limit: 100, sinceId: lastNotifId });
 
     for(const notif of notifs) {
@@ -352,8 +353,10 @@ export default class MastoWordleBot {
       return;
     }
 
-    const post = await this.analyzedPosts.read(postId);
+    //const post = await this.analyzedPosts.read(postId);
+    const post = await this.analyzedPosts.hasKeyAsync(postId);
     if(post) {
+      console.log(`MastoBot | post ${postId} already processed`);
       return;
     }
 

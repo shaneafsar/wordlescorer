@@ -379,8 +379,10 @@ export default class BlueskyWordleBot {
       return;
     }
 
-    const post = await this.analyzedPosts.read(postId);
+    //const post = await this.analyzedPosts.read(postId, null, true);
+    const post = await this.analyzedPosts.hasKeyAsync(postId);
     if(post) {
+      //console.log(`BskyBot | post ${postId} already processed`);
       return;
     }
 

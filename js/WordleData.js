@@ -5,7 +5,6 @@ import fs from 'node:fs';
 import { Low } from 'lowdb'
 import { JSONFile } from 'lowdb/node'
 import logger from './debug/logger.js'
-import { MongoClient, ServerApiVersion } from 'mongodb';
 import MongoClientInstance from '../ts/mongo.js';
 
 const uri = `mongodb+srv://${process.env['MONGODB_USER']}:${process.env['MONGODB_PASS']}@cluster0.yztewyz.mongodb.net/?retryWrites=true&w=majority`;
@@ -46,13 +45,8 @@ class WordleData {
    * @param {Date} [date]
    */
   constructor(name, subdir, date) {
-    this.mongoClient = MongoClientInstance; /*new MongoClient(uri, { 
-        serverApi: {
-          version: ServerApiVersion.v1,
-          strict: true,
-          deprecationErrors: true,
-        }
-      });*/
+    this.mongoClient = MongoClientInstance; 
+    
     this.date = date;
 
     this.name = subdir || name.split('_')[0];
@@ -100,7 +94,6 @@ class WordleData {
     if(ENABLE_MONGO_READ || forceMongo) {
       let output;
       try {
-        //await this.mongoClient.connect();
         const database = this.mongoClient.db("wordlescorer");
         const collection = database.collection(this.name);
         if(key && date) {
@@ -112,29 +105,25 @@ class WordleData {
           output = await collection.findOne(query);
         }
         else if (key) {
-          if(this.date) {
+          if(key === 'since_id') {
+            if(!this.since_id) {
+              const doc = await collection.findOne({ key, source:this.recordType });
+              output = doc.since_id;
+            } else {
+              output = this.since_id;
+            }
+          } else if(this.date) {
             const datetime = getDateQuery(this.date);
             output = await collection.findOne({ key, datetime });
           } else {
-            if(key === 'since_id') {
-              if(!this.since_id) {
-                const doc = await collection.findOne({ key, source:this.recordType });
-                output = doc.since_id;
-              } else {
-                output = this.since_id;
-              }
-            } else {
-                output = await collection.findOne({ key });
-            }
+            output = await collection.findOne({ key });
           }
         } else if(date) {
           const datetime = getDateQuery(date);
           output = await collection.find({ datetime }).toArray();
         }
       } catch (e) {
-        logger.error('WordleData | mongodb read | ',this.name,' | ', e);
-      } finally {
-        //await this.mongoClient.close();
+        logger.error('WordleData | mongodb read | ',this.name,' | ', key, ' | ', e);
       }
     return output;
     } else {
@@ -150,14 +139,11 @@ class WordleData {
   async count() {
     let output;
     try {
-      //await this.mongoClient.connect();
       const database = this.mongoClient.db("wordlescorer");
       const collection = database.collection(this.name);
       output = await collection.countDocuments({}, { hint: "_id_" });
     } catch (e) {
       logger.error('WordleData | mongodb count | ',this.name,' | ', e);
-    } finally {
-     // await this.mongoClient.close();
     }
     return output;
   }
@@ -172,41 +158,6 @@ class WordleData {
       return this.db.data?.[key];
     }
     return this.db.data || {};
-  }
-
-  /**
-   * @param {string} key
-   * @param {any} data - push into array
-   */
-  async push(key, data) {
-    await this.loadData();
-
-    if(!this.db.data?.[key]) {
-      this.db.data[key] = [];
-    }
-
-    /**
-     * If possible, add epoch time
-     */
-    if(typeof data === 'object' &&
-      !Array.isArray(data) &&
-      data !== null &&
-      !data.datetime) {
-      data.datetime = Date.now();
-    }
-
-    this.db.data[key].push(data);
-
-    /*try {
-      await this.mongoCollection.insertOne({ key, data });
-    } catch (e) {
-      console.error('MongoDB insertion error:', e);
-    }*/
-
-    await this.db.write().catch(e => {
-      console.log('WordleData | push | ', this.file, ' | ', e);
-      logger.error('WordleData | push | ', this.file, ' | ', e);
-    });
   }
 
   /**
@@ -243,7 +194,6 @@ class WordleData {
     }
     let output;
     try {
-      //await this.mongoClient.connect();
       const database = this.mongoClient.db("wordlescorer");
       const collection = database.collection(this.name);
       const query = {
@@ -253,25 +203,24 @@ class WordleData {
         query.source = this.recordType;
         this.since_id = data;
         output = await collection.replaceOne(query, { key, [key]: data, 'source': this.recordType }, { upsert: true});
+      } else {
+        if(date) {
+          // Based on the above, along with the daily assumption,
+          // always replace any record found with a new value.
+          const startDate = new Date(date);
+          startDate.setUTCHours(0, 0, 0, 0);
+          const startOfToday = now.getTime();
+          const endOfToday = (new Date(now).setDate(now.getDate() + 1)).getTime();
+          query.datetime = {
+            $gte: startOfToday,
+            $lt: endOfToday
+          };
+        }
+        const replace = {key, ...data};
+        output = await collection.replaceOne(query, replace, { upsert: true});
       }
-      if(date) {
-        // Based on the above, along with the daily assumption,
-        // always replace any record found with a new value.
-        const startDate = new Date(date);
-        startDate.setUTCHours(0, 0, 0, 0);
-        const startOfToday = now.getTime();
-        const endOfToday = (new Date(now).setDate(now.getDate() + 1)).getTime();
-        query.datetime = {
-          $gte: startOfToday,
-          $lt: endOfToday
-        };
-      }
-      const replace = {key, ...data};
-      output = await collection.replaceOne(query, replace, { upsert: true});
     } catch (e) {
       logger.error('WordleData | mongodb write | ',this.name,' | ', e);
-    } finally {
-      //await this.mongoClient.close();
     }
     return output;
   }
@@ -296,7 +245,6 @@ class WordleData {
   async hasKeyAsync(val) {
     let doc = null;
     try {
-      //await this.mongoClient.connect();
       const database = this.mongoClient.db("wordlescorer");
       const collection = database.collection(this.name);
       const query = {
@@ -304,9 +252,7 @@ class WordleData {
       };
       doc = await collection.findOne(query);
     } catch (e) {
-      logger.error('WordleData | mongodb hasKey | ',this.name,' | ', e);
-    } finally {
-      //await this.mongoClient.close();
+      logger.error('WordleData | mongodb hasKey | ',this.name,' | ', key, ' | ', e);
     }
     return !doc ? false : true;
   }
