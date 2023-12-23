@@ -6,6 +6,7 @@ import { Low } from 'lowdb'
 import { JSONFile } from 'lowdb/node'
 import logger from './debug/logger.js'
 import { MongoClient, ServerApiVersion } from 'mongodb';
+import MongoClientInstance from '../ts/mongo.js';
 
 const uri = `mongodb+srv://${process.env['MONGODB_USER']}:${process.env['MONGODB_PASS']}@cluster0.yztewyz.mongodb.net/?retryWrites=true&w=majority`;
 
@@ -45,13 +46,13 @@ class WordleData {
    * @param {Date} [date]
    */
   constructor(name, subdir, date) {
-    this.mongoClient = new MongoClient(uri, { 
+    this.mongoClient = MongoClientInstance; /*new MongoClient(uri, { 
         serverApi: {
           version: ServerApiVersion.v1,
           strict: true,
           deprecationErrors: true,
         }
-      });
+      });*/
     this.date = date;
 
     this.name = subdir || name.split('_')[0];
@@ -99,7 +100,7 @@ class WordleData {
     if(ENABLE_MONGO_READ || forceMongo) {
       let output;
       try {
-        await this.mongoClient.connect();
+        //await this.mongoClient.connect();
         const database = this.mongoClient.db("wordlescorer");
         const collection = database.collection(this.name);
         if(key && date) {
@@ -133,7 +134,7 @@ class WordleData {
       } catch (e) {
         logger.error('WordleData | mongodb read | ',this.name,' | ', e);
       } finally {
-        await this.mongoClient.close();
+        //await this.mongoClient.close();
       }
     return output;
     } else {
@@ -149,14 +150,14 @@ class WordleData {
   async count() {
     let output;
     try {
-      await this.mongoClient.connect();
+      //await this.mongoClient.connect();
       const database = this.mongoClient.db("wordlescorer");
       const collection = database.collection(this.name);
       output = await collection.countDocuments({}, { hint: "_id_" });
     } catch (e) {
       logger.error('WordleData | mongodb count | ',this.name,' | ', e);
     } finally {
-      await this.mongoClient.close();
+     // await this.mongoClient.close();
     }
     return output;
   }
@@ -242,7 +243,7 @@ class WordleData {
     }
     let output;
     try {
-      await this.mongoClient.connect();
+      //await this.mongoClient.connect();
       const database = this.mongoClient.db("wordlescorer");
       const collection = database.collection(this.name);
       const query = {
@@ -270,7 +271,7 @@ class WordleData {
     } catch (e) {
       logger.error('WordleData | mongodb write | ',this.name,' | ', e);
     } finally {
-      await this.mongoClient.close();
+      //await this.mongoClient.close();
     }
     return output;
   }
@@ -295,7 +296,7 @@ class WordleData {
   async hasKeyAsync(val) {
     let doc = null;
     try {
-      await this.mongoClient.connect();
+      //await this.mongoClient.connect();
       const database = this.mongoClient.db("wordlescorer");
       const collection = database.collection(this.name);
       const query = {
@@ -305,7 +306,7 @@ class WordleData {
     } catch (e) {
       logger.error('WordleData | mongodb hasKey | ',this.name,' | ', e);
     } finally {
-      await this.mongoClient.close();
+      //await this.mongoClient.close();
     }
     return !doc ? false : true;
   }
