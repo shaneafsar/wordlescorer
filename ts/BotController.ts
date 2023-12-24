@@ -149,7 +149,7 @@ export default class BotController {
 
     async postDailyTopScore(date: Date) {
       
-        const scorer = await getTopScorerInfo(date);
+        const scorer = await getTopScorerInfo(date, true);
         
         if (scorer) {
             const formattedDate = getFormattedDate(date);
