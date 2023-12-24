@@ -24,7 +24,7 @@ router.get('/', (_req, res) => {
 
   Promise.all([
     getGlobalStats(currentDate, null, true), 
-    getTopScorerInfo(currentDate, null, true),
+    getTopScorerInfo(currentDate, true),
     UsersDB.count(),
     AnalyzedDB.count()]).then(results => {
     const stats = results[0];
