@@ -110,11 +110,11 @@ export default class BotController {
         console.log('*** BotController: reloadGlobalScores ***');
         this.GlobalScores = getGlobalScoreDB();
         this.TopScores = getTopScoreDB();
-        await this.loadScoreData();
+        //await this.loadScoreData();
     }
 
     async postGlobalStats(date: Date) {
-        const stats = await getGlobalStats(date);
+        const stats = await getGlobalStats(date, null, true);
         const formattedStats = getFormattedGlobalStats(stats);
         // Only post the most popular one.
         const singleFormattedStat = [formattedStats[0]];
