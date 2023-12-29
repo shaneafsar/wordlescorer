@@ -9,7 +9,8 @@ import MongoClientInstance from '../ts/mongo.js';
 
 const uri = `mongodb+srv://${process.env['MONGODB_USER']}:${process.env['MONGODB_PASS']}@cluster0.yztewyz.mongodb.net/?retryWrites=true&w=majority`;
 
-const ENABLE_MONGO_READ = false;
+const ENABLE_MONGO_READ = true;
+const ENABLE_MONGO_WRITE_ONLY = true;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -167,7 +168,7 @@ class WordleData {
    * @param [boolean] forceMongo - force to write only to mongoDB
    */
   async write(key, data, date = null, forceMongo = false) {
-    if(!forceMongo) {
+    if(!ENABLE_MONGO_WRITE_ONLY) {
       await this.loadData();
   
       /**
@@ -258,14 +259,16 @@ class WordleData {
   }
 
   async loadData() {
-    if(this.db.data === null) {
-      try {
-        await this.db.read();
-        if(this.db.data === null) {
-          this.db.data = {};
+    if(!ENABLE_MONGO_READ) {
+      if(this.db.data === null) {
+        try {
+          await this.db.read();
+          if(this.db.data === null) {
+            this.db.data = {};
+          }
+        } catch (e) {
+          console.error(e);
         }
-      } catch (e) {
-        console.error(e);
       }
     }
     return Promise.resolve();

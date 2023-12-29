@@ -68,7 +68,7 @@ export default class BotController {
 
     static async initialize():Promise<BotController> {
         const botController = new BotController();
-        await botController.loadScoreData();
+        //await botController.loadScoreData();
         await botController.buildBots();
         setDelayedFunction(botController.postDailyTopScore.bind(botController));
         setDelayedFunction(botController.postGlobalStats.bind(botController));
@@ -195,11 +195,11 @@ export default class BotController {
             await this.BAgent.login(BSKY_AUTH);
         }
 
-        await Promise.all([
+        /*await Promise.all([
             userGrowth.loadData(),
             analyzedPosts.loadData(),
             users.loadData(),
-        ]);
+        ]);*/
       
         return new BlueskyWordleBot(
             this.BAgent,
@@ -222,12 +222,12 @@ export default class BotController {
             this.MClient = await login(MASTO_AUTH);
         }
 
-        await Promise.all([
+        /*await Promise.all([
             userGrowth.loadData(),
             analyzedPosts.loadData(),
             users.loadData(),
             lastMention.loadData()
-        ]);
+        ]);*/
       
         return new MastoWordleBot(
           this.MClient,
