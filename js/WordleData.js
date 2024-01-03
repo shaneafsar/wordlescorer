@@ -98,6 +98,7 @@ class WordleData {
         const database = this.mongoClient.db("wordlescorer");
         const collection = database.collection(this.name);
         if(key && date) {
+          console.log('trying to find by key and date...', key, date);
           const datetime = getDateQuery(date);
           const query = {
             key, 
@@ -106,6 +107,7 @@ class WordleData {
           output = await collection.findOne(query);
         }
         else if (key) {
+          console.log('trying to find by key...', key);
           if(key === 'since_id') {
             if(!this.since_id) {
               const doc = await collection.findOne({ key, source:this.recordType });
@@ -121,6 +123,7 @@ class WordleData {
           }
         } else if(date) {
           const datetime = getDateQuery(date);
+          console.log('trying to find by date...', date, { datetime });
           output = await collection.find({ datetime }).toArray();
         }
       } catch (e) {
@@ -216,6 +219,15 @@ class WordleData {
             $gte: startOfToday,
             $lt: endOfToday
           };
+        }
+        /**
+         * If possible, add epoch time
+         */
+        if(typeof data === 'object' &&
+          !Array.isArray(data) &&
+          data !== null &&
+          !data.datetime) {
+          data.datetime = Date.now();
         }
         const replace = {key, ...data};
         output = await collection.replaceOne(query, replace, { upsert: true});

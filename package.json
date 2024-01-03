@@ -7,6 +7,7 @@
   "scripts": {
     "test": "main.js",
     "prod": "node dist/ts/main.js",
+    "db-test": "node dist/js/test-db-methods.js",
     "start": "npm run file-copy && nodemon -x 'node dist/ts/main.js'",
     "beta": "npm run file-copy && NODE_ENV=develop nodemon -x 'node dist/ts/main.js || touch dist/ts/main.js'",
     "local": "npm run file-copy && NODE_ENV=develop NODE_OPTIONS=--max-old-space-size=4096 node dist/ts/main.js",

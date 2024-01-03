@@ -8,7 +8,7 @@ import getGlobalScoreDB from './get-global-score-DB.js';
  * @param {Boolean} [forceMongo] force mongo to be used
  * @returns {Promise<WordleScoreStats[]>} Returns array of wordle stats
  */
-async function getGlobalStats(date, globalScoreDB, forceMongo = false) {
+async function getGlobalStats(date, globalScoreDB, forceMongo = true) {
   const GlobalScoreStatsDB =  globalScoreDB || getGlobalScoreDB(date);
 // userId: {
 //     "wordleNumber": 486,
@@ -19,6 +19,7 @@ async function getGlobalStats(date, globalScoreDB, forceMongo = false) {
 //     "screenName": "@TEST",
 //     "datetime": 1666109132149
 //   },
+  console.log('*** db.getGlobalStats *** ', date);
   let data = await GlobalScoreStatsDB.read(null, date, forceMongo).catch((err) => {
     console.error(err);
   });
