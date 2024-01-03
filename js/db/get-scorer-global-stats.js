@@ -23,10 +23,10 @@ const formatter = new Intl.NumberFormat().format;
 async function getScorerGlobalStats({ solvedRow, wordleNumber, date }, globalScoreDB) {
   console.log(`*** getting scorers global stats... ***`);
   
-  const globalStats = await getGlobalStats(date, globalScoreDB).catch((err)   => {
+  const globalStats = await getGlobalStats(date, null, true).catch((err)   => {
     console.error(err);
   });
-  
+  console.log(globalStats);
   var final = globalStats.filter(item => item.key+'' === wordleNumber + '');
   
   if(final.length > 0) {
