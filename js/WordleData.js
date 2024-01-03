@@ -140,6 +140,69 @@ class WordleData {
     }
   }
 
+  async tempUpdate() {
+    try {
+      const database = this.mongoClient.db("wordlescorer");
+      const collection = database.collection(this.name);
+
+      // Query to find documents where 'datetime' field is missing
+      const query = { datetime: { $exists: false }, date_timestamp: { $exists: true } };
+
+      // Update operation to set 'datetime' as 'date_timestamp' * 1000
+      const update = { 
+        $set: { 
+          datetime: { $multiply: ["$date_timestamp", 1000] } 
+        } 
+      };
+
+      // Perform the update operation
+      //const result = await collection.updateMany(query, update);
+      //console.log(`${result.modifiedCount} documents updated.`);
+
+      
+      // Find documents where 'datetime' field is missing and sort by 'wordleNumber' descending
+
+      /*
+      const query = { datetime: { $exists: false } };
+
+      const documents = await collection.find(query).sort({ wordleNumber: -1 }).toArray();
+  
+      if (documents.length === 0) {
+        console.log('No documents to update');
+        return;
+      }
+
+      let currentWordleNumber = null;
+      let daysToSubtract = 0;
+      const currentDate = new Date();
+      let updatePromises = [];
+      console.log('documents count: ', documents.length);
+      
+      // Grouping documents by wordleNumber
+      for (const doc of documents) {
+        if (doc.wordleNumber !== currentWordleNumber) {
+          currentWordleNumber = doc.wordleNumber;
+          if (daysToSubtract > 0) {
+            currentDate.setDate(currentDate.getDate() - 1);
+          }
+          daysToSubtract++;
+  
+          // Update all documents with current wordleNumber
+          const updateDate = new Date(currentDate);
+          updatePromises.push(
+            collection.updateMany({ wordleNumber: currentWordleNumber, datetime: { $exists: false } }, { $set: { datetime: updateDate.getTime(), missingDate: true } })
+          );
+        }
+      }
+
+      console.log(`Documents updating...batches: `, updatePromises.length);
+      await Promise.all(updatePromises);
+      console.log(`Documents updated with adjusted datetimes`);*/
+    } catch (err) {
+      console.error('An error occurred:', err);
+    }
+  }
+
   async count() {
     let output;
     try {
