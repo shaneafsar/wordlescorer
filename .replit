@@ -7,3 +7,6 @@ channel = "stable-22_05"
 
 [deployment]
 deploymentTarget = "gce"
+build = ["sh", "-c", "npm run compile"]
+run = ["sh", "-c", "npm run prod"]
+ignorePorts = true
