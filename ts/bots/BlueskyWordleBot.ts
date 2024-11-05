@@ -220,7 +220,11 @@ export default class BlueskyWordleBot {
         continue;
       }
       if (notif.isRead) {
-        continue;
+        // Helps capture orphaned mentions that haven't been processed yet
+        const postIsAnalyzed = await this.analyzedPosts.hasKeyAsync(notif.uri);
+        if (postIsAnalyzed) {
+          continue;
+        }
       }
       out.push(notif);
     }
