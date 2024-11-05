@@ -9,8 +9,8 @@ async function main() {
 }
 
 async function updateRecords() {
-  //const db = getGlobalScoreDB();
-  const db = new WordleData('analyzed');
+  const db = getGlobalScoreDB();
+  //const db = new WordleData('analyzed');
   //await db.tempUpdate();
 }
 

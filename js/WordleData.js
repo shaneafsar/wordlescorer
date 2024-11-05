@@ -145,19 +145,19 @@ class WordleData {
       const database = this.mongoClient.db("wordlescorer");
       const collection = database.collection(this.name);
 
-      // Query to find documents where 'datetime' field is missing
-      const query = { datetime: { $exists: false }, date_timestamp: { $exists: true } };
+      // First, correct the records that were incorrectly updated
+      /*let correctionResult = await collection.updateMany(
+        { datetime: { $type: "object" } },
+        [{ $unset: "datetime" }]
+      );*/
+      //console.log(`${correctionResult.modifiedCount} documents corrected.`);
 
-      // Update operation to set 'datetime' as 'date_timestamp' * 1000
-      const update = { 
-        $set: { 
-          datetime: { $multiply: ["$date_timestamp", 1000] } 
-        } 
-      };
-
-      // Perform the update operation
-      //const result = await collection.updateMany(query, update);
-      //console.log(`${result.modifiedCount} documents updated.`);
+      // Then, properly update the 'datetime' field using an aggregation pipeline
+      let updateResult = await collection.updateMany(
+        { datetime: { $exists: true }, missingDate: true },
+        [{ $set: { datetime: { $add: ["$datetime", (1000 * 60 * 60 * 24)] } } }]
+      );
+      console.log(`${updateResult.modifiedCount} documents updated.`);
 
       
       // Find documents where 'datetime' field is missing and sort by 'wordleNumber' descending

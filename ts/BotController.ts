@@ -39,7 +39,7 @@ const BSKY_AUTH = {
     password: process.env['BSKY_PASSWORD'] || '',
 };
 
-const ENABLE_MASTO_BOT = true;
+const ENABLE_MASTO_BOT = false;
 const ENABLE_BSKY_BOT = true;
 
 

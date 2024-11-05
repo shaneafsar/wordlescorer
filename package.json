@@ -16,6 +16,7 @@
     "file-copy": "cp -R ./web/routes ./dist/web/ && cp -R ./web/views ./dist/web/ && cp -R ./web/static ./dist/web/",
     "clear-db": "rm -r ./db/*",
     "migrate-db": "node migrate-to-mongo.js",
+    "fix-db": "node fix-mongo-records.js",
     "compile": "tsc"
   },
   "repository": {
