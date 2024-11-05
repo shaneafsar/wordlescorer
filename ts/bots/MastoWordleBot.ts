@@ -169,7 +169,7 @@ export default class MastoWordleBot {
       const listOfContent = [textContent, ...altTexts];
       const wordleMatrix = getWordleMatrixFromList(listOfContent);
       // Add domain for local users
-      const userId = status.account.acct.indexOf('@') > -1 ? status.account.acct : status.account.acct+'@botsin.space'; 
+      const userId = status.account.acct.indexOf('@') > -1 ? status.account.acct : status.account.acct+'@mastodon.social'; 
       const screenName = '@' + status.account.acct;
       const url = status.url || '';
       const wordleNumber = getWordleNumberFromList(listOfContent);
