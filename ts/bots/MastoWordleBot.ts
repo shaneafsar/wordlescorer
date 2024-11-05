@@ -18,7 +18,7 @@ import { getCompliment } from '../../js/display/get-compliment.js';
 //FINAL TODOs: add env variables to prevent write, compile, npm start
 
 const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
-const BOT_ID = '109338521888714827';
+const BOT_ID = '113431538735189987';
 const ALLOW_LIST = new Set<String>(['@shaneafsar@mastodon.online', '@bbhart@noc.social']);
 const SINCE_ID = 'since_id';
 
