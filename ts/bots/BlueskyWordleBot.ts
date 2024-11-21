@@ -13,6 +13,7 @@ import type { SearchIndex } from 'algoliasearch';
 import WordleSource from '../enum/WordleSource.js';
 import logConsole from '../../js/debug/log-console.js';
 import { getCompliment } from '../../js/display/get-compliment.js';
+import { isWordleHardModeFromList } from '../../ts/extract/isWordleHardMode.js';
 
 //FINAL TODOs: add env variables to prevent write, compile, npm start
 
@@ -38,6 +39,7 @@ interface GlobalScore {
   url?: string;
   userId?: string;
   screenName?: string;
+  isHardMode?: boolean;
   source: WordleSource
 }
 
@@ -49,6 +51,7 @@ interface AlgoliaIndexObject {
   date_timestamp: number;
   url: string;
   autoScore: boolean;
+  isHardMode: boolean;
   scorerName: string;
   photoUrl: string;
   source: WordleSource
@@ -58,6 +61,7 @@ interface WordleInfo {
   wordleScore: number;
   wordleNumber: number;
   solvedRow: number;
+  isHardMode?: boolean;
 }
 
 interface PostInfo {
@@ -233,7 +237,7 @@ export default class BlueskyWordleBot {
 
 
   private buildStatus(name: string, wordlePrefix: string, score: number, solvedRow: number, aboveTotal: string, isGrowth: boolean) {
-    return `${name} This ${wordlePrefix} scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${aboveTotal} ${getCompliment(isGrowth)}`;
+    return `${name} This ${wordlePrefix} scored ${score} out of 420${getSentenceSuffix(solvedRow)} ${aboveTotal} ${getCompliment(isGrowth)}`;
   }
 
   private addToIndex(objectToIndex: AlgoliaIndexObject) {
@@ -248,7 +252,7 @@ export default class BlueskyWordleBot {
   }
 
   private async addToIndices(
-    { wordleScore, wordleNumber, solvedRow } : WordleInfo,
+    { wordleScore, wordleNumber, solvedRow, isHardMode } : WordleInfo,
     { userId, screenName, photo } : AuthorInfo,
     { url, postId }: PostInfo,
     { isGrowth }: ProccessOptions) {
@@ -261,6 +265,7 @@ export default class BlueskyWordleBot {
         url,
         autoScore: isGrowth,
         scorerName: screenName,
+        isHardMode: isHardMode || false,
         source: WordleSource.Bluesky
     };
 
@@ -281,7 +286,7 @@ export default class BlueskyWordleBot {
   }
 
   private async writeScoresToDB(
-    { wordleScore, wordleNumber, solvedRow} : WordleInfo,
+    { wordleScore, wordleNumber, solvedRow, isHardMode} : WordleInfo,
     { userId, screenName } : AuthorInfo,
     { url, createdAt }: PostInfo,
     { isGrowth }: ProccessOptions) {
@@ -297,6 +302,7 @@ export default class BlueskyWordleBot {
        solvedRow,
        url,
        userId,
+       isHardMode,
        source: WordleSource.Bluesky
      };
 
@@ -314,6 +320,7 @@ export default class BlueskyWordleBot {
            solvedRow,
            datetime: createdAtMs,
            autoScore: isGrowth,
+           isHardMode: isHardMode || false,
            url,
            source: WordleSource.Bluesky
        });
@@ -370,6 +377,7 @@ export default class BlueskyWordleBot {
     const postCid = cid;
     const photo = author.avatar || '';
     const wordleNumber = getWordleNumberFromList(listOfContent);
+    const isHardMode = isWordleHardModeFromList(listOfContent);
     const solvedRow = getSolvedRow(wordleMatrix);
 
     const parentPost = status.reply?.parent;
@@ -396,13 +404,13 @@ export default class BlueskyWordleBot {
 
     if (isValid) {
 
-      logConsole(`${postId} | ${screenName} isValidWordle? `, isValid, 
-      ' | wordleMatrix: ', wordleMatrix, ' | wordle number: ', wordleNumber, '| solvedRow: ', solvedRow);
+      logConsole(`${postId} | ${screenName} | isValidWordle? `, isValid, ' | wordle number: ', wordleNumber, '| solvedRow: ', solvedRow, ' | isHardMode: ', isHardMode);
 
       const wordleInfo: WordleInfo = {
-        wordleScore: calculateScoreFromWordleMatrix(wordleMatrix).finalScore,
+        wordleScore: calculateScoreFromWordleMatrix(wordleMatrix, isHardMode).finalScore,
         wordleNumber,
-        solvedRow
+        solvedRow,
+        isHardMode
       };
 
       const postInfo: PostInfo = {

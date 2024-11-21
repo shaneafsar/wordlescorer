@@ -26,7 +26,7 @@ async function getScorerGlobalStats({ solvedRow, wordleNumber, date }, globalSco
   const globalStats = await getGlobalStats(date, null, true).catch((err)   => {
     console.error(err);
   });
-  console.log(globalStats);
+  //console.log(JSON.stringify(globalStats, null, 2));
   var final = globalStats.filter(item => item.key+'' === wordleNumber + '');
   
   if(final.length > 0) {

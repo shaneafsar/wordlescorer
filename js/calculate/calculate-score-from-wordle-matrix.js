@@ -10,15 +10,20 @@ import { getPointBonus } from './get-point-bonus.js';
 
 /**
  * Calculate score
- * @param {Number[]} wordle - array of numbers representing scores for each square
+ * @param {Number[]} wordle - Array of numbers representing scores for each square.
+ * @param {boolean} [isHardMode=false] - Optional flag indicating if hard mode is active.
  * @returns {CalcResult}
  */
-export function calculateScoreFromWordleMatrix(wordle) {
-  var solvedRowBonus = getPointBonus(wordle.length / 5);
-  var score = wordle.map((element, index) => {
-    return element * getMultiplier(index);
-  }).reduce((previous, current) => {
-    return previous + current;
-  });
+export function calculateScoreFromWordleMatrix(wordle, isHardMode = false) {
+  const solvedRowBonus = getPointBonus(wordle.length / 5);
+
+  // Adjust multiplier if isHardMode is true
+  const score = wordle
+    .map((element, index) => {
+      const multiplier = getMultiplier(index) + (isHardMode ? 1 : 0);
+      return element * multiplier;
+    })
+    .reduce((previous, current) => previous + current, 0);
+
   return { finalScore: score + solvedRowBonus };
 }

@@ -14,6 +14,7 @@ import WordleSource from '../enum/WordleSource.js';
 import { JSDOM } from 'jsdom';
 import logConsole from '../../js/debug/log-console.js';
 import { getCompliment } from '../../js/display/get-compliment.js';
+import { isWordleHardModeFromList } from '../../ts/extract/isWordleHardMode.js';
 
 //FINAL TODOs: add env variables to prevent write, compile, npm start
 
@@ -34,6 +35,7 @@ interface GlobalScore {
   url?: string;
   userId?: string;
   screenName?: string;
+  isHardMode?: boolean;
   source: WordleSource
 }
 
@@ -45,6 +47,7 @@ interface AlgoliaIndexObject {
   date_timestamp: number;
   url: string;
   autoScore: boolean;
+  isHardMode: boolean;
   scorerName: string;
   photoUrl: string;
   source: WordleSource
@@ -54,6 +57,7 @@ interface WordleInfo {
   wordleScore: number;
   wordleNumber: number;
   solvedRow: number;
+  isHardMode?: boolean;
 }
 
 interface PostInfo {
@@ -173,6 +177,7 @@ export default class MastoWordleBot {
       const screenName = '@' + status.account.acct;
       const url = status.url || '';
       const wordleNumber = getWordleNumberFromList(listOfContent);
+      const isHardMode = isWordleHardModeFromList(listOfContent);
       const solvedRow = getSolvedRow(wordleMatrix);
 
     
@@ -188,6 +193,7 @@ export default class MastoWordleBot {
           url,
           userId,
           screenName,
+          isHardMode,
           source: WordleSource.Mastodon
         };
 
@@ -217,7 +223,7 @@ export default class MastoWordleBot {
   }
 
   private buildStatus(name: string, wordlePrefix: string, score: number, solvedRow: number, aboveTotal: string, isGrowth: boolean) {
-    return `${name} This ${wordlePrefix} scored ${score} out of 360${getSentenceSuffix(solvedRow)} ${aboveTotal} ${getCompliment(isGrowth)}`;
+    return `${name} This ${wordlePrefix} scored ${score} out of 420${getSentenceSuffix(solvedRow)} ${aboveTotal} ${getCompliment(isGrowth)}`;
   }
 
   private addToIndex(objectToIndex: AlgoliaIndexObject) {
@@ -230,7 +236,7 @@ export default class MastoWordleBot {
   }
 
   private async addToIndices(
-    { wordleScore, wordleNumber, solvedRow } : WordleInfo,
+    { wordleScore, wordleNumber, solvedRow, isHardMode } : WordleInfo,
     { userId, screenName, photo } : AuthorInfo,
     { url, postId }: PostInfo,
     { isGrowth }: ProccessOptions) {
@@ -242,6 +248,7 @@ export default class MastoWordleBot {
         date_timestamp: Math.floor(Date.now() / 1000),
         url,
         autoScore: isGrowth,
+        isHardMode: isHardMode || false,
         scorerName: screenName,
         source: WordleSource.Mastodon
     };
@@ -263,7 +270,7 @@ export default class MastoWordleBot {
   }
 
   private async writeScoresToDB(
-    { wordleScore, wordleNumber, solvedRow} : WordleInfo,
+    { wordleScore, wordleNumber, solvedRow, isHardMode} : WordleInfo,
     { userId, screenName } : AuthorInfo,
     { url, createdAt }: PostInfo,
     { isGrowth }: ProccessOptions) {
@@ -279,6 +286,7 @@ export default class MastoWordleBot {
        solvedRow,
        url,
        userId,
+       isHardMode,
        source: WordleSource.Mastodon
      };
 
@@ -296,6 +304,7 @@ export default class MastoWordleBot {
            solvedRow,
            datetime: createdAtMs,
            autoScore: isGrowth,
+           isHardMode: isHardMode || false,
            url,
            source: WordleSource.Mastodon
        });
@@ -341,6 +350,7 @@ export default class MastoWordleBot {
     const postId = status.id;
     const photo = status.account.avatar;
     const wordleNumber = getWordleNumberFromList(listOfContent);
+    const isHardMode = isWordleHardModeFromList(listOfContent);
     const solvedRow = getSolvedRow(wordleMatrix);
     
     this.userGrowth.write(userId, { lastCheckTime: Date.now()});
@@ -364,12 +374,12 @@ export default class MastoWordleBot {
 
     const isValid = isValidWordle(wordleMatrix, wordleNumber, solvedRow);
     logConsole(`${postId} | ${screenName} isValidWordle? `, isValid, 
-      ' | wordleMatrix: ', wordleMatrix, ' | wordle number: ', wordleNumber, '| solvedRow: ', solvedRow);
+      ' | wordleMatrix: ', wordleMatrix, ' | wordle number: ', wordleNumber, '| solvedRow: ', solvedRow, ' | isHardMode: ', isHardMode);
 
     if (isValid) {
 
       const wordleInfo: WordleInfo = {
-        wordleScore: calculateScoreFromWordleMatrix(wordleMatrix).finalScore,
+        wordleScore: calculateScoreFromWordleMatrix(wordleMatrix, isHardMode).finalScore,
         wordleNumber,
         solvedRow
       };
