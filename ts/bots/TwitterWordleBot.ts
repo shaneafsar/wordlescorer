@@ -1,3 +1,7 @@
+// @ts-nocheck
+/**
+ * This is no longer used. Keeping for nostalgia & reference.
+ */
 import type WordleData from '../../js/WordleData.js';
 import type { SearchIndex } from 'algoliasearch';
 import { 
@@ -22,7 +26,7 @@ import { getWordleNumberFromList } from '../../js/extract/get-wordle-number-from
 import getWordleMatrixFromList from '../../js/extract/get-wordle-matrix-from-list.js';
 import checkIsSameDay from '../../js/is-same-day.js';
 import getScorerGlobalStats from '../../js/db/get-scorer-global-stats.js';
-import { getCompliment } from '../../js/display/get-compliment.js';
+import { getCompliment } from '../display/getCompliment.js';
 import { getSentenceSuffix } from '../../js/display/get-sentence-suffix.js';
 import logError from '../../js/debug/log-error.js';
 import logConsole from '../../js/debug/log-console.js';

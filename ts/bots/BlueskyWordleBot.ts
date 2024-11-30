@@ -12,14 +12,14 @@ import logError from '../../js/debug/log-error.js';
 import type { SearchIndex } from 'algoliasearch';
 import WordleSource from '../enum/WordleSource.js';
 import logConsole from '../../js/debug/log-console.js';
-import { getCompliment } from '../../js/display/get-compliment.js';
+import { getCompliment } from '../display/getCompliment.js';
 import { isWordleHardModeFromList } from '../../ts/extract/isWordleHardMode.js';
 
 //FINAL TODOs: add env variables to prevent write, compile, npm start
 
 const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
 
-const POLLING_INTERVAL = 10000;
+const POLLING_INTERVAL = 25000;
 
 interface BskyAuthor { 
   avatar?: string;
@@ -122,6 +122,8 @@ export default class BlueskyWordleBot {
   private analyzedPosts: WordleData;
   private users: WordleData;
   private topScores: WordleData;
+  private timeoutId: NodeJS.Timeout | null;
+  private lastGrowthReplyTime: number | null = null;
 
   private PROCESSING: Set<String> = new Set<String>();
 
@@ -139,10 +141,17 @@ export default class BlueskyWordleBot {
     this.userGrowth = userGrowth;
     this.analyzedPosts = analyzedPosts;
     this.users = users;
+    this.timeoutId = null;
   }
 
   async initialize() {
     this.pollApi();
+  }
+
+  destroy() {
+    if(this.timeoutId) {
+      clearTimeout(this.timeoutId);
+    }
   }
 
   /**
@@ -172,32 +181,28 @@ export default class BlueskyWordleBot {
       }
 
       // Manually extracting from HTTP API for now.
-      const searchResponse = await fetch('https://search.bsky.social/search/posts?q=wordle');
+      const searchResponse = await fetch('https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=wordle&limit=100&sort=latest');
       if (searchResponse.ok) {
-        const searchResults:Array<SearchResult> = await searchResponse.json();
+        const searchResults: { posts: Array<any> } = await searchResponse.json();
 
-        // uri from search result = at://{user.did}/{tid}
-        const uris = searchResults.map(result => `at://${result.user.did}/${result.tid}`);
-
-        // Cant' go beyond 25, otherwise we'll get a 400 Invalid Request error: "XRPCError: Error: uris must not have more than 25 elements"
-        const postResponse = await this.agent.getPosts({uris: uris.slice(0,25)});
-        for await (const post of postResponse.data.posts) {
-
+        // Iterate through each post in the search results
+        for (const post of searchResults.posts) {
           this.processPost(
-            post.record as AppBskyFeedPost.Record, 
-            { uri: post.uri, cid: post.cid }, 
-            { did: post.author.did, handle: post.author.handle, avatar: post.author.avatar }, 
+            post.record as AppBskyFeedPost.Record,
+            { uri: post.uri, cid: post.cid },
+            { did: post.author.did, handle: post.author.handle, avatar: post.author.avatar },
             { isGrowth: true, isParent: false }
           );
-
         }
-        
+      } else {
+        console.error('Failed to fetch search results:', searchResponse.status, searchResponse.statusText);
       }
+
 
     } catch (err) {
       logError(err);
     }
-    setTimeout(this.pollApi.bind(this), POLLING_INTERVAL);
+    this.timeoutId = setTimeout(this.pollApi.bind(this), POLLING_INTERVAL);
   }
 
   private async getNotifications(): Promise<AppBskyNotificationListNotifications.Notification[]> {
@@ -336,18 +341,41 @@ export default class BlueskyWordleBot {
       const { wordlePrefix, aboveTotal } = await getScorerGlobalStats({solvedRow, wordleNumber, date: new Date()}, this.globalScores);
       const status = this.buildStatus(screenName, wordlePrefix, wordleScore, solvedRow, aboveTotal, isGrowth);
 
+      // Set/cache last reply time
+      if(!this.lastGrowthReplyTime && await this.userGrowth.hasKeyAsync('lastCheckTime')) {
+        const checkResultTime = await this.userGrowth.read('lastCheckTime');
+        this.lastGrowthReplyTime = checkResultTime?.lastCheckTime ?? null;
+      }      
+      
+      // Check if new replies are allowed based on the last reply time
+      const now = Date.now();
+      if (isGrowth && this.lastGrowthReplyTime) {
+        const timeAgo = now - 3600 * 1000;
+        if (this.lastGrowthReplyTime > timeAgo) {
+          logConsole(`BskyBot | Skipping reply for ${screenName} | ${url} | Last reply was too recent.`);
+          this.PROCESSING.delete(postId);
+          return;
+        }
+      }
+
       // We should only reply at most once to new users who havent @-mentioned us before
       const isGrowthAlreadyChecked = isGrowth && await this.userGrowth.hasKeyAsync(userId);
       const shouldPostRealStatus = !IS_DEVELOPMENT && !isGrowthAlreadyChecked;
       
-      const rt = new atproto.RichText({ text: status });
-      await rt.detectFacets(this.agent);
       if(shouldPostRealStatus) {
-       await this.agent.post({ 
+        const rt = new atproto.RichText({ text: status });
+        await rt.detectFacets(this.agent);
+        await this.agent.post({ 
           text: rt.text, 
           facets: rt.facets,
           reply: replyRef
         });
+
+        if (isGrowth) {
+          this.lastGrowthReplyTime = now;
+          const lastCheckTime = { lastCheckTime: now};
+          await this.userGrowth.write('lastCheckTime', lastCheckTime);
+        }
       }
       logConsole(`BskyBot | ${IS_DEVELOPMENT ? 'DEVMODE' : ''} reply to ${url}: ${status}`);
 

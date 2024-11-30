@@ -6,7 +6,7 @@ import atproto from "@atproto/api";
 import { mastodon } from 'masto';
 import getGlobalScoreDB from '../js/db/get-global-score-DB.js';
 import getTopScoreDB from '../js/db/get-top-score-DB.js';
-import { setDelayedFunction } from '../js/set-delayed-function.js';
+import { setDelayedFunctionWithPromise } from '../js/set-delayed-function.js';
 import WordleData from "../js/WordleData.js";
 import { login } from 'masto';
 import getGlobalStats from '../js/db/get-global-stats.js';
@@ -14,7 +14,7 @@ import getFormattedGlobalStats from '../js/display/get-formatted-global-stats.js
 import logError from '../js/debug/log-error.js';
 import getTopScorerInfo from '../js/db/get-top-scorer-info.js';
 import { getFormattedDate } from '../js/display/get-formatted-date.js';
-import { getCompliment } from '../js/display/get-compliment.js';
+import { getCompliment } from '../ts/display/getCompliment.js';
 import logConsole from '../js/debug/log-console.js';
 import dotenv from 'dotenv';
 
@@ -66,38 +66,53 @@ export default class BotController {
         this.WordleSearchIndex = algSearchInst.initIndex('analyzedwordles');
     }
 
-    static async initialize():Promise<BotController> {
-        const botController = new BotController();
-        //await botController.loadScoreData();
+    static async initialize():Promise<void> {
+        let botController:BotController|null = new BotController();
         await botController.buildBots();
-        setDelayedFunction(botController.postDailyTopScore.bind(botController));
-        setDelayedFunction(botController.postGlobalStats.bind(botController));
-        return botController;
+        
+        const postDailyTopScorePromise = setDelayedFunctionWithPromise(botController.postDailyTopScore.bind(botController));
+        const postGlobalStatsPromise = setDelayedFunctionWithPromise(botController.postGlobalStats.bind(botController));
+
+        // Proceed even if the calls fail
+        await Promise.allSettled([postDailyTopScorePromise, postGlobalStatsPromise]);
+
+        console.log('*** BotController reinitializing...*** ');
+        
+        botController.destroy();
+        botController = null;
+        
+        await BotController.initialize();
     }
 
-    private async loadScoreData() {
-        await this.GlobalScores.loadData();
-        await this.TopScores.loadData();
+    private destroy() {
+        this.MWordleBot?.destroy();
+        this.BSkyBot?.destroy();
+        this.MClient = undefined;
+        this.BAgent = undefined;
+        this.MWordleBot = undefined;
+        this.BSkyBot = undefined;
     }
 
     private async buildBots() {
         try {
-            const [MWordleBot, BSkyBot] = await Promise.all([
-                this.initMastoBot(),
-                this.initBskyBot()
-            ]);
-
-            this.MWordleBot = MWordleBot;
-            this.BSkyBot = BSkyBot;
-
             if(ENABLE_MASTO_BOT) {
-                await this.MWordleBot.initialize();
-                console.log('*** BotController:  Initialized Mastodon Bot ***');
+                try {
+                    this.MWordleBot = await this.initMastoBot();
+                    await this.MWordleBot.initialize();
+                    console.log('*** BotController:  Initialized Mastodon Bot ***');
+                } catch (error) {
+                    console.error('*** BotController:  Failed to initialize Mastodon Bot, skipping ***', error);
+                }
             }
 
             if(ENABLE_BSKY_BOT) {
-                await this.BSkyBot.initialize();
-                console.log('*** BotController:  Initialized Bluesky Bot ***');
+                try {
+                    this.BSkyBot = await this.initBskyBot();
+                    await this.BSkyBot.initialize();
+                    console.log('*** BotController:  Initialized Bluesky Bot ***');
+                } catch (error){
+                    console.error('*** BotController: Failed to initialize Bluesky Bot, skipping ***', error);
+                }
             }
 
 
@@ -106,48 +121,47 @@ export default class BotController {
         }
     }
 
-    private async reloadGlobalScores() {
-        console.log('*** BotController: reloadGlobalScores ***');
-        this.GlobalScores = getGlobalScoreDB();
-        this.TopScores = getTopScoreDB();
-        //await this.loadScoreData();
-    }
-
-    async postGlobalStats(date: Date) {
+    async postGlobalStats(date: Date): Promise<void> {
+      try {
         const stats = await getGlobalStats(date, null, true);
         const formattedStats = getFormattedGlobalStats(stats);
-        // Only post the most popular one.
+
+        // Only post the most popular one for now.
         const singleFormattedStat = [formattedStats[0]];
-        singleFormattedStat.forEach((item, index) => {
-            // Wait one minute between posts
-            const timeoutVal = 60000 * (index + 1);
-            setTimeout(async () => {
-                if(!IS_DEVELOPMENT) {
 
-                    this.MClient?.v1.statuses.create({ status: item }).catch((err) => {
-                        logError('postGlobalStats masto error: ', err);
-                    });
+        for (const [index, item] of singleFormattedStat.entries()) {
+          // Wait 10s between posts
+          const timeoutVal = 10000 * index;
 
-                    if(this.BAgent) {
-                        const rt = new atproto.RichText({text: item});
-                        await rt.detectFacets(this.BAgent);
-                        this.BAgent.post({ text: rt.text, facets: rt.facets}).catch((err) => {
-                            logError('postGlobalStats bsky error: ', err);
-                        });
-                    }
+          await new Promise((resolve) => setTimeout(resolve, timeoutVal));
 
-                } else {
-                    logConsole('postGlobalStats DEVMODE result: ', item);
-                }
-            }, timeoutVal);
-        });
-        
-        // Run again for tomorrow!
-        setDelayedFunction(this.postGlobalStats.bind(this));
+          if (!IS_DEVELOPMENT) {
+            try {
+              await this.MClient?.v1.statuses.create({ status: item });
+            } catch (err) {
+              logError('postGlobalStats masto error: ', err);
+            }
+
+            if (this.BAgent) {
+              try {
+                const rt = new atproto.RichText({ text: item });
+                await rt.detectFacets(this.BAgent);
+                await this.BAgent.post({ text: rt.text, facets: rt.facets });
+              } catch (err) {
+                logError('postGlobalStats bsky error: ', err);
+              }
+            }
+          } else {
+            logConsole('postGlobalStats DEVMODE result: ', item);
+          }
+        }
+      } catch (e) {
+        logError('postGlobalStats failed: ', e);
+      }
     }
 
 
-    async postDailyTopScore(date: Date) {
+    async postDailyTopScore(date: Date): Promise<void> {
       
         const scorer = await getTopScorerInfo(date, true);
         
@@ -157,30 +171,18 @@ export default class BotController {
             const scorerNameOnly = `${scorer.screenName}!`;
             const finalStatus = `The top scorer for ${formattedDate} is: ${scorerNameOnly} ${scorerAppend}`;
 
-            // Send a separate status for mastodon. 
-            // If the winner is from twitter, need to append @twitter.com to the username.
-            // Note: twitter bot currently isn't setting source
-            const mastodonStatus = (scorer.source !== 'mastodon' && scorer.source !== 'bluesky') ? 
-            `The top scorer for ${formattedDate} is: ${scorer.screenName}@twitter.com! ${scorerAppend}` : 
-            finalStatus;
-
             if(!IS_DEVELOPMENT) {
-                this.MClient?.v1.statuses.create({ status: mastodonStatus });
+                await this.MClient?.v1.statuses.create({ status: finalStatus });
                 if(this.BAgent) {
-                    const rt = new atproto.RichText({text: mastodonStatus});
+                    const rt = new atproto.RichText({text: finalStatus});
                     await rt.detectFacets(this.BAgent);
-                    this.BAgent.post({ text: rt.text, facets: rt.facets})
+                    await this.BAgent.post({ text: rt.text, facets: rt.facets});
                 }
             }
-            logConsole(`Daily top score ${IS_DEVELOPMENT? 'DEVMODE' : ''} | ${mastodonStatus}`);
+            logConsole(`Daily top score ${IS_DEVELOPMENT? 'DEVMODE' : ''} | ${finalStatus}`);
         } else {
             logConsole(`No top scorer found today`);
         }
-
-        // Run again for tomorrow!
-        setDelayedFunction(this.postDailyTopScore.bind(this));
-
-        await this.reloadGlobalScores();
     }
 
     private async initBskyBot() {
@@ -194,12 +196,6 @@ export default class BotController {
               });
             await this.BAgent.login(BSKY_AUTH);
         }
-
-        /*await Promise.all([
-            userGrowth.loadData(),
-            analyzedPosts.loadData(),
-            users.loadData(),
-        ]);*/
       
         return new BlueskyWordleBot(
             this.BAgent,
@@ -221,13 +217,6 @@ export default class BotController {
         if(!this.MClient) {
             this.MClient = await login(MASTO_AUTH);
         }
-
-        /*await Promise.all([
-            userGrowth.loadData(),
-            analyzedPosts.loadData(),
-            users.loadData(),
-            lastMention.loadData()
-        ]);*/
       
         return new MastoWordleBot(
           this.MClient,

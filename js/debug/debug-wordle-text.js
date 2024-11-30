@@ -6,7 +6,7 @@ import { getWordleNumberFromText } from "../extract/get-wordle-number-from-text.
 import getTopScorerInfo from "../db/get-top-scorer-info.js";
 import Twit from "twit";
 import dotenv from 'dotenv';
-import { getCompliment } from "../display/get-compliment.js";
+import { getCompliment } from "../../ts/display/getCompliment.js";
 import getWordleMatrixFromImageAltText from "../extract/get-wordle-matrix-from-image-alt-text.js";
 import isValidWordle from "../calculate/is-valid-wordle.js";
 import { TwitterApi } from 'twitter-api-v2';

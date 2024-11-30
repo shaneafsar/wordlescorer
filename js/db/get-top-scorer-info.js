@@ -5,7 +5,7 @@ import getPercent from '../display/get-percent.js';
 
 const formatter = new Intl.NumberFormat().format;
 
-async function getTopScorerInfo(date, forceMongo = false) {
+async function getTopScorerInfo(date, forceMongo = true) {
   const TopScoreDB = getTopScoreDB(date);
   const globalStats = await getGlobalStats(date, null, forceMongo).catch((err)   => {
     console.error(err);

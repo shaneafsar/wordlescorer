@@ -19,7 +19,7 @@ async function getGlobalStats(date, globalScoreDB, forceMongo = true) {
 //     "screenName": "@TEST",
 //     "datetime": 1666109132149
 //   },
-  console.log('*** db.getGlobalStats *** ', date);
+  //console.log('*** db.getGlobalStats *** ', date);
   let data = await GlobalScoreStatsDB.read(null, date, forceMongo).catch((err) => {
     console.error(err);
   });

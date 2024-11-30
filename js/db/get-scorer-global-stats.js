@@ -21,7 +21,7 @@ const formatter = new Intl.NumberFormat().format;
  * @returns {Promise<GlobalStatsResult>}
  */
 async function getScorerGlobalStats({ solvedRow, wordleNumber, date }, globalScoreDB) {
-  console.log(`*** getting scorers global stats... ***`);
+  //console.log(`*** getting scorers global stats... ***`);
   
   const globalStats = await getGlobalStats(date, null, true).catch((err)   => {
     console.error(err);

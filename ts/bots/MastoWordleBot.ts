@@ -1,4 +1,4 @@
-import type { mastodon } from 'masto';
+import type { mastodon, WsEvents } from 'masto';
 import isValidWordle from '../../js/calculate/is-valid-wordle.js';
 import { getSolvedRow } from '../../js/calculate/get-solved-row.js';
 import { getWordleNumberFromList } from '../../js/extract/get-wordle-number-from-text.js';
@@ -13,14 +13,14 @@ import type { SearchIndex } from 'algoliasearch';
 import WordleSource from '../enum/WordleSource.js';
 import { JSDOM } from 'jsdom';
 import logConsole from '../../js/debug/log-console.js';
-import { getCompliment } from '../../js/display/get-compliment.js';
+import { getCompliment } from '../display/getCompliment.js';
 import { isWordleHardModeFromList } from '../../ts/extract/isWordleHardMode.js';
 
 //FINAL TODOs: add env variables to prevent write, compile, npm start
 
 const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
 const BOT_ID = '113431538735189987';
-const ALLOW_LIST = new Set<String>(['@shaneafsar@mastodon.online', '@bbhart@noc.social']);
+const ALLOW_LIST = new Set<String>(['@shaneafsar@mastodon.online']);
 const SINCE_ID = 'since_id';
 
 interface ProccessOptions {
@@ -87,6 +87,8 @@ export default class MastoWordleBot {
   private users: WordleData;
   private lastMention: WordleData;
   private topScores: WordleData;
+  private tagTimeline: WsEvents | null;
+  private userTimeline: WsEvents | null;
 
   private PROCESSING: Set<String> = new Set<String>();
 
@@ -106,6 +108,8 @@ export default class MastoWordleBot {
     this.analyzedPosts = analyzedPosts;
     this.users = users;
     this.lastMention = lastMention;
+    this.tagTimeline = null;
+    this.userTimeline = null;
   }
 
   async initialize() {
@@ -113,6 +117,9 @@ export default class MastoWordleBot {
       this.masto.v1.stream.streamUser(), 
       this.masto.v1.stream.streamTagTimeline('Wordle')
     ]);
+
+    this.tagTimeline = tagTimeline;
+    this.userTimeline = userTimeline;
   
     await this.processRecentMentions();
 
@@ -124,6 +131,11 @@ export default class MastoWordleBot {
     tagTimeline.on('update', this.handleUpdate.bind(this));
     userTimeline.on('notification', this.handleNotification.bind(this));
 
+  }
+
+  destroy() {
+    this.tagTimeline?.disconnect();
+    this.userTimeline?.disconnect();
   }
 
   /**
@@ -363,7 +375,6 @@ export default class MastoWordleBot {
       return;
     }
 
-    //const post = await this.analyzedPosts.read(postId);
     const post = await this.analyzedPosts.hasKeyAsync(postId);
     if(post) {
       console.log(`MastoBot | post ${postId} already processed`);
@@ -373,8 +384,7 @@ export default class MastoWordleBot {
     this.PROCESSING.add(postId);
 
     const isValid = isValidWordle(wordleMatrix, wordleNumber, solvedRow);
-    logConsole(`${postId} | ${screenName} isValidWordle? `, isValid, 
-      ' | wordleMatrix: ', wordleMatrix, ' | wordle number: ', wordleNumber, '| solvedRow: ', solvedRow, ' | isHardMode: ', isHardMode);
+    logConsole(`MastoBot | processing ${postId} | ${screenName} | isValidWordle? `, isValid, ' | wordle number: ', wordleNumber, '| solvedRow: ', solvedRow, ' | isHardMode: ', isHardMode);
 
     if (isValid) {
 
