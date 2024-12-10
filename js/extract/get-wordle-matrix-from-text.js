@@ -2,7 +2,7 @@ import { CODEPOINT_SCORE } from '../const/SCORE-CONST.js';
 
 /**
  * Convert text to a flattened array representing scores for each square.
- * @param {String} text - input text to conver to wordle score array
+ * @param {String} text - input text to convert to wordle score array
  * @returns {Number[]}
  */
 function getWordleMatrixFromText(text = '') {

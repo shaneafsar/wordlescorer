@@ -15,7 +15,7 @@ import { getPointBonus } from './get-point-bonus.js';
  * @returns {CalcResult}
  */
 export function calculateScoreFromWordleMatrix(wordle, isHardMode = false) {
-  const solvedRowBonus = getPointBonus(wordle.length / 5);
+  const solvedRowBonus = getPointBonus(wordle.length / 5, isHardMode);
 
   // Adjust multiplier if isHardMode is true
   const score = wordle

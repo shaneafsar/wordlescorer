@@ -126,6 +126,7 @@ export default class BlueskyWordleBot {
   private lastGrowthReplyTime: number | null = null;
 
   private PROCESSING: Set<String> = new Set<String>();
+  private PROCESSED: Set<String> = new Set<String>();
 
   constructor(agent: BskyAgent,
     algoliaIndex: SearchIndex, 
@@ -162,10 +163,9 @@ export default class BlueskyWordleBot {
       // Request data from the API endpoint
       const notifs: AppBskyNotificationListNotifications.Notification[] = await this.getNotifications();
 
-      for await (const notif of notifs) {
+      for (const notif of notifs) {
 
-
-        this.processPost(
+        await this.processPost(
           notif.record as AppBskyFeedPost.Record, 
           { uri: notif.uri, cid: notif.cid}, 
           { did: notif.author.did, handle: notif.author.handle, avatar: notif.author.avatar },
@@ -187,11 +187,32 @@ export default class BlueskyWordleBot {
 
         // Iterate through each post in the search results
         for (const post of searchResults.posts) {
-          this.processPost(
-            post.record as AppBskyFeedPost.Record,
+          if(this.PROCESSED.has(post.uri)) {
+            continue;
+          }
+          const postRecord = post.record as AppBskyFeedPost.Record;
+          const postText = postRecord.text;
+          
+          // Determine `isGrowth` is false if the post mentions the bot itself or if the bot is already followed
+          const isGrowth = !postText.includes("@scoremywordle.bsky.social") &&
+          !(await this.agent.getProfile({ actor: post.author.did })
+              .then(profileResponse => {
+                const follows = !!(profileResponse.success && profileResponse.data?.viewer?.followedBy);
+                /*if(follows) {
+                  console.log(
+                      `BskyBot | ${post.author.handle} follows the account.`
+                  );
+                }*/
+                return follows;
+              })
+              .catch(() => false));
+
+          // Sequentially process each post
+          await this.processPost(
+            postRecord,
             { uri: post.uri, cid: post.cid },
             { did: post.author.did, handle: post.author.handle, avatar: post.author.avatar },
-            { isGrowth: true, isParent: false }
+            { isGrowth, isParent: false }
           );
         }
       } else {
@@ -352,8 +373,9 @@ export default class BlueskyWordleBot {
       if (isGrowth && this.lastGrowthReplyTime) {
         const timeAgo = now - 3600 * 1000;
         if (this.lastGrowthReplyTime > timeAgo) {
-          logConsole(`BskyBot | Skipping reply for ${screenName} | ${url} | Last reply was too recent.`);
+          //logConsole(`BskyBot | Skipping reply for ${screenName} | ${url} | Last reply was too recent.`);
           this.PROCESSING.delete(postId);
+          this.PROCESSED.add(postId);
           return;
         }
       }
@@ -371,20 +393,22 @@ export default class BlueskyWordleBot {
           reply: replyRef
         });
 
+        logConsole(`BskyBot | ${IS_DEVELOPMENT ? 'DEVMODE' : ''} ${isGrowth ? 'random' : 'normal'} reply to ${url}: ${status}`);
+
         if (isGrowth) {
           this.lastGrowthReplyTime = now;
           const lastCheckTime = { lastCheckTime: now};
           await this.userGrowth.write('lastCheckTime', lastCheckTime);
         }
       }
-      logConsole(`BskyBot | ${IS_DEVELOPMENT ? 'DEVMODE' : ''} reply to ${url}: ${status}`);
 
-      this.userGrowth.write(userId, { lastCheckTime: Date.now()});
+      await this.userGrowth.write(userId, { lastCheckTime: Date.now()});
 
     } catch(e) {
         logError('BskyBot | failed to get globalScorerGlobalStats & reply | ', e);
     } finally {
         this.PROCESSING.delete(postId);
+        this.PROCESSED.add(postId);
     }
   }
 
@@ -415,14 +439,15 @@ export default class BlueskyWordleBot {
      * Bail early if this post has been processed or is 
      * processing.
      */  
-    if(this.PROCESSING.has(postId)) {
+    if(this.PROCESSING.has(postId) || this.PROCESSED.has(postId)) {
+      //console.log(`BskyBot | ${screenName} | local | ${postId} already processed`);
       return;
     }
 
-    //const post = await this.analyzedPosts.read(postId, null, true);
     const post = await this.analyzedPosts.hasKeyAsync(postId);
     if(post) {
-      //console.log(`BskyBot | post ${postId} already processed`);
+      //console.log(`BskyBot | ${screenName} | async | ${postId} already processed`);
+      this.PROCESSED.add(postId);
       return;
     }
 
@@ -432,7 +457,7 @@ export default class BlueskyWordleBot {
 
     if (isValid) {
 
-      logConsole(`${postId} | ${screenName} | isValidWordle? `, isValid, ' | wordle number: ', wordleNumber, '| solvedRow: ', solvedRow, ' | isHardMode: ', isHardMode);
+      //logConsole(`${postId} | ${screenName} |`,' wordle number: ', wordleNumber, '| solvedRow: ', solvedRow, ' | isHardMode: ', isHardMode);
 
       const wordleInfo: WordleInfo = {
         wordleScore: calculateScoreFromWordleMatrix(wordleMatrix, isHardMode).finalScore,
@@ -462,13 +487,14 @@ export default class BlueskyWordleBot {
 
       this.addToIndices(wordleInfo, authorInfo, postInfo, options);
 
-      this.replyWordleScore(wordleInfo, authorInfo, postInfo, options);
+      await this.replyWordleScore(wordleInfo, authorInfo, postInfo, options);
 
     } else if(
       parentPost && 
       !isGrowth &&
       !isParent &&
-      !this.PROCESSING.has(parentPost.uri)) {
+      !this.PROCESSING.has(parentPost.uri) &&
+      !this.PROCESSED.has(parentPost.uri)) {
 
       const hasId = await this.analyzedPosts.hasKeyAsync(parentPost.uri);
       
