@@ -382,7 +382,8 @@ export default class BlueskyWordleBot {
 
       // We should only reply at most once to new users who havent @-mentioned us before
       const isGrowthAlreadyChecked = isGrowth && await this.userGrowth.hasKeyAsync(userId);
-      const shouldPostRealStatus = !IS_DEVELOPMENT && !isGrowthAlreadyChecked;
+      //const shouldPostRealStatus = !IS_DEVELOPMENT && !isGrowthAlreadyChecked;
+      const shouldPostRealStatus = !IS_DEVELOPMENT && !isGrowth;
       
       if(shouldPostRealStatus) {
         const rt = new atproto.RichText({ text: status });
