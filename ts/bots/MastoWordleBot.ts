@@ -9,7 +9,7 @@ import getWordleMatrixFromList from '../../js/extract/get-wordle-matrix-from-lis
 import getScorerGlobalStats from '../../js/db/get-scorer-global-stats.js';
 import { getSentenceSuffix } from '../../js/display/get-sentence-suffix.js';
 import logError from '../../js/debug/log-error.js';
-import type { SearchIndex } from 'algoliasearch';
+import type { SearchClient } from 'algoliasearch';
 import WordleSource from '../enum/WordleSource.js';
 import { JSDOM } from 'jsdom';
 import logConsole from '../../js/debug/log-console.js';
@@ -36,10 +36,10 @@ interface GlobalScore {
   userId?: string;
   screenName?: string;
   isHardMode?: boolean;
-  source: WordleSource
+  source: WordleSource;
 }
 
-interface AlgoliaIndexObject {
+interface AlgoliaIndexObject extends Record<string,unknown> {
   name?: string;
   score: number;
   solvedRow: number;
@@ -50,7 +50,7 @@ interface AlgoliaIndexObject {
   isHardMode: boolean;
   scorerName: string;
   photoUrl: string;
-  source: WordleSource
+  source: WordleSource;
 }
 
 interface WordleInfo {
@@ -80,7 +80,7 @@ function getAltTextList(medias: mastodon.v1.MediaAttachment[]): string[] {
 
 export default class MastoWordleBot {
   private masto: mastodon.Client;
-  private AlgoliaIndex: SearchIndex;
+  private AlgoliaIndex: SearchClient;
   private globalScores: WordleData;
   private userGrowth: WordleData;
   private analyzedPosts: WordleData;
@@ -93,7 +93,7 @@ export default class MastoWordleBot {
   private PROCESSING: Set<String> = new Set<String>();
 
   constructor(masto: mastodon.Client,
-    algoliaIndex: SearchIndex, 
+    algoliaIndex: SearchClient, 
     globalScores: WordleData, 
     topScores: WordleData,
     userGrowth: WordleData,
@@ -240,7 +240,7 @@ export default class MastoWordleBot {
 
   private addToIndex(objectToIndex: AlgoliaIndexObject) {
     if(!IS_DEVELOPMENT) {
-        this.AlgoliaIndex.saveObjects([objectToIndex], { autoGenerateObjectIDIfNotExist: true })
+      this.AlgoliaIndex.saveObject({ indexName: 'analyzedwordles', body: objectToIndex})
         .catch((e) => {
             logError('MastoBot | Algolia saveObjects error | ', e);
         });

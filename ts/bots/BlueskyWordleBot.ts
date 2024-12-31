@@ -1,4 +1,9 @@
-import atproto, { BskyAgent, AppBskyNotificationListNotifications, AppBskyFeedPost, AppBskyEmbedImages } from '@atproto/api';
+import { AtpAgent, RichText } from '@atproto/api';
+import { AppBskyNotificationListNotifications } from '@atproto/api';
+import { AppBskyFeedPost } from '@atproto/api';
+import { AppBskyEmbedImages } from '@atproto/api';
+import { AppBskyFeedSearchPosts } from '@atproto/api';
+import { AppBskyFeedDefs } from '@atproto/api';
 import isValidWordle from '../../js/calculate/is-valid-wordle.js';
 import { getSolvedRow } from '../../js/calculate/get-solved-row.js';
 import { getWordleNumberFromList } from '../../js/extract/get-wordle-number-from-text.js';
@@ -9,7 +14,7 @@ import getWordleMatrixFromList from '../../js/extract/get-wordle-matrix-from-lis
 import getScorerGlobalStats from '../../js/db/get-scorer-global-stats.js';
 import { getSentenceSuffix } from '../../js/display/get-sentence-suffix.js';
 import logError from '../../js/debug/log-error.js';
-import type { SearchIndex } from 'algoliasearch';
+import type { SearchClient } from 'algoliasearch';
 import WordleSource from '../enum/WordleSource.js';
 import logConsole from '../../js/debug/log-console.js';
 import { getCompliment } from '../display/getCompliment.js';
@@ -43,7 +48,7 @@ interface GlobalScore {
   source: WordleSource
 }
 
-interface AlgoliaIndexObject {
+interface AlgoliaIndexObject extends Record<string,unknown> {
   name?: string;
   score: number;
   solvedRow: number;
@@ -54,7 +59,7 @@ interface AlgoliaIndexObject {
   isHardMode: boolean;
   scorerName: string;
   photoUrl: string;
-  source: WordleSource
+  source: WordleSource;
 }
 
 interface WordleInfo {
@@ -115,8 +120,8 @@ function getRootCdiAndUri(record: AppBskyFeedPost.Record, postUri: string, postC
 
 
 export default class BlueskyWordleBot {
-  private agent: BskyAgent;
-  private AlgoliaIndex: SearchIndex;
+  private agent: AtpAgent;
+  private AlgoliaIndex: SearchClient;
   private globalScores: WordleData;
   private userGrowth: WordleData;
   private analyzedPosts: WordleData;
@@ -128,8 +133,8 @@ export default class BlueskyWordleBot {
   private PROCESSING: Set<String> = new Set<String>();
   private PROCESSED: Set<String> = new Set<String>();
 
-  constructor(agent: BskyAgent,
-    algoliaIndex: SearchIndex, 
+  constructor(agent: AtpAgent,
+    algoliaIndex: SearchClient, 
     globalScores: WordleData, 
     topScores: WordleData,
     userGrowth: WordleData,
@@ -181,31 +186,27 @@ export default class BlueskyWordleBot {
       }
 
       // Manually extracting from HTTP API for now.
-      const searchResponse = await fetch('https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=wordle&limit=100&sort=latest');
-      if (searchResponse.ok) {
-        const searchResults: { posts: Array<any> } = await searchResponse.json();
+      //const searchResponse = await fetch('https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=wordle&limit=100&sort=latest');
+      
+      const searchResponse = await this.agent.app.bsky.feed.searchPosts({
+        q: 'wordle',
+        limit: 100,
+        sort: 'latest'
+      });
+      
+      if (searchResponse.success) {
+        const posts:AppBskyFeedDefs.PostView[] = searchResponse.data.posts;
 
         // Iterate through each post in the search results
-        for (const post of searchResults.posts) {
+        for (const post of posts) {
           if(this.PROCESSED.has(post.uri)) {
             continue;
           }
           const postRecord = post.record as AppBskyFeedPost.Record;
           const postText = postRecord.text;
-          
+          const isFollowingBot = post.author.viewer?.followedBy;
           // Determine `isGrowth` is false if the post mentions the bot itself or if the bot is already followed
-          const isGrowth = !postText.includes("@scoremywordle.bsky.social") &&
-          !(await this.agent.getProfile({ actor: post.author.did })
-              .then(profileResponse => {
-                const follows = !!(profileResponse.success && profileResponse.data?.viewer?.followedBy);
-                /*if(follows) {
-                  console.log(
-                      `BskyBot | ${post.author.handle} follows the account.`
-                  );
-                }*/
-                return follows;
-              })
-              .catch(() => false));
+          const isGrowth = !postText.includes("@scoremywordle.bsky.social") && !isFollowingBot;
 
           // Sequentially process each post
           await this.processPost(
@@ -216,7 +217,7 @@ export default class BlueskyWordleBot {
           );
         }
       } else {
-        console.error('Failed to fetch search results:', searchResponse.status, searchResponse.statusText);
+        console.error('Failed to fetch search results:', searchResponse.success, searchResponse.headers, searchResponse.data);
       }
 
 
@@ -268,7 +269,7 @@ export default class BlueskyWordleBot {
 
   private addToIndex(objectToIndex: AlgoliaIndexObject) {
     if(!IS_DEVELOPMENT) {
-        this.AlgoliaIndex.saveObjects([objectToIndex], { autoGenerateObjectIDIfNotExist: true })
+        this.AlgoliaIndex.saveObject({ indexName: 'analyzedwordles', body: objectToIndex})
         .catch((e) => {
             logError('BskyBot | Algolia saveObjects error | ', e);
         });
@@ -386,7 +387,7 @@ export default class BlueskyWordleBot {
       const shouldPostRealStatus = !IS_DEVELOPMENT && !isGrowth;
       
       if(shouldPostRealStatus) {
-        const rt = new atproto.RichText({ text: status });
+        const rt = new RichText({ text: status });
         await rt.detectFacets(this.agent);
         await this.agent.post({ 
           text: rt.text, 

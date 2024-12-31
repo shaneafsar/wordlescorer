@@ -1,8 +1,7 @@
-import algoliasearch, { SearchIndex } from 'algoliasearch';
+import { algoliasearch, SearchClient } from 'algoliasearch';
 import MastoWordleBot from './bots/MastoWordleBot.js';
 import BlueskyWordleBot from './bots/BlueskyWordleBot.js';
-import type { BskyAgent } from "@atproto/api";
-import atproto from "@atproto/api";
+import { RichText, AtpAgent } from '@atproto/api';
 import { mastodon } from 'masto';
 import getGlobalScoreDB from '../js/db/get-global-score-DB.js';
 import getTopScoreDB from '../js/db/get-top-score-DB.js';
@@ -49,9 +48,9 @@ export default class BotController {
 
     private MClient: mastodon.Client | undefined;
 
-    private BAgent: BskyAgent | undefined;
+    private BAgent: AtpAgent | undefined;
 
-    private WordleSearchIndex: SearchIndex;
+    private WordleSearchIndex: SearchClient;
 
     private MWordleBot: MastoWordleBot | undefined;
     private BSkyBot: BlueskyWordleBot | undefined;
@@ -62,8 +61,9 @@ export default class BotController {
         this.GlobalScores = getGlobalScoreDB();
         this.TopScores = getTopScoreDB();
 
-        const algSearchInst = algoliasearch.default(ALGOLIA_AUTH.appId, ALGOLIA_AUTH.adminKey);
-        this.WordleSearchIndex = algSearchInst.initIndex('analyzedwordles');
+        const algSearchInst = algoliasearch(ALGOLIA_AUTH.appId, ALGOLIA_AUTH.adminKey);
+        //algSearchInst.initIndex('analyzedwordles');
+        this.WordleSearchIndex = algSearchInst;
     }
 
     static async initialize():Promise<void> {
@@ -144,7 +144,7 @@ export default class BotController {
 
             if (this.BAgent) {
               try {
-                const rt = new atproto.RichText({ text: item });
+                const rt = new RichText({ text: item });
                 await rt.detectFacets(this.BAgent);
                 await this.BAgent.post({ text: rt.text, facets: rt.facets });
               } catch (err) {
@@ -174,7 +174,7 @@ export default class BotController {
             if(!IS_DEVELOPMENT) {
                 await this.MClient?.v1.statuses.create({ status: finalStatus });
                 if(this.BAgent) {
-                    const rt = new atproto.RichText({text: finalStatus});
+                    const rt = new RichText({text: finalStatus});
                     await rt.detectFacets(this.BAgent);
                     await this.BAgent.post({ text: rt.text, facets: rt.facets});
                 }
@@ -191,7 +191,7 @@ export default class BotController {
         const users = new WordleData('users_bsky');
         
         if(!this.BAgent) {
-            this.BAgent = new atproto.BskyAgent({
+            this.BAgent = new AtpAgent({
                 service: 'https://bsky.social',
               });
             await this.BAgent.login(BSKY_AUTH);
