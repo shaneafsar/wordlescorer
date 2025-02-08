@@ -514,7 +514,7 @@ export default class BlueskyWordleBot {
               { did: parentAuthor.did, handle: parentAuthor.handle, avatar: parentAuthor.avatar }, 
               { isGrowth: false, isParent: true});
           } else {
-            logError('BskyBot | unable to retreive parent status | ', parentPost);
+            logError('BskyBot | unable to retreive parent status | ', parentThread);
           }
         } catch (e) {
           logError('BskyBot | error finding parent post, request failed | ', e);

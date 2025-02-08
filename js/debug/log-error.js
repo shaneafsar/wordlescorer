@@ -7,6 +7,7 @@ function logError() {
   /*if(logger && logger.error) {
     logger.error.apply(logger, [prefix].concat(args));
   }*/
+  
   console.error(...arguments);
 }
 
