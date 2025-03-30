@@ -14,6 +14,7 @@ import logError from '../js/debug/log-error.js';
 import getTopScorerInfo from '../js/db/get-top-scorer-info.js';
 import { getFormattedDate } from '../js/display/get-formatted-date.js';
 import { getCompliment } from '../ts/display/getCompliment.js';
+import { retry } from '../ts/util/retry.js';
 import logConsole from '../js/debug/log-console.js';
 import dotenv from 'dotenv';
 
@@ -62,7 +63,6 @@ export default class BotController {
         this.TopScores = getTopScoreDB();
 
         const algSearchInst = algoliasearch(ALGOLIA_AUTH.appId, ALGOLIA_AUTH.adminKey);
-        //algSearchInst.initIndex('analyzedwordles');
         this.WordleSearchIndex = algSearchInst;
     }
 
@@ -96,25 +96,34 @@ export default class BotController {
     private async buildBots() {
         try {
             if(ENABLE_MASTO_BOT) {
-                try {
-                    this.MWordleBot = await this.initMastoBot();
-                    await this.MWordleBot.initialize();
-                    console.log('*** BotController:  Initialized Mastodon Bot ***');
-                } catch (error) {
-                    console.error('*** BotController:  Failed to initialize Mastodon Bot, skipping ***', error);
+                this.MWordleBot = await retry(
+                    () => this.initMastoBot(),
+                    3, // Retry up to 10 times
+                    1000, // Start with 1 second delay
+                    (error) => true // Retry always
+                );
+                if (this.MWordleBot) {
+                    await retry(() => this.MWordleBot!.initialize(), 10, 1000);
+                    console.log('*** BotController: Initialized Mastodon Bot ***');
+                } else {
+                    console.error('*** BotController: Failed to initialize Mastodon Bot after retries, skipping ***');
                 }
             }
 
             if(ENABLE_BSKY_BOT) {
-                try {
-                    this.BSkyBot = await this.initBskyBot();
-                    await this.BSkyBot.initialize();
-                    console.log('*** BotController:  Initialized Bluesky Bot ***');
-                } catch (error){
-                    console.error('*** BotController: Failed to initialize Bluesky Bot, skipping ***', error);
+                this.BSkyBot = await retry(
+                    () => this.initBskyBot(),
+                    3,
+                    1000,
+                    (error) => true
+                );
+                if (this.BSkyBot) {
+                    await retry(() => this.BSkyBot!.initialize(), 3, 1000);
+                    console.log('*** BotController: Initialized Bluesky Bot ***');
+                } else {
+                    console.error('*** BotController: Failed to initialize Bluesky Bot after retries, skipping ***');
                 }
             }
-
 
         } catch (e) {
             logError('Error initializing bots | ', e);
@@ -215,7 +224,12 @@ export default class BotController {
 
 
         if(!this.MClient) {
-            this.MClient = await login(MASTO_AUTH);
+            this.MClient = await retry(
+                () => login(MASTO_AUTH),
+                3, // Retry up to 10 times
+                1000, // Start with 1 second delay
+                (error) => true // Retry always
+            );
         }
       
         return new MastoWordleBot(

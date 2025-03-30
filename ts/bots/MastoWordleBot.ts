@@ -15,6 +15,7 @@ import { JSDOM } from 'jsdom';
 import logConsole from '../../js/debug/log-console.js';
 import { getCompliment } from '../display/getCompliment.js';
 import { isWordleHardModeFromList } from '../../ts/extract/isWordleHardMode.js';
+import { retry } from '../../ts/util/retry.js';
 
 //FINAL TODOs: add env variables to prevent write, compile, npm start
 
@@ -113,12 +114,9 @@ export default class MastoWordleBot {
   }
 
   async initialize() {
-    const [userTimeline, tagTimeline] = await Promise.all([
-      this.masto.v1.stream.streamUser(), 
-      this.masto.v1.stream.streamTagTimeline('Wordle')
-    ]);
+    const userTimeline = await this.masto.v1.stream.streamUser();
+    await new Promise(res => setTimeout(res, 500)); // slight delay to avoid too much hitting the API
 
-    this.tagTimeline = tagTimeline;
     this.userTimeline = userTimeline;
   
     await this.processRecentMentions();
@@ -128,8 +126,22 @@ export default class MastoWordleBot {
     followers.forEach(follower => ALLOW_LIST.add(`@${follower.acct}`));
 
     // Add handlers
-    tagTimeline.on('update', this.handleUpdate.bind(this));
     userTimeline.on('notification', this.handleNotification.bind(this));
+
+    await new Promise(res => setTimeout(res, 500)); // slight delay to avoid too much hitting the API
+    try {
+      this.tagTimeline = await retry(
+          async () => {
+              return await this.masto.v1.stream.streamTagTimeline('Wordle');
+          },
+          10, // Retry up to X times
+          500, // Start with Y millisecond delay
+          (error) => true // Retry always
+      );
+      this.tagTimeline?.on('update', this.handleUpdate.bind(this));
+    } catch (e) {
+      console.error("No tag timeline established for mastobot ", e);
+    }
 
   }
 

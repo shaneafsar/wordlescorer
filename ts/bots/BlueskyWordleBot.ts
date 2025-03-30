@@ -19,6 +19,7 @@ import WordleSource from '../enum/WordleSource.js';
 import logConsole from '../../js/debug/log-console.js';
 import { getCompliment } from '../display/getCompliment.js';
 import { isWordleHardModeFromList } from '../../ts/extract/isWordleHardMode.js';
+import { retry } from '../../ts/util/retry.js';
 
 //FINAL TODOs: add env variables to prevent write, compile, npm start
 
@@ -231,11 +232,26 @@ export default class BlueskyWordleBot {
     if (!this.agent) {
       throw new Error('getNotifications: bluesky agent not set up');
     }
-    const notifs = await this.agent.listNotifications({ limit: 100 });
-    if (!notifs.success) {
-      throw new Error('getNotifications: failed to get bluesky notifications');
-    }
+
     const out: AppBskyNotificationListNotifications.Notification[] = [];
+    
+    const notifs = await retry(
+      () => this.agent.listNotifications({ limit: 100 }),
+      3, 
+      1000, 
+      (error) => true, // Retry all
+      {
+        success: false,
+        headers: {}, // Provide a default empty headers object
+        data: { notifications: [] },
+      }
+    );
+
+    if (!notifs.success) {
+      console.warn('getNotifications: failed to get bluesky notifications, returning empty array');
+      return out;
+    }
+
     for (const notif of notifs.data.notifications) {
       if (notif.reason !== 'mention') {
         if(notif.reason === 'follow') {

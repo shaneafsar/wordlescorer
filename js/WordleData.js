@@ -243,7 +243,7 @@ class WordleData {
       };
       doc = await collection.findOne(query);
     } catch (e) {
-      logger.error('WordleData | mongodb hasKey | ',this.name,' | ', key, ' | ', e);
+      logger.error('WordleData | mongodb hasKey | ',this.name,' | ', val, ' | ', e);
     }
     return !doc ? false : true;
   }
