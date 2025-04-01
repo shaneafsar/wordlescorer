@@ -12,13 +12,15 @@ import getGlobalStats from '../js/db/get-global-stats.js';
 import getFormattedGlobalStats from '../js/display/get-formatted-global-stats.js';
 import logError from '../js/debug/log-error.js';
 import getTopScorerInfo from '../js/db/get-top-scorer-info.js';
-import { getFormattedDate } from '../js/display/get-formatted-date.js';
+import { getFormattedDate } from '../ts/display/get-formatted-date.js';
 import { getCompliment } from '../ts/display/getCompliment.js';
 import { retry } from '../ts/util/retry.js';
 import logConsole from '../js/debug/log-console.js';
 import dotenv from 'dotenv';
 
 const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
+
+const IS_INGESTION_ONLY = process.env['IS_INGESTION_ONLY'] === 'true';
 
 if (IS_DEVELOPMENT) {
     dotenv.config();
@@ -66,22 +68,27 @@ export default class BotController {
         this.WordleSearchIndex = algSearchInst;
     }
 
-    static async initialize():Promise<void> {
+    static async postOnly():Promise<void> {
         let botController:BotController|null = new BotController();
         await botController.buildBots();
-        
-        const postDailyTopScorePromise = setDelayedFunctionWithPromise(botController.postDailyTopScore.bind(botController));
-        const postGlobalStatsPromise = setDelayedFunctionWithPromise(botController.postGlobalStats.bind(botController));
 
-        // Proceed even if the calls fail
-        await Promise.allSettled([postDailyTopScorePromise, postGlobalStatsPromise]);
+        // Assume we are running this as a cron at the top of the current day
+        const currentDate = new Date();
+        const yesterday = new Date(currentDate);
+        yesterday.setDate(currentDate.getDate() - 1);
 
-        console.log('*** BotController reinitializing...*** ');
+        await botController.postDailyTopScore(yesterday);
+        await botController.postGlobalStats(yesterday);
         
         botController.destroy();
         botController = null;
-        
-        await BotController.initialize();
+    }
+
+    static async initialize():Promise<void> {
+        let botController:BotController|null = new BotController();
+        await botController.buildBots();
+        botController.destroy();
+        botController = null;
     }
 
     private destroy() {
@@ -94,6 +101,7 @@ export default class BotController {
     }
 
     private async buildBots() {
+        console.log("IS_INGESTION_ONLY? ", IS_INGESTION_ONLY);
         try {
             if(ENABLE_MASTO_BOT) {
                 this.MWordleBot = await retry(
@@ -102,10 +110,10 @@ export default class BotController {
                     1000, // Start with 1 second delay
                     (error) => true // Retry always
                 );
-                if (this.MWordleBot) {
+                if (this.MWordleBot && IS_INGESTION_ONLY) {
                     await retry(() => this.MWordleBot!.initialize(), 10, 1000);
                     console.log('*** BotController: Initialized Mastodon Bot ***');
-                } else {
+                } else if (IS_INGESTION_ONLY) {
                     console.error('*** BotController: Failed to initialize Mastodon Bot after retries, skipping ***');
                 }
             }
@@ -117,10 +125,10 @@ export default class BotController {
                     1000,
                     (error) => true
                 );
-                if (this.BSkyBot) {
+                if (this.BSkyBot && IS_INGESTION_ONLY) {
                     await retry(() => this.BSkyBot!.initialize(), 3, 1000);
                     console.log('*** BotController: Initialized Bluesky Bot ***');
-                } else {
+                } else if (IS_INGESTION_ONLY) {
                     console.error('*** BotController: Failed to initialize Bluesky Bot after retries, skipping ***');
                 }
             }
@@ -160,6 +168,7 @@ export default class BotController {
                 logError('postGlobalStats bsky error: ', err);
               }
             }
+            logConsole('postGlobalStats result: ', item);
           } else {
             logConsole('postGlobalStats DEVMODE result: ', item);
           }
