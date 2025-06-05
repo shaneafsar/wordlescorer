@@ -201,14 +201,8 @@ class WordleData {
         if(date) {
           // Based on the above, along with the daily assumption,
           // always replace any record found with a new value.
-          const startDate = new Date(date);
-          startDate.setUTCHours(0, 0, 0, 0);
-          const startOfToday = now.getTime();
-          const endOfToday = (new Date(now).setDate(now.getDate() + 1)).getTime();
-          query.datetime = {
-            $gte: startOfToday,
-            $lt: endOfToday
-          };
+          const datetime = getDateQuery(date);
+          query.datetime = datetime;
         }
         /**
          * If possible, add epoch time
