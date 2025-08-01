@@ -2,18 +2,15 @@ import BotController from "./BotController.js";
 import MongoClientInstance from './mongo.js';
 import "./instrument.js";
 
-function wait(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+async function runLoop() {
+  while (true) {
+    try {
+      console.log(`[${new Date().toISOString()}] Starting BotController...`);
+      await BotController.initialize();
+    } catch (err) {
+      console.error(`[${new Date().toISOString()}] Error in BotController:`, err);
+    }
+  }
 }
 
-BotController.initialize()
-  .then(() => wait(24 * 60 * 60 * 1000)) // wait 24 hours
-  .then(() => {
-    MongoClientInstance.close();
-    process.exit(0);
-  })
-/*.catch(err => {
-  MongoClientInstance.close();
-  console.error('Error:', err);
-  process.exit(1);
-});*/
+runLoop();

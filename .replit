@@ -6,7 +6,6 @@ run = "npm run start"
 channel = "stable-22_05"
 
 [deployment]
-deploymentTarget = "gce"
+deploymentTarget = "scheduled"
 build = ["sh", "-c", "npm run compile"]
 run = ["sh", "-c", "npm run prod"]
-ignorePorts = true

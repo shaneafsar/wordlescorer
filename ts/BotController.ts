@@ -44,6 +44,10 @@ const BSKY_AUTH = {
 const ENABLE_MASTO_BOT = true;
 const ENABLE_BSKY_BOT = true;
 
+function wait(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 
 export default class BotController {
     private GlobalScores: WordleData;
@@ -87,6 +91,11 @@ export default class BotController {
     static async initialize():Promise<void> {
         let botController:BotController|null = new BotController();
         await botController.buildBots();
+
+        console.log(`Waiting 24 hours before next run...`);
+        await wait(24 * 60 * 60 * 1000); // 24 hours
+        console.log(`BotController finished.`);
+        
         botController.destroy();
         botController = null;
     }
