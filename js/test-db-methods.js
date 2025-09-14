@@ -1,6 +1,6 @@
-import getGlobalStats from '../js/db/get-global-stats.js';
-import getGlobalScoreDB from '../js/db/get-global-score-DB.js';
-import WordleData from '../js/WordleData.js';
+import getGlobalStats from '../ts/db/get-global-stats.js';
+import getGlobalScoreDB from '../ts/db/get-global-score-DB.js';
+import WordleData from './WordleData.js';
 
 
 async function main() {

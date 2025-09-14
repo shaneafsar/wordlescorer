@@ -1,10 +1,10 @@
 // @ts-nocheck
 import * as express from "express";
 import WordleData from '../../js/WordleData.js';
-import getGlobalStats from '../../js/db/get-global-stats.js';
-import getTopScorerInfo from '../../js/db/get-top-scorer-info.js';
+import getGlobalStats from '../../ts/db/get-global-stats.js';
+import getTopScorerInfo from '../../ts/db/get-top-scorer-info.js';
 import getPercent from '../../js/display/get-percent.js';
-import getGlobalScoreDB from '../../js/db/get-global-score-DB.js';
+import getGlobalScoreDB from '../../ts/db/get-global-score-DB.js';
 
 var formatter = new Intl.NumberFormat().format;
 

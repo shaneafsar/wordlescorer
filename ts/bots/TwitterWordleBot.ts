@@ -25,7 +25,7 @@ import isValidWordle from '../../js/calculate/is-valid-wordle.js';
 import { getWordleNumberFromList } from '../../js/extract/get-wordle-number-from-text.js';
 import getWordleMatrixFromList from '../../js/extract/get-wordle-matrix-from-list.js';
 import checkIsSameDay from '../../js/is-same-day.js';
-import getScorerGlobalStats from '../../js/db/get-scorer-global-stats.js';
+import getScorerGlobalStats from '../db/get-scorer-global-stats.js';
 import { getCompliment } from '../display/getCompliment.js';
 import { getSentenceSuffix } from '../../js/display/get-sentence-suffix.js';
 import logError from '../../js/debug/log-error.js';

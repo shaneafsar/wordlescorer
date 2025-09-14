@@ -3,15 +3,15 @@ import MastoWordleBot from './bots/MastoWordleBot.js';
 import BlueskyWordleBot from './bots/BlueskyWordleBot.js';
 import { RichText, AtpAgent } from '@atproto/api';
 import { mastodon } from 'masto';
-import getGlobalScoreDB from '../js/db/get-global-score-DB.js';
-import getTopScoreDB from '../js/db/get-top-score-DB.js';
+import getGlobalScoreDB from './db/get-global-score-DB.js';
+import getTopScoreDB from './db/get-top-score-DB.js';
 import { setDelayedFunctionWithPromise } from '../js/set-delayed-function.js';
 import WordleData from "../js/WordleData.js";
 import { login } from 'masto';
-import getGlobalStats from '../js/db/get-global-stats.js';
+import getGlobalStats from './db/get-global-stats.js';
 import getFormattedGlobalStats from '../js/display/get-formatted-global-stats.js';
 import logError from '../js/debug/log-error.js';
-import getTopScorerInfo from '../js/db/get-top-scorer-info.js';
+import getTopScorerInfo from './db/get-top-scorer-info.js';
 import { getFormattedDate } from '../ts/display/get-formatted-date.js';
 import { getCompliment } from '../ts/display/getCompliment.js';
 import { retry } from '../ts/util/retry.js';
@@ -195,7 +195,7 @@ export default class BotController {
         if (scorer) {
             const formattedDate = getFormattedDate(date);
             const scorerAppend = `They scored ${scorer.score} points for #Wordle ${scorer.wordleNumber} and solved it on row ${scorer.solvedRow}! That's better than ${scorer.aboveTotal} (~${scorer.percentage}) other users. ${getCompliment()}`;
-            const scorerNameOnly = `${scorer.screenName}!`;
+            const scorerNameOnly = `${scorer.screenName || scorer.scorerName || scorer.name}!`;
             const finalStatus = `The top scorer for ${formattedDate} is: ${scorerNameOnly} ${scorerAppend}`;
 
             if(!IS_DEVELOPMENT) {
