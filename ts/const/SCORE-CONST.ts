@@ -1,10 +1,8 @@
-// const blocks = {'⬛': 0,'⬜': 0,'🟨': 1,'🟦':1,'🟧':2,'🟩': 2};
-
 const SCORE = {
   CORRECT: 2,
   PARTIAL: 1,
   WRONG: 0
-}
+} as const;
 
 const CODEPOINT_SCORE = new Map([
   [129000, SCORE.PARTIAL],

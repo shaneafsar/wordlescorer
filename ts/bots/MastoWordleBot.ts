@@ -7,7 +7,7 @@ import type WordleData from '../../js/WordleData.js';
 import checkIsSameDay from '../../js/is-same-day.js';
 import getWordleMatrixFromList from '../../js/extract/get-wordle-matrix-from-list.js';
 import getScorerGlobalStats from '../db/get-scorer-global-stats.js';
-import { getSentenceSuffix } from '../../js/display/get-sentence-suffix.js';
+import { getSentenceSuffix } from '../display/get-sentence-suffix.js';
 import logError from '../../js/debug/log-error.js';
 import type { SearchClient } from 'algoliasearch';
 import WordleSource from '../enum/WordleSource.js';
