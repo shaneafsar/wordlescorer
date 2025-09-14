@@ -1,8 +1,8 @@
 import type { mastodon, WsEvents } from 'masto';
-import isValidWordle from '../../js/calculate/is-valid-wordle.js';
-import { getSolvedRow } from '../../js/calculate/get-solved-row.js';
+import isValidWordle from '../calculate/is-valid-wordle.js';
+import { getSolvedRow } from '../calculate/get-solved-row.js';
 import { getWordleNumberFromList } from '../../js/extract/get-wordle-number-from-text.js';
-import { calculateScoreFromWordleMatrix } from '../../js/calculate/calculate-score-from-wordle-matrix.js';
+import { calculateScoreFromWordleMatrix } from '../calculate/calculate-score-from-wordle-matrix.js';
 import type WordleData from '../../js/WordleData.js';
 import checkIsSameDay from '../../js/is-same-day.js';
 import getWordleMatrixFromList from '../../js/extract/get-wordle-matrix-from-list.js';

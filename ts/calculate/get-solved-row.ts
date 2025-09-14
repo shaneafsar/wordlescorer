@@ -1,12 +1,7 @@
 import isValidWordle from './is-valid-wordle.js';
 import { SCORE } from '../const/SCORE-CONST.js';
 
-/**
- * getSolvedRow
- * @param {Number[]} wordle - score matrix
- * @returns {Number} 0-6
- */
-export function getSolvedRow(wordle) {
+export function getSolvedRow(wordle: number[]): number {
   if (!isValidWordle(wordle)) {
     return 0;
   }

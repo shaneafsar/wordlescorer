@@ -19,9 +19,9 @@ import {
     ReferencedTweetV2,
     TweetV1
 } from 'twitter-api-v2';
-import { calculateScoreFromWordleMatrix } from '../../js/calculate/calculate-score-from-wordle-matrix.js';
-import { getSolvedRow } from '../../js/calculate/get-solved-row.js';
-import isValidWordle from '../../js/calculate/is-valid-wordle.js';
+import { calculateScoreFromWordleMatrix } from '../calculate/calculate-score-from-wordle-matrix.js';
+import { getSolvedRow } from '../calculate/get-solved-row.js';
+import isValidWordle from '../calculate/is-valid-wordle.js';
 import { getWordleNumberFromList } from '../../js/extract/get-wordle-number-from-text.js';
 import getWordleMatrixFromList from '../../js/extract/get-wordle-matrix-from-list.js';
 import checkIsSameDay from '../../js/is-same-day.js';
