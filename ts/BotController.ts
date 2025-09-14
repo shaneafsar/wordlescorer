@@ -9,7 +9,7 @@ import { setDelayedFunctionWithPromise } from '../js/set-delayed-function.js';
 import WordleData from "../js/WordleData.js";
 import { login } from 'masto';
 import getGlobalStats from './db/get-global-stats.js';
-import getFormattedGlobalStats from '../js/display/get-formatted-global-stats.js';
+import getFormattedGlobalStats from './display/get-formatted-global-stats.js';
 import logError from '../js/debug/log-error.js';
 import getTopScorerInfo from './db/get-top-scorer-info.js';
 import { getFormattedDate } from '../ts/display/get-formatted-date.js';
