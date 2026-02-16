@@ -5,3 +5,6 @@ modules = ["nodejs-20"]
 
 [nix]
 channel = "stable-22_05"
+
+[agent]
+expertMode = true
