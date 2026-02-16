@@ -54,7 +54,7 @@ Required: `MASTO_URI`, `MASTO_ACCESS_TOKEN`, `BSKY_USERNAME`, `BSKY_PASSWORD`, S
 ### DB Sync (Replit App Storage)
 - `ts/db/db-sync.ts` syncs the SQLite DB to/from Replit App Storage (`@replit/object-storage`)
 - On startup: downloads DB from App Storage before SQLite opens it (top-level `await` in `main.ts` and `daily.ts`)
-- Every 15 minutes: uploads DB to App Storage
+- Every 5 minutes: uploads DB to App Storage
 - On shutdown (SIGTERM/SIGINT): final upload before exit
 - Skipped entirely when not on Replit (`REPL_ID` env var absent)
 - The `[db-sync]` log prefix tracks all sync activity
