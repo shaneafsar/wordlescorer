@@ -10,6 +10,7 @@ const REMOTE_KEY = 'wordlescorer.db';
 const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 let syncTimer: NodeJS.Timeout | null = null;
+let lastUploadHash: number = 0;
 const isReplit = !!process.env['REPL_ID'];
 
 /**
@@ -57,11 +58,18 @@ export async function uploadDB(): Promise<void> {
     // Checkpoint WAL into main DB so we upload a complete file
     db.pragma('wal_checkpoint(TRUNCATE)');
 
+    // Skip upload if DB hasn't changed since last upload
+    const { mtimeMs, size } = fs.statSync(DB_PATH);
+    const currentHash = mtimeMs + size;
+    if (currentHash === lastUploadHash) {
+      return;
+    }
+
     const client = new Client();
     const { ok, error } = await client.uploadFromFilename(REMOTE_KEY, DB_PATH);
 
     if (ok) {
-      const size = fs.statSync(DB_PATH).size;
+      lastUploadHash = currentHash;
       console.log(`[db-sync] Uploaded DB to App Storage (${size} bytes)`);
     } else {
       console.error('[db-sync] Upload failed:', error);
