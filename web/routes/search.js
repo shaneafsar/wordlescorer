@@ -1,130 +1,104 @@
 // @ts-nocheck
 import * as express from "express";
-import algoliasearch from 'algoliasearch';
-import WordleData from '../../js/WordleData.js';
-import Twit from 'twit';
-
+import db from '../../dist/db/sqlite.js';
 
 const router = express.Router();
 
-const TWIT_CONFIG = {
-  consumer_key: process.env.consumer_key,
-  consumer_secret: process.env.consumer_secret,
-  access_token: process.env.access_token,
-  access_token_secret: process.env.access_token_secret,
-};
-
-const client = algoliasearch(
-  process.env.algolia_app_id, 
-  process.env.algolia_admin_key);
-
-router.get('/', function (req, res, next) {  
+router.get('/', function (req, res, next) {
   res.send('respond with a resource');
 });
 
-router.get('/user', function(req, res, next) {
-  // Get id off of querystring
-  const { user_id = null, screen_name, include_entities = null } = req.query;
-  const T = new Twit(TWIT_CONFIG);
+router.get('/api', function (req, res, next) {
+  const {
+    q = '',
+    wordleNumber = '',
+    solvedRow = '',
+    scoreMin = '',
+    scoreMax = '',
+    source = '',
+    page = '0',
+    pageSize = '20'
+  } = req.query;
 
-  T.get('users/lookup', { 
-    user_id: user_id, 
-    screen_name: screen_name,
-    include_entities: !!include_entities
-  }).then(({ data }) => {
-    
-    res.send(data.map(user => {
-      return { photo: user.profile_image_url_https, screen_name:user.screen_name, user_id:user.id_str} }));
-  });
-});
+  const pageNum = Math.max(0, parseInt(page, 10) || 0);
+  const size = Math.min(100, Math.max(1, parseInt(pageSize, 10) || 20));
+  const offset = pageNum * size;
 
-router.get('/initphotos', function(req, res, next) {
+  let where = [];
+  let params = [];
 
-  const T = new Twit(TWIT_CONFIG);
+  if (q) {
+    where.push('scorer_name LIKE ?');
+    params.push(`%${q}%`);
+  }
+  if (wordleNumber) {
+    where.push('wordle_number = ?');
+    params.push(parseInt(wordleNumber, 10));
+  }
+  if (solvedRow !== '') {
+    where.push('solved_row = ?');
+    params.push(parseInt(solvedRow, 10));
+  }
+  if (scoreMin) {
+    where.push('score >= ?');
+    params.push(parseInt(scoreMin, 10));
+  }
+  if (scoreMax) {
+    where.push('score <= ?');
+    params.push(parseInt(scoreMax, 10));
+  }
+  if (source) {
+    where.push('source = ?');
+    params.push(source);
+  }
 
-  const AnalyzedTweetsDB = new WordleData('analyzed');
-  const UsersDB = new WordleData('users');
-  
-  AnalyzedTweetsDB.read().then(data => {
-    const values = Object.values(data);
-    const formattedDataSet = new Set(values.map((item, index) => {
-      return item.scorerName || item.name;
-    }));
-    const formattedData = Array.from(formattedDataSet).map(item => item.slice(1));
+  const whereClause = where.length > 0 ? 'WHERE ' + where.join(' AND ') : '';
 
-    // API only allows for up to 100 usernames per request
-    const chunkSize = 100;
-    const chunkedNames = [];
-    for (let i = 0; i < formattedData.length; i += chunkSize) {
-      chunkedNames.push(formattedData.slice(i, i + chunkSize));
-    }
-  
-    Promise.all(chunkedNames.map(chunk => {
-      return T.post('users/lookup', { screen_name: chunk.join(',') });
-    })).then((outputs) => {
-      const formattedOutputs = outputs.map(({data}) => {
-        return data.map(user => { 
-          return { photo: user.profile_image_url_https, screen_name:user.screen_name, user_id:user.id_str };
-        });
-      });
-     
-      const dataToWrite = formattedOutputs.flat(1).reduce((r,e) => {
-        r[e.user_id] = e;
-        return r;
-      }, {});
+  // Get total count
+  const countRow = db.prepare(`SELECT COUNT(*) as total FROM analyzed_posts ${whereClause}`).get(...params);
+  const total = countRow?.total || 0;
 
-      if(!UsersDB.db.data) {
-        UsersDB.db.data = dataToWrite;
-        UsersDB.db.write();
-      }
-      
-      res.send(dataToWrite);
-    });
-    
-  });
-});
+  // Get results
+  const rows = db.prepare(
+    `SELECT id, scorer_name, wordle_number, score, solved_row, is_hard_mode, source, url, auto_score, created_at, date_key
+     FROM analyzed_posts ${whereClause}
+     ORDER BY created_at DESC
+     LIMIT ? OFFSET ?`
+  ).all(...params, size, offset);
 
-const defaultPhotoUrl = 'https://abs.twimg.com/sticky/default_profile_images/default_profile_normal.png';
+  // Get facet counts for filters
+  const facets = {};
 
-router.get('/indexdata', function (req, res, next) {
+  if (!wordleNumber) {
+    facets.wordleNumbers = db.prepare(
+      `SELECT wordle_number as value, COUNT(*) as count FROM analyzed_posts ${whereClause} GROUP BY wordle_number ORDER BY wordle_number DESC LIMIT 20`
+    ).all(...params);
+  }
 
-  const index = client.initIndex('analyzedwordles');
+  if (solvedRow === '') {
+    facets.solvedRows = db.prepare(
+      `SELECT solved_row as value, COUNT(*) as count FROM analyzed_posts ${whereClause} GROUP BY solved_row ORDER BY solved_row`
+    ).all(...params);
+  }
 
-  const UsersDB = new WordleData('users');
-  const AnalyzedTweetsDB = new WordleData('analyzed');
-
-  Promise.all([AnalyzedTweetsDB.read(), UsersDB.read()]).then(([data, users]) => {
-    const userMap = Object.values(users).reduce((r,e) => {
-      r[e.screen_name] = e;
-      return r;
-    }, {});
-    const values = Object.values(data);
-    const keys = Object.keys(data);
-    const formattedData = values.map((item, index) => {
-      item.id = keys[index];
-      item.scorerName = item.scorerName || item.name;
-      delete item.name;
-      item.date_timestamp = item.date_timestamp || Math.floor(item.datetime / 1000);
-      item.photoUrl = userMap[item.scorerName.slice(1)]?.photo || defaultPhotoUrl;
-
-      delete item.datetime;
-      
-      return item;
-    }).filter(item => {
-      // Ensure there's a score, tweet id, and a valid wordle
-      // Early scored wordles don't have the property, and there was a brief period where invalid alt text could come back as wordleNumber === 0
-      return Number.isInteger(item.score) && item.id && (!item.hasOwnProperty('wordleNumber') || item.wordleNumber !== 0);
-    });
-
-    
-    // index.saveObjects(formattedData, { autoGenerateObjectIDIfNotExist: true })
-    // .then(({ objectIDs }) => {
-    //     console.log('indexed data');
-    //     res.send('indexed data');
-    // })
-    // .catch(console.error);
-    
-    
+  res.json({
+    hits: rows.map(r => ({
+      id: r.id,
+      scorerName: r.scorer_name,
+      wordleNumber: r.wordle_number,
+      score: r.score,
+      solvedRow: r.solved_row,
+      isHardMode: !!r.is_hard_mode,
+      source: r.source,
+      url: r.url,
+      autoScore: !!r.auto_score,
+      date_timestamp: Math.floor(r.created_at / 1000),
+    })),
+    total,
+    page: pageNum,
+    pageSize: size,
+    totalPages: Math.ceil(total / size),
+    facets
   });
 });
 

@@ -6,20 +6,19 @@ import { AppBskyFeedSearchPosts } from '@atproto/api';
 import { AppBskyFeedDefs } from '@atproto/api';
 import isValidWordle from '../calculate/is-valid-wordle.js';
 import { getSolvedRow } from '../calculate/get-solved-row.js';
-import { getWordleNumberFromList } from '../../js/extract/get-wordle-number-from-text.js';
+import { getWordleNumberFromList } from '../extract/get-wordle-number-from-text.js';
 import { calculateScoreFromWordleMatrix } from '../calculate/calculate-score-from-wordle-matrix.js';
-import type WordleData from '../../js/WordleData.js';
-import checkIsSameDay from '../../js/is-same-day.js';
-import getWordleMatrixFromList from '../../js/extract/get-wordle-matrix-from-list.js';
+import type WordleData from '../db/WordleData.js';
+import checkIsSameDay from '../util/is-same-day.js';
+import getWordleMatrixFromList from '../extract/get-wordle-matrix-from-list.js';
 import getScorerGlobalStats from '../db/get-scorer-global-stats.js';
 import { getSentenceSuffix } from '../display/get-sentence-suffix.js';
-import logError from '../../js/debug/log-error.js';
-import type { SearchClient } from 'algoliasearch';
+import logError from '../debug/log-error.js';
 import WordleSource from '../enum/WordleSource.js';
-import logConsole from '../../js/debug/log-console.js';
+import logConsole from '../debug/log-console.js';
 import { getCompliment } from '../display/getCompliment.js';
-import { isWordleHardModeFromList } from '../../ts/extract/isWordleHardMode.js';
-import { retry } from '../../ts/util/retry.js';
+import { isWordleHardModeFromList } from '../extract/isWordleHardMode.js';
+import { retry } from '../util/retry.js';
 
 //FINAL TODOs: add env variables to prevent write, compile, npm start
 
@@ -47,20 +46,6 @@ interface GlobalScore {
   screenName?: string;
   isHardMode?: boolean;
   source: WordleSource
-}
-
-interface AlgoliaIndexObject extends Record<string,unknown> {
-  name?: string;
-  score: number;
-  solvedRow: number;
-  wordleNumber: number;
-  date_timestamp: number;
-  url: string;
-  autoScore: boolean;
-  isHardMode: boolean;
-  scorerName: string;
-  photoUrl: string;
-  source: WordleSource;
 }
 
 interface WordleInfo {
@@ -122,7 +107,6 @@ function getRootCdiAndUri(record: AppBskyFeedPost.Record, postUri: string, postC
 
 export default class BlueskyWordleBot {
   private agent: AtpAgent;
-  private AlgoliaIndex: SearchClient;
   private globalScores: WordleData;
   private userGrowth: WordleData;
   private analyzedPosts: WordleData;
@@ -135,14 +119,12 @@ export default class BlueskyWordleBot {
   private PROCESSED: Set<String> = new Set<String>();
 
   constructor(agent: AtpAgent,
-    algoliaIndex: SearchClient, 
-    globalScores: WordleData, 
+    globalScores: WordleData,
     topScores: WordleData,
     userGrowth: WordleData,
     analyzedPosts: WordleData,
     users: WordleData) {
     this.agent = agent;
-    this.AlgoliaIndex = algoliaIndex;
     this.globalScores = globalScores;
     this.topScores = topScores;
     this.userGrowth = userGrowth;
@@ -183,7 +165,7 @@ export default class BlueskyWordleBot {
 
       if (notifs.length > 0) {
         const seenAt = notifs[notifs.length - 1]?.indexedAt;
-        await this.agent.updateSeenNotifications(seenAt);
+        await this.agent.updateSeenNotifications(seenAt as `${string}-${string}-${string}T${string}:${string}:${string}Z`);
       }
 
       // Manually extracting from HTTP API for now.
@@ -218,7 +200,7 @@ export default class BlueskyWordleBot {
           );
         }
       } else {
-        console.error('Failed to fetch search results:', searchResponse.success, searchResponse.headers, searchResponse.data);
+        logError('[bot:bsky] Failed to fetch search results:', searchResponse.success, searchResponse.headers, searchResponse.data);
       }
 
 
@@ -248,7 +230,7 @@ export default class BlueskyWordleBot {
     );
 
     if (!notifs.success) {
-      console.warn('getNotifications: failed to get bluesky notifications, returning empty array');
+      logError('[bot:bsky] getNotifications: failed to get bluesky notifications, returning empty array');
       return out;
     }
 
@@ -283,17 +265,6 @@ export default class BlueskyWordleBot {
     return `${name} This ${wordlePrefix} scored ${score} out of 420${getSentenceSuffix(solvedRow)} ${aboveTotal} ${getCompliment(isGrowth)}`;
   }
 
-  private addToIndex(objectToIndex: AlgoliaIndexObject) {
-    if(!IS_DEVELOPMENT) {
-        this.AlgoliaIndex.saveObject({ indexName: 'analyzedwordles', body: objectToIndex})
-        .catch((e) => {
-            logError('BskyBot | Algolia saveObjects error | ', e);
-        });
-    } else {
-      logConsole('BskyBot | DEVMODE | addToIndex | ', objectToIndex.url);
-    }
-  }
-
   private async addToIndices(
     { wordleScore, wordleNumber, solvedRow, isHardMode } : WordleInfo,
     { userId, screenName, photo } : AuthorInfo,
@@ -321,11 +292,6 @@ export default class BlueskyWordleBot {
             photo: photo
         });
     }
-  
-    this.addToIndex({
-        ...analyzedPost,
-        photoUrl: photo || 'https://i.imgur.com/MvfJVWa.png'
-    });
   }
 
   private async writeScoresToDB(
@@ -401,29 +367,31 @@ export default class BlueskyWordleBot {
       const isGrowthAlreadyChecked = isGrowth && await this.userGrowth.hasKeyAsync(userId);
       //const shouldPostRealStatus = !IS_DEVELOPMENT && !isGrowthAlreadyChecked;
       const shouldPostRealStatus = !IS_DEVELOPMENT && !isGrowth;
-      
+
       if(shouldPostRealStatus) {
         const rt = new RichText({ text: status });
         await rt.detectFacets(this.agent);
-        await this.agent.post({ 
-          text: rt.text, 
+        await this.agent.post({
+          text: rt.text,
           facets: rt.facets,
           reply: replyRef
         });
 
-        logConsole(`BskyBot | ${IS_DEVELOPMENT ? 'DEVMODE' : ''} ${isGrowth ? 'random' : 'normal'} reply to ${url}: ${status}`);
+        logConsole(`[bot:bsky] ${isGrowth ? 'random' : 'normal'} reply to ${url}: ${status}`);
 
         if (isGrowth) {
           this.lastGrowthReplyTime = now;
           const lastCheckTime = { lastCheckTime: now};
           await this.userGrowth.write('lastCheckTime', lastCheckTime);
         }
+      } else if (IS_DEVELOPMENT) {
+        logConsole(`[bot:bsky] [DRY RUN] ${screenName} | Wordle #${wordleNumber} | Score: ${wordleScore} | Row: ${solvedRow} | Reply: "${status}"`);
       }
 
       await this.userGrowth.write(userId, { lastCheckTime: Date.now()});
 
     } catch(e) {
-        logError('BskyBot | failed to get globalScorerGlobalStats & reply | ', e);
+        logError('[bot:bsky] failed to get globalScorerGlobalStats & reply | ', e);
     } finally {
         this.PROCESSING.delete(postId);
         this.PROCESSED.add(postId);
@@ -520,8 +488,9 @@ export default class BlueskyWordleBot {
         try {
           
           const parentThread = await this.agent.getPostThread({ uri: parentPost.uri });
-          const parentRecord = (parentThread?.data?.thread?.post as any)?.record;
-          const parentAuthor = (parentThread?.data?.thread?.post as any)?.author;
+          const thread = parentThread?.data?.thread as any;
+          const parentRecord = thread?.post?.record;
+          const parentAuthor = thread?.post?.author;
   
           if(parentRecord && parentAuthor && parentAuthor.handle && parentAuthor.did) {
             this.processPost(
@@ -530,10 +499,10 @@ export default class BlueskyWordleBot {
               { did: parentAuthor.did, handle: parentAuthor.handle, avatar: parentAuthor.avatar }, 
               { isGrowth: false, isParent: true});
           } else {
-            logError('BskyBot | unable to retreive parent status | ', parentThread);
+            logError('[bot:bsky] unable to retrieve parent status | ', parentThread);
           }
         } catch (e) {
-          logError('BskyBot | error finding parent post, request failed | ', e);
+          logError('[bot:bsky] error finding parent post, request failed | ', e);
         } finally {
           this.PROCESSING.delete(postId);
         }

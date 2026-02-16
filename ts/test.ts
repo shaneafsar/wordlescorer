@@ -1,4 +1,4 @@
-import getWordleMatrixFromList from "../js/extract/get-wordle-matrix-from-list.js";
+import getWordleMatrixFromList from "./extract/get-wordle-matrix-from-list.js";
 import { JSDOM } from 'jsdom';
 
 const htmlToParse = `<p>Wordle 589 4/6</p><p>Line 1: 2nd and 4th correct but in the wrong place.<br>Line 2: 1st and 5th correct but in the wrong place.<br>Line 3: 5th correct but in the wrong place.<br>Line 4: Won!</p>`;

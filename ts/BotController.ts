@@ -1,21 +1,19 @@
-import { algoliasearch, SearchClient } from 'algoliasearch';
 import MastoWordleBot from './bots/MastoWordleBot.js';
 import BlueskyWordleBot from './bots/BlueskyWordleBot.js';
 import { RichText, AtpAgent } from '@atproto/api';
-import { mastodon } from 'masto';
+import { mastodon, createRestAPIClient, createStreamingAPIClient } from 'masto';
 import getGlobalScoreDB from './db/get-global-score-DB.js';
 import getTopScoreDB from './db/get-top-score-DB.js';
-import { setDelayedFunctionWithPromise } from '../js/set-delayed-function.js';
-import WordleData from "../js/WordleData.js";
-import { login } from 'masto';
+import { setDelayedFunctionWithPromise } from './util/set-delayed-function.js';
+import WordleData from "./db/WordleData.js";
 import getGlobalStats from './db/get-global-stats.js';
 import getFormattedGlobalStats from './display/get-formatted-global-stats.js';
-import logError from '../js/debug/log-error.js';
+import logError from './debug/log-error.js';
 import getTopScorerInfo from './db/get-top-scorer-info.js';
-import { getFormattedDate } from '../ts/display/get-formatted-date.js';
-import { getCompliment } from '../ts/display/getCompliment.js';
-import { retry } from '../ts/util/retry.js';
-import logConsole from '../js/debug/log-console.js';
+import { getFormattedDate } from './display/get-formatted-date.js';
+import { getCompliment } from './display/getCompliment.js';
+import { retry } from './util/retry.js';
+import logConsole from './debug/log-console.js';
 import dotenv from 'dotenv';
 
 const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
@@ -24,11 +22,6 @@ const IS_INGESTION_ONLY = process.env['IS_INGESTION_ONLY'] === 'true';
 
 if (IS_DEVELOPMENT) {
     dotenv.config();
-};
-
-const ALGOLIA_AUTH = {
-    appId: process.env['algolia_app_id'] || '', 
-    adminKey: process.env['algolia_admin_key'] || ''
 };
 
 const MASTO_AUTH = {
@@ -53,11 +46,10 @@ export default class BotController {
     private GlobalScores: WordleData;
     private TopScores: WordleData;
 
-    private MClient: mastodon.Client | undefined;
+    private MClient: mastodon.rest.Client | undefined;
+    private MStreaming: mastodon.streaming.Client | undefined;
 
     private BAgent: AtpAgent | undefined;
-
-    private WordleSearchIndex: SearchClient;
 
     private MWordleBot: MastoWordleBot | undefined;
     private BSkyBot: BlueskyWordleBot | undefined;
@@ -67,9 +59,6 @@ export default class BotController {
 
         this.GlobalScores = getGlobalScoreDB();
         this.TopScores = getTopScoreDB();
-
-        const algSearchInst = algoliasearch(ALGOLIA_AUTH.appId, ALGOLIA_AUTH.adminKey);
-        this.WordleSearchIndex = algSearchInst;
     }
 
     static async postOnly():Promise<void> {
@@ -92,9 +81,9 @@ export default class BotController {
         let botController:BotController|null = new BotController();
         await botController.buildBots();
 
-        console.log(`Waiting 24 hours before next run...`);
+        logConsole('[bot] Waiting 24 hours before next run...');
         await wait(24 * 60 * 60 * 1000); // 24 hours
-        console.log(`BotController finished.`);
+        logConsole('[bot] BotController finished.');
         
         botController.destroy();
         botController = null;
@@ -104,13 +93,14 @@ export default class BotController {
         this.MWordleBot?.destroy();
         this.BSkyBot?.destroy();
         this.MClient = undefined;
+        this.MStreaming = undefined;
         this.BAgent = undefined;
         this.MWordleBot = undefined;
         this.BSkyBot = undefined;
     }
 
     private async buildBots() {
-        console.log("IS_INGESTION_ONLY? ", IS_INGESTION_ONLY);
+        logConsole("[bot] IS_INGESTION_ONLY? ", IS_INGESTION_ONLY);
         try {
             if(ENABLE_MASTO_BOT) {
                 this.MWordleBot = await retry(
@@ -121,9 +111,9 @@ export default class BotController {
                 );
                 if (this.MWordleBot && IS_INGESTION_ONLY) {
                     await retry(() => this.MWordleBot!.initialize(), 10, 1000);
-                    console.log('*** BotController: Initialized Mastodon Bot ***');
+                    logConsole('[bot] Initialized Mastodon Bot');
                 } else if (IS_INGESTION_ONLY) {
-                    console.error('*** BotController: Failed to initialize Mastodon Bot after retries, skipping ***');
+                    logError('[bot] Failed to initialize Mastodon Bot after retries, skipping');
                 }
             }
 
@@ -136,14 +126,14 @@ export default class BotController {
                 );
                 if (this.BSkyBot && IS_INGESTION_ONLY) {
                     await retry(() => this.BSkyBot!.initialize(), 3, 1000);
-                    console.log('*** BotController: Initialized Bluesky Bot ***');
+                    logConsole('[bot] Initialized Bluesky Bot');
                 } else if (IS_INGESTION_ONLY) {
-                    console.error('*** BotController: Failed to initialize Bluesky Bot after retries, skipping ***');
+                    logError('[bot] Failed to initialize Bluesky Bot after retries, skipping');
                 }
             }
 
         } catch (e) {
-            logError('Error initializing bots | ', e);
+            logError('[bot] Error initializing bots | ', e);
         }
     }
 
@@ -165,7 +155,7 @@ export default class BotController {
             try {
               await this.MClient?.v1.statuses.create({ status: item });
             } catch (err) {
-              logError('postGlobalStats masto error: ', err);
+              logError('[bot] postGlobalStats masto error: ', err);
             }
 
             if (this.BAgent) {
@@ -174,16 +164,16 @@ export default class BotController {
                 await rt.detectFacets(this.BAgent);
                 await this.BAgent.post({ text: rt.text, facets: rt.facets });
               } catch (err) {
-                logError('postGlobalStats bsky error: ', err);
+                logError('[bot] postGlobalStats bsky error: ', err);
               }
             }
-            logConsole('postGlobalStats result: ', item);
+            logConsole('[bot] postGlobalStats result: ', item);
           } else {
-            logConsole('postGlobalStats DEVMODE result: ', item);
+            logConsole(`[bot] [DRY RUN] postGlobalStats: ${item}`);
           }
         }
       } catch (e) {
-        logError('postGlobalStats failed: ', e);
+        logError('[bot] postGlobalStats failed: ', e);
       }
     }
 
@@ -206,9 +196,9 @@ export default class BotController {
                     await this.BAgent.post({ text: rt.text, facets: rt.facets});
                 }
             }
-            logConsole(`Daily top score ${IS_DEVELOPMENT? 'DEVMODE' : ''} | ${finalStatus}`);
+            logConsole(`[bot] ${IS_DEVELOPMENT ? '[DRY RUN] ' : ''}Daily top score | ${finalStatus}`);
         } else {
-            logConsole(`No top scorer found today`);
+            logConsole('[bot] No top scorer found today');
         }
     }
 
@@ -226,8 +216,7 @@ export default class BotController {
       
         return new BlueskyWordleBot(
             this.BAgent,
-            this.WordleSearchIndex,
-            this.GlobalScores, 
+            this.GlobalScores,
             this.TopScores,
             userGrowth,
             analyzedPosts,
@@ -242,18 +231,20 @@ export default class BotController {
 
 
         if(!this.MClient) {
-            this.MClient = await retry(
-                () => login(MASTO_AUTH),
-                3, // Retry up to 10 times
-                1000, // Start with 1 second delay
-                (error) => true // Retry always
-            );
+            this.MClient = createRestAPIClient({
+                url: MASTO_AUTH.url,
+                accessToken: MASTO_AUTH.accessToken,
+            });
+            this.MStreaming = createStreamingAPIClient({
+                streamingApiUrl: MASTO_AUTH.url.replace(/\/$/, '') + '/api/v1/streaming',
+                accessToken: MASTO_AUTH.accessToken,
+            });
         }
-      
+
         return new MastoWordleBot(
           this.MClient,
-          this.WordleSearchIndex,
-          this.GlobalScores, 
+          this.MStreaming!,
+          this.GlobalScores,
           this.TopScores,
           userGrowth,
           analyzedPosts,

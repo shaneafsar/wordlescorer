@@ -1,21 +1,20 @@
-import type { mastodon, WsEvents } from 'masto';
+import type { mastodon } from 'masto';
 import isValidWordle from '../calculate/is-valid-wordle.js';
 import { getSolvedRow } from '../calculate/get-solved-row.js';
-import { getWordleNumberFromList } from '../../js/extract/get-wordle-number-from-text.js';
+import { getWordleNumberFromList } from '../extract/get-wordle-number-from-text.js';
 import { calculateScoreFromWordleMatrix } from '../calculate/calculate-score-from-wordle-matrix.js';
-import type WordleData from '../../js/WordleData.js';
-import checkIsSameDay from '../../js/is-same-day.js';
-import getWordleMatrixFromList from '../../js/extract/get-wordle-matrix-from-list.js';
+import type WordleData from '../db/WordleData.js';
+import checkIsSameDay from '../util/is-same-day.js';
+import getWordleMatrixFromList from '../extract/get-wordle-matrix-from-list.js';
 import getScorerGlobalStats from '../db/get-scorer-global-stats.js';
 import { getSentenceSuffix } from '../display/get-sentence-suffix.js';
-import logError from '../../js/debug/log-error.js';
-import type { SearchClient } from 'algoliasearch';
+import logError from '../debug/log-error.js';
 import WordleSource from '../enum/WordleSource.js';
 import { JSDOM } from 'jsdom';
-import logConsole from '../../js/debug/log-console.js';
+import logConsole from '../debug/log-console.js';
 import { getCompliment } from '../display/getCompliment.js';
-import { isWordleHardModeFromList } from '../../ts/extract/isWordleHardMode.js';
-import { retry } from '../../ts/util/retry.js';
+import { isWordleHardModeFromList } from '../extract/isWordleHardMode.js';
+import { retry } from '../util/retry.js';
 
 //FINAL TODOs: add env variables to prevent write, compile, npm start
 
@@ -37,20 +36,6 @@ interface GlobalScore {
   userId?: string;
   screenName?: string;
   isHardMode?: boolean;
-  source: WordleSource;
-}
-
-interface AlgoliaIndexObject extends Record<string,unknown> {
-  name?: string;
-  score: number;
-  solvedRow: number;
-  wordleNumber: number;
-  date_timestamp: number;
-  url: string;
-  autoScore: boolean;
-  isHardMode: boolean;
-  scorerName: string;
-  photoUrl: string;
   source: WordleSource;
 }
 
@@ -80,74 +65,87 @@ function getAltTextList(medias: mastodon.v1.MediaAttachment[]): string[] {
 }
 
 export default class MastoWordleBot {
-  private masto: mastodon.Client;
-  private AlgoliaIndex: SearchClient;
+  private masto: mastodon.rest.Client;
+  private streaming: mastodon.streaming.Client;
   private globalScores: WordleData;
   private userGrowth: WordleData;
   private analyzedPosts: WordleData;
   private users: WordleData;
   private lastMention: WordleData;
   private topScores: WordleData;
-  private tagTimeline: WsEvents | null;
-  private userTimeline: WsEvents | null;
+  private destroyed: boolean = false;
 
   private PROCESSING: Set<String> = new Set<String>();
 
-  constructor(masto: mastodon.Client,
-    algoliaIndex: SearchClient, 
-    globalScores: WordleData, 
+  constructor(masto: mastodon.rest.Client,
+    streaming: mastodon.streaming.Client,
+    globalScores: WordleData,
     topScores: WordleData,
     userGrowth: WordleData,
     analyzedPosts: WordleData,
     users: WordleData,
     lastMention: WordleData) {
     this.masto = masto;
-    this.AlgoliaIndex = algoliaIndex;
+    this.streaming = streaming;
     this.globalScores = globalScores;
     this.topScores = topScores;
     this.userGrowth = userGrowth;
     this.analyzedPosts = analyzedPosts;
     this.users = users;
     this.lastMention = lastMention;
-    this.tagTimeline = null;
-    this.userTimeline = null;
   }
 
   async initialize() {
-    const userTimeline = await this.masto.v1.stream.streamUser();
-    await new Promise(res => setTimeout(res, 500)); // slight delay to avoid too much hitting the API
-
-    this.userTimeline = userTimeline;
-  
     await this.processRecentMentions();
 
     // TEMP: add followers to allowlist
-    const followers = await this.masto.v1.accounts.listFollowers(BOT_ID);
-    followers.forEach(follower => ALLOW_LIST.add(`@${follower.acct}`));
-
-    // Add handlers
-    userTimeline.on('notification', this.handleNotification.bind(this));
-
-    await new Promise(res => setTimeout(res, 500)); // slight delay to avoid too much hitting the API
-    try {
-      this.tagTimeline = await retry(
-          async () => {
-              return await this.masto.v1.stream.streamTagTimeline('Wordle');
-          },
-          10, // Retry up to X times
-          500, // Start with Y millisecond delay
-          (error) => true // Retry always
-      );
-      this.tagTimeline?.on('update', this.handleUpdate.bind(this));
-    } catch (e) {
-      console.error("No tag timeline established for mastobot ", e);
+    const followers = await this.masto.v1.accounts.$select(BOT_ID).followers.list();
+    for (const follower of followers) {
+      ALLOW_LIST.add(`@${follower.acct}`);
     }
 
+    // Start streaming in background (non-blocking)
+    this.streamUserTimeline();
+
+    await new Promise(res => setTimeout(res, 500));
+
+    this.streamTagTimeline();
   }
 
   destroy() {
-    this.tagTimeline?.disconnect();
-    this.userTimeline?.disconnect();
+    this.destroyed = true;
+  }
+
+  private async streamUserTimeline() {
+    try {
+      const subscription = this.streaming.user.subscribe();
+      for await (const event of subscription) {
+        if (this.destroyed) break;
+        if (event.event === 'notification') {
+          this.handleNotification(event.payload as mastodon.v1.Notification);
+        }
+      }
+    } catch (e) {
+      if (!this.destroyed) {
+        logError('[bot:masto] User timeline stream error:', e);
+      }
+    }
+  }
+
+  private async streamTagTimeline() {
+    try {
+      const subscription = this.streaming.hashtag.subscribe({ tag: 'Wordle' });
+      for await (const event of subscription) {
+        if (this.destroyed) break;
+        if (event.event === 'update') {
+          this.handleUpdate(event.payload as mastodon.v1.Status);
+        }
+      }
+    } catch (e) {
+      if (!this.destroyed) {
+        logError('[bot:masto] Tag timeline stream error:', e);
+      }
+    }
   }
 
   /**
@@ -182,10 +180,10 @@ export default class MastoWordleBot {
    */
   private async handleUpdate(status: mastodon.v1.Status) {
 
-    const relationships = await this.masto.v1.accounts.fetchRelationships([status.account.id]);
+    const relationships = await this.masto.v1.accounts.relationships.fetch({ id: [status.account.id] });
     // There should only ever be 1 here, but api returns as array
     let isFollowingBot = relationships[0]?.followedBy || false;
-    logConsole('isFollowing Masto bot? ', isFollowingBot , ' | ', status.account.acct);
+    logConsole('[bot:masto] isFollowing? ', isFollowingBot , ' | ', status.account.acct);
     if(isFollowingBot) {
 
       this.processPost(status, {isGrowth: false, isParent: false});
@@ -229,7 +227,7 @@ export default class MastoWordleBot {
   private async handleNotification(notification: mastodon.v1.Notification) {
     if(notification.type === 'follow') {
       ALLOW_LIST.add(`@${notification.account.acct}`);
-      this.masto.v1.accounts.follow(notification.account.id, {
+      this.masto.v1.accounts.$select(notification.account.id).follow({
         reblogs: false
       });
     }
@@ -248,15 +246,6 @@ export default class MastoWordleBot {
 
   private buildStatus(name: string, wordlePrefix: string, score: number, solvedRow: number, aboveTotal: string, isGrowth: boolean) {
     return `${name} This ${wordlePrefix} scored ${score} out of 420${getSentenceSuffix(solvedRow)} ${aboveTotal} ${getCompliment(isGrowth)}`;
-  }
-
-  private addToIndex(objectToIndex: AlgoliaIndexObject) {
-    if(!IS_DEVELOPMENT) {
-      this.AlgoliaIndex.saveObject({ indexName: 'analyzedwordles', body: objectToIndex})
-        .catch((e) => {
-            logError('MastoBot | Algolia saveObjects error | ', e);
-        });
-    }
   }
 
   private async addToIndices(
@@ -286,11 +275,6 @@ export default class MastoWordleBot {
             photo: photo
         });
     }
-  
-    this.addToIndex({
-        ...analyzedPost,
-        photoUrl: photo || 'https://cdn.mastodon.online/avatars/original/missing.png'
-    });
   }
 
   private async writeScoresToDB(
@@ -347,15 +331,17 @@ export default class MastoWordleBot {
       const shouldPostRealStatus = !IS_DEVELOPMENT || (IS_DEVELOPMENT && ALLOW_LIST.has(screenName));
 
       if(shouldPostRealStatus) {
-        await this.masto.v1.statuses.create({ 
+        await this.masto.v1.statuses.create({
           status,
-          inReplyToId: postId 
+          inReplyToId: postId
         });
-        logConsole(`MastoBot | ${IS_DEVELOPMENT ? 'DEVMODE' : ''} reply to ${postId}: ${status}`);
+        logConsole(`[bot:masto] reply to ${postId}: ${status}`);
+      } else if (IS_DEVELOPMENT) {
+        logConsole(`[bot:masto] [DRY RUN] ${screenName} | Wordle #${wordleNumber} | Score: ${wordleScore} | Row: ${solvedRow} | Reply: "${status}"`);
       }
 
     } catch(e) {
-        logError('MastoBot | failed to get globalScorerGlobalStats & reply | ', e);
+        logError('[bot:masto] failed to get globalScorerGlobalStats & reply | ', e);
     } finally {
         this.PROCESSING.delete(postId);
     }
@@ -389,14 +375,14 @@ export default class MastoWordleBot {
 
     const post = await this.analyzedPosts.hasKeyAsync(postId);
     if(post) {
-      console.log(`MastoBot | post ${postId} already processed`);
+      logConsole(`[bot:masto] post ${postId} already processed`);
       return;
     }
 
     this.PROCESSING.add(postId);
 
     const isValid = isValidWordle(wordleMatrix, wordleNumber, solvedRow);
-    logConsole(`MastoBot | processing ${postId} | ${screenName} | isValidWordle? `, isValid, ' | wordle number: ', wordleNumber, '| solvedRow: ', solvedRow, ' | isHardMode: ', isHardMode);
+    logConsole(`[bot:masto] processing ${postId} | ${screenName} | isValidWordle? `, isValid, ' | wordle number: ', wordleNumber, '| solvedRow: ', solvedRow, ' | isHardMode: ', isHardMode);
 
     if (isValid) {
 
@@ -433,14 +419,14 @@ export default class MastoWordleBot {
       const hasId = await this.analyzedPosts.hasKeyAsync(parentId);
       if(!hasId) {
         try {
-            const context = await this.masto.v1.statuses.fetchContext(status.id);
+            const context = await this.masto.v1.statuses.$select(status.id).context.fetch();
             if(context.ancestors.length > 0) {
               this.processPost(context.ancestors.pop()!, { isGrowth: false, isParent: true});
             } else {
-              logError('unable to retreive parent status | ', context);
+              logError('[bot:masto] unable to retrieve parent status | ', context);
             }
           } catch (e) {
-            logError('error finding parent post, request failed | ', e);
+            logError('[bot:masto] error finding parent post, request failed | ', e);
           } finally {
             this.PROCESSING.delete(postId);
           }

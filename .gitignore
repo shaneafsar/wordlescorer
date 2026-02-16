@@ -1,3 +1,5 @@
+.DS_Store
+
 # Logs
 logs
 *.log
@@ -106,3 +108,8 @@ dist
 #Filesystem DB ignore
 **/db.*.json
 db/*
+
+# SQLite database
+data/*.db
+data/*.db-wal
+data/*.db-shm

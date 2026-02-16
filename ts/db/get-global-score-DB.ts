@@ -1,4 +1,4 @@
-import WordleData from '../../js/WordleData.js';
+import WordleData from './WordleData.js';
 
 /**
  * 

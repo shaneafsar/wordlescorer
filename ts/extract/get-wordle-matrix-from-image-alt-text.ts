@@ -1,51 +1,54 @@
-// @ts-nocheck
 import { SCORE } from '../const/SCORE-CONST.js';
 
-/**
- * Converts wa11y.co alt text to a wordle score matrix
- * @param {String} text - alt text from wa11y.co
- * @returns {Number[]} array of scores
- */
- function getWordleMatrixFromImageAltText(text = '') {
-  if(text.trim() === '') {
+function _rowUpdater(row: number[], matches: string[] | null, score: number): number[] {
+  if (!!matches) {
+    for (let j = 0; j < matches.length; j++) {
+      row[parseInt(matches[j]) - 1] = score;
+    }
+  }
+  return row;
+}
+
+function getWordleMatrixFromImageAltText(text: string = ''): number[] {
+  if (text.trim() === '') {
     return [];
   }
 
   // TODO: check the text for appropriate general format before continuing
-   
-  var lines = text.split('\n');
-  
+
+  let lines = text.split('\n');
+
   // If we only get back one line, try splitting by period.
-  if(lines.length === 1) {
+  if (lines.length === 1) {
     lines = text.split('.');
   }
-  
+
   const output = lines.map((line) => {
-    var row = Array(5).fill(0, 0);
-    
+    const row = Array(5).fill(0, 0);
+
     // Nothing <-- empty row => line.match(/Nothing/gi)
 
     // all greens (perfect)
     if (!!line.match(/Won/g)) {
       row.fill(SCORE.CORRECT, 0);
-    
+
     // 1-4 yellows
-    } else if(!!line.match(/but in the wrong place/gi)) {
-      var matches = line.match(/(?<=:.*)[1-5]/g);
+    } else if (!!line.match(/but in the wrong place/gi)) {
+      const matches = line.match(/(?<=:.*)[1-5]/g);
       _rowUpdater(row, matches, SCORE.PARTIAL);
 
     // greens and yellows (mix of 1-4 greens, 1-4 yellows)
-    } else if(line.indexOf('in the wrong place') > -1 && line.indexOf('perfect') > -1) {
-      var split = line.split('but');
-      var correct = split[0]?.match(/(?<=:.*)[1-5]/g);
-      var partials = split[1]?.match(/[1-5]/g);
-    
+    } else if (line.indexOf('in the wrong place') > -1 && line.indexOf('perfect') > -1) {
+      const split = line.split('but');
+      const correct = split[0]?.match(/(?<=:.*)[1-5]/g);
+      const partials = split[1]?.match(/[1-5]/g);
+
       _rowUpdater(row, correct, SCORE.CORRECT);
       _rowUpdater(row, partials, SCORE.PARTIAL);
-    
+
     // Only greens
-    } else if(line.indexOf('perfect') > -1) {
-      var matches = line.match(/(?<=:.*)[1-5]/g);
+    } else if (line.indexOf('perfect') > -1) {
+      const matches = line.match(/(?<=:.*)[1-5]/g);
       // If it only has the word "perfect" and no numbers, assume it's all greens.
       if (!matches) {
         row.fill(SCORE.CORRECT, 0);
@@ -54,7 +57,7 @@ import { SCORE } from '../const/SCORE-CONST.js';
       }
 
     // 100% yellows
-    } else if(line.indexOf('all the correct letters but in the wrong order') > -1) {
+    } else if (line.indexOf('all the correct letters but in the wrong order') > -1) {
       row.fill(SCORE.PARTIAL, 0);
     }
     return row;
@@ -65,18 +68,8 @@ import { SCORE } from '../const/SCORE-CONST.js';
   if (output.every((val) => val === 0)) {
     return [];
   }
-   
+
   return output;
-}
-
-
-function _rowUpdater(row, matches, score) {
-  if(!!matches) {
-    for (var j=0; j<matches.length; j++) {
-      row[matches[j]-1] = score;
-    }
-  }
-  return row;
 }
 
 export default getWordleMatrixFromImageAltText;

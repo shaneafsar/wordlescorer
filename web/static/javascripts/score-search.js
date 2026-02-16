@@ -1,170 +1,120 @@
-// @ts-nocheck
-const APP_ID = 'EO8V4J92JS';
-const APP_SEARCH_KEY = 'b7f12a56d0c6478b02c0c7891a31e10b';
+// Score search - queries the local SQLite-backed API
+(function() {
+  const searchbox = document.getElementById('searchbox');
+  const wordlesContainer = document.getElementById('wordles');
+  const paginationContainer = document.getElementById('pagination');
+  const statsContainer = document.getElementById('stats');
 
-const search = instantsearch({
-  indexName: 'analyzedwordles',
-  searchClient: algoliasearch(APP_ID, APP_SEARCH_KEY),
-  searchParameters: {
-    clickAnalytics: true,
+  if (!searchbox) return;
+
+  let currentPage = 0;
+  let currentParams = {};
+
+  searchbox.innerHTML = `
+    <form id="search-form" class="search-form">
+      <input type="text" name="q" placeholder="Search by username..." />
+      <input type="number" name="wordleNumber" placeholder="Wordle #" min="1" />
+      <select name="solvedRow">
+        <option value="">Any row</option>
+        <option value="1">Row 1</option>
+        <option value="2">Row 2</option>
+        <option value="3">Row 3</option>
+        <option value="4">Row 4</option>
+        <option value="5">Row 5</option>
+        <option value="6">Row 6</option>
+        <option value="0">Not solved</option>
+      </select>
+      <input type="number" name="scoreMin" placeholder="Min score" min="0" />
+      <input type="number" name="scoreMax" placeholder="Max score" min="0" />
+      <button type="submit">Search</button>
+    </form>
+  `;
+
+  const form = document.getElementById('search-form');
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    currentPage = 0;
+    const formData = new FormData(form);
+    currentParams = {};
+    for (const [key, val] of formData.entries()) {
+      if (val) currentParams[key] = val;
+    }
+    fetchResults();
+  });
+
+  function fetchResults() {
+    const params = new URLSearchParams({ ...currentParams, page: currentPage, pageSize: 20 });
+    fetch('/search/api?' + params.toString())
+      .then(r => r.json())
+      .then(renderResults)
+      .catch(err => {
+        wordlesContainer.innerHTML = '<p>Error loading results.</p>';
+        console.error(err);
+      });
   }
-});
 
-const insightsMiddleware = instantsearch.middlewares.createInsightsMiddleware({
-  insightsClient: window.aa,
-  insightsInitParams: {
-    useCookie: true,
-  }
-})
-
-search.use(insightsMiddleware);
-
-search.addWidgets([
-  instantsearch.widgets.searchBox({
-    container: '#searchbox',
-    placeholder: 'Search for usernames, wordle number, scores, tweet ID'
-  }),
-  
-  instantsearch.widgets.clearRefinements({
-    container: '#clear-refinements',
-  }),
-  
-  instantsearch.widgets.refinementList({
-    container: '#name-list',
-    attribute: 'scorerName',
-  }),
-
-  instantsearch.widgets.refinementList({
-    container: '#wordle_number-list',
-    attribute: 'wordleNumber',
-    sortBy: ['name:desc'],
-    transformItems(items) {
-      return items.map(item => { 
-        if (item.label === '0') { 
-          const label = 'Unknown';
-          item.label = label;
-          item.highlighted = label;
-        } 
-        return item; 
-      });
+  function renderResults(data) {
+    if (statsContainer) {
+      statsContainer.innerHTML = `<p>${data.total.toLocaleString()} results found</p>`;
     }
-  }),
-  
-  instantsearch.widgets.refinementList({
-    container: '#solved_row-list',
-    attribute: 'solvedRow',
-    transformItems(items) {
-      const list = items.map(item => { 
-        if (item.label === '0') { 
-          item.label = 'Not solved';
-          item.highlighted = 'Not solved';
-        } else {
-          item.highlighted = `Row ${item.label}`;
-        }
-        return item; 
-      });
-      list.sort((a,b) => { 
-        var numA = Number(a.label);
-        var numB = Number(b.label);
-        if(isNaN(numA)) { 
-          return Number.MAX_VALUE - numB; 
-        } 
-        if(isNaN(numB)) { 
-          return numA - Number.MAX_VALUE; 
-        } 
-        return numA - numB; 
-      })
-      return list;
+
+    if (data.hits.length === 0) {
+      wordlesContainer.innerHTML = '<p>No results found.</p>';
+      paginationContainer.innerHTML = '';
+      return;
     }
-  }),
 
-  instantsearch.widgets.stats({
-    container: '#stats',
-  }),
-
-  instantsearch.widgets.refinementList({
-    container: '#toggle-auto-score',
-    attribute: 'autoScore',
-    transformItems(items) {
-      return items.map(item => { 
-        if (item.label === 'true') { 
-          const label = 'Auto-scored'
-          item.label = label;
-          item.highlighted = label;
-        } 
-        if (item.label === 'false') { 
-          const label = 'Not Auto-scored'
-          item.label = label;
-          item.highlighted = label;
-        } 
-        return item; 
-      });
-    }
-  }),
-
-  instantsearch.widgets.numericMenu({
-    container: '#scores-list',
-    attribute: 'score',
-    items: [
-      { label: 'All' },
-      { label: 'Less than 100', end: 100 },
-      { label: 'Between 100 - 200', start: 100, end: 200 },
-      { label: 'Between 200 - 250', start: 200, end: 250 },
-      { label: 'More than 250', start: 250 }
-    ],
-  }),
-
-  instantsearch.widgets.hits({
-    container: '#wordles',
-    templates: {
-      item: function(val, bindEvent) { return `
-        <article class="wordle" ${bindEvent('click', val, 'Wordle clicked')}>
-          <header>
-            <img class='profile-image' src="${val.photoUrl}" alt="profile image for ${val.scorerName}" data-default="https://abs.twimg.com/sticky/default_profile_images/default_profile_normal.png"/>
-            <a class="wordle-title${val.date_timestamp > 1666286675 && !val.autoScore ? ' mentioned':''}" href="${(val.source !== 'mastodon' && val.source !== 'bluesky') ? `https://www.twitter.com/${val.scorerName}/status/${val.id}` : `${val.url}`}" target="_blank" ${bindEvent('conversion', val, 'Wordle tweet clicked')}>
-            ${val.scorerName}</a>
-          </header>
-          <ul class="attributes">
-            ${val.score && `
-              <li><span class="label">Score:</span> ${val.score}</li>
-            `}
-            ${val.wordleNumber && `
-              <li><span class="label">Wordle</span> ${val.wordleNumber}</li>
-            `}
-            ${val.solvedRow ? `
-              <li>Solved on row ${val.solvedRow}</li>
-            ` : `
-              <li>Not solved</li>
-            `}
-            ${val.date_timestamp && `
-            <li><time>${(new Date(val.date_timestamp * 1000)).toLocaleDateString("en-US")}</time></li>
-            `}
-          </ul>
+    wordlesContainer.innerHTML = '<div class="results-grid">' + data.hits.map(function(val) {
+      const dateStr = val.date_timestamp ? new Date(val.date_timestamp * 1000).toLocaleDateString('en-US') : '';
+      const link = val.url || '#';
+      return `
+        <article class="result-card">
+          <div class="card-header">
+            <a href="${link}" target="_blank">${escapeHtml(val.scorerName)}</a>
+            ${val.score != null ? '<span class="card-score">' + val.score + '</span>' : ''}
+          </div>
+          <div class="card-tags">
+            ${val.wordleNumber ? '<span class="tag">Wordle #' + val.wordleNumber + '</span>' : ''}
+            ${val.solvedRow ? '<span class="tag">Row ' + val.solvedRow + '</span>' : '<span class="tag">Not solved</span>'}
+            ${dateStr ? '<span class="tag">' + dateStr + '</span>' : ''}
+          </div>
         </article>
-      `},
+      `;
+    }).join('') + '</div>';
+
+    // Pagination
+    if (data.totalPages > 1) {
+      let html = '<div class="pagination">';
+      if (currentPage > 0) {
+        html += '<a href="#" class="page-link" data-page="' + (currentPage - 1) + '">&laquo; Prev</a>';
+      }
+      html += '<span>Page ' + (currentPage + 1) + ' of ' + data.totalPages + '</span>';
+      if (currentPage < data.totalPages - 1) {
+        html += '<a href="#" class="page-link" data-page="' + (currentPage + 1) + '">Next &raquo;</a>';
+      }
+      html += '</div>';
+      paginationContainer.innerHTML = html;
+
+      paginationContainer.querySelectorAll('.page-link').forEach(function(link) {
+        link.addEventListener('click', function(e) {
+          e.preventDefault();
+          currentPage = parseInt(this.dataset.page, 10);
+          fetchResults();
+          searchbox.scrollIntoView({ behavior: 'smooth' });
+        });
+      });
+    } else {
+      paginationContainer.innerHTML = '';
     }
-  }),
-
-  instantsearch.widgets.pagination({
-    container: '#pagination',
-    scrollTo: '#pagination'
-  })
-]);
-
-// 5. Start the search!
-search.start();
-
-
-// Initialize algolia insights
-/*
-aa('init', {
-  appId: APP_ID,
-  apiKey: APP_SEARCH_KEY,
-  useCookie: true,  
-});
-
-document.getElementById('wordles').addEventListener('click', (e) => {
-  if(e.target.closest('.ais-Hits-item')) {
-    
   }
-});*/
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // Auto-load initial results
+  fetchResults();
+})();

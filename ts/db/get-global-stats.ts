@@ -33,8 +33,7 @@ async function getGlobalStats(
     console.error(err);
   });
 
-  // If it's an array, then we're pulling from mongo
-  const scorerList: ScorerData[] = Array.isArray(data) ? data : Object.values(data);
+  const scorerList: ScorerData[] = Array.isArray(data) ? data : Object.values(data || {});
   const wordleScores: Record<string, WordleScoreStats> = {};
   
   scorerList.forEach(item => {
