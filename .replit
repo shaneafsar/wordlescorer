@@ -4,27 +4,3 @@ run = "npm run start"
 
 [nix]
 channel = "stable-22_05"
-
-[deployment]
-deploymentTarget = "gce"
-build = ["sh", "-c", "npm run compile"]
-run = ["sh", "-c", "npm run start"]
-publicDir = "dist"
-
-[agent]
-expertMode = true
-
-[workflows]
-
-[[workflows.workflow]]
-name = "Dev mode"
-mode = "sequential"
-author = 10595772
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run compile"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run dev"
