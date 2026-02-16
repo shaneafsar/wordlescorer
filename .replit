@@ -50,3 +50,6 @@ externalPort = 80
 
 [userenv.shared]
 PORT = "5000"
+
+[objectStorage]
+defaultBucketID = "replit-objstore-e5fa64d7-61e4-45be-8eac-c91bbcca0be0"
