@@ -18,8 +18,6 @@ import dotenv from 'dotenv';
 
 const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
 
-const IS_INGESTION_ONLY = process.env['IS_INGESTION_ONLY'] === 'true';
-
 if (IS_DEVELOPMENT) {
     dotenv.config();
 };
@@ -100,19 +98,18 @@ export default class BotController {
     }
 
     private async buildBots() {
-        logConsole("[bot] IS_INGESTION_ONLY? ", IS_INGESTION_ONLY);
         try {
             if(ENABLE_MASTO_BOT) {
                 this.MWordleBot = await retry(
                     () => this.initMastoBot(),
-                    3, // Retry up to 10 times
-                    1000, // Start with 1 second delay
-                    (error) => true // Retry always
+                    3,
+                    1000,
+                    (error) => true
                 );
-                if (this.MWordleBot && IS_INGESTION_ONLY) {
+                if (this.MWordleBot) {
                     await retry(() => this.MWordleBot!.initialize(), 10, 1000);
                     logConsole('[bot] Initialized Mastodon Bot');
-                } else if (IS_INGESTION_ONLY) {
+                } else {
                     logError('[bot] Failed to initialize Mastodon Bot after retries, skipping');
                 }
             }
@@ -124,10 +121,10 @@ export default class BotController {
                     1000,
                     (error) => true
                 );
-                if (this.BSkyBot && IS_INGESTION_ONLY) {
+                if (this.BSkyBot) {
                     await retry(() => this.BSkyBot!.initialize(), 3, 1000);
                     logConsole('[bot] Initialized Bluesky Bot');
-                } else if (IS_INGESTION_ONLY) {
+                } else {
                     logError('[bot] Failed to initialize Bluesky Bot after retries, skipping');
                 }
             }

@@ -49,7 +49,7 @@ All console output uses structured prefixes for easy filtering:
 - Dry-run messages append `[DRY RUN]` after the source prefix
 
 ### Environment Variables
-Required: `MASTO_URI`, `MASTO_ACCESS_TOKEN`, `BSKY_USERNAME`, `BSKY_PASSWORD`, Sentry DSN. Optional: `PORT` (default 3000), `IS_INGESTION_ONLY`. Use a `.env` file in dev mode.
+Required: `MASTO_URI`, `MASTO_ACCESS_TOKEN`, `BSKY_USERNAME`, `BSKY_PASSWORD`, Sentry DSN. Optional: `PORT` (default 3000). Use a `.env` file in dev mode.
 
 ### Deployment Notes
 - `better-sqlite3` is a native C++ addon — it must be compiled for the target platform (`npm install` handles this)
