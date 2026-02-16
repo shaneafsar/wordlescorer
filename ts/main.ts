@@ -1,10 +1,14 @@
-// Download DB from Replit App Storage BEFORE any other imports that touch SQLite
+// Download DB from Replit App Storage BEFORE any other imports that touch SQLite.
+// db-sync has no static dependency on sqlite.ts, so this is safe to import statically.
 import { downloadDB, startPeriodicSync, stopSync } from "./db/db-sync.js";
+import http from 'http';
+
 await downloadDB();
 
-import BotController from "./BotController.js";
-import "./instrument.js";
-import http from 'http';
+// Dynamic imports — these transitively import sqlite.ts which opens the DB on load.
+// Must come AFTER downloadDB() so the file is in place first.
+const { default: BotController } = await import("./BotController.js");
+await import("./instrument.js");
 
 const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
 
@@ -54,7 +58,7 @@ async function startWebServer(): Promise<void> {
 }
 
 async function runLoop() {
-  // Start web server alongside the bot
+  // Start web server first — must be up before Replit's health check timeout
   await startWebServer();
 
   // Start periodic DB sync to App Storage (every 15 min)

@@ -2,8 +2,9 @@
 import { downloadDB, uploadDB } from "./db/db-sync.js";
 await downloadDB();
 
-import BotController from "./BotController.js";
-import "./instrument.js";
+// Dynamic imports — these transitively import sqlite.ts
+const { default: BotController } = await import("./BotController.js");
+await import("./instrument.js");
 
 BotController.postOnly()
 .then(async () => {
