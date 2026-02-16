@@ -235,8 +235,11 @@ export default class BotController {
                 url: MASTO_AUTH.url,
                 accessToken: MASTO_AUTH.accessToken,
             });
+            const instance = await this.MClient.v2.instance.fetch();
+            const streamingApiUrl = instance.configuration.urls.streaming;
+            logConsole('[bot:masto] Streaming URL:', streamingApiUrl);
             this.MStreaming = createStreamingAPIClient({
-                streamingApiUrl: MASTO_AUTH.url.replace(/\/$/, '') + '/api/v1/streaming',
+                streamingApiUrl,
                 accessToken: MASTO_AUTH.accessToken,
             });
         }
