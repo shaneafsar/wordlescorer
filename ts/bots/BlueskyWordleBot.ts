@@ -385,7 +385,7 @@ export default class BlueskyWordleBot {
           reply: replyRef
         });
 
-        await markReplied(postId);
+        markReplied(postId);
         logConsole(`[bot:bsky] ${isGrowth ? 'random' : 'normal'} reply to ${url}: ${status}`);
 
         if (isGrowth) {

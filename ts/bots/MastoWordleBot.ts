@@ -341,7 +341,7 @@ export default class MastoWordleBot {
           status,
           inReplyToId: postId
         });
-        await markReplied(postId);
+        markReplied(postId);
         logConsole(`[bot:masto] reply to ${postId}: ${status}`);
       } else if (IS_DEVELOPMENT) {
         logConsole(`[bot:masto] [DRY RUN] ${screenName} | Wordle #${wordleNumber} | Score: ${wordleScore} | Row: ${solvedRow} | Reply: "${status}"`);

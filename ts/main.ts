@@ -1,7 +1,7 @@
 // Download DB from Replit App Storage BEFORE any other imports that touch SQLite.
 // db-sync has no static dependency on sqlite.ts, so this is safe to import statically.
 import { downloadDB, startPeriodicSync, stopSync } from "./db/db-sync.js";
-import { loadReplyCache } from "./db/reply-cache.js";
+import { loadReplyCache, stopReplyCache } from "./db/reply-cache.js";
 import http from 'http';
 
 await downloadDB();
@@ -16,13 +16,15 @@ const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
 
 // Graceful shutdown: upload DB to App Storage before exiting
 process.on('SIGTERM', async () => {
-  console.log('[main] SIGTERM received, syncing DB...');
+  console.log('[main] SIGTERM received, syncing...');
+  await stopReplyCache();
   await stopSync();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-  console.log('[main] SIGINT received, syncing DB...');
+  console.log('[main] SIGINT received, syncing...');
+  await stopReplyCache();
   await stopSync();
   process.exit(0);
 });

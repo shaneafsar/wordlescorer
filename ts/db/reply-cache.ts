@@ -2,13 +2,15 @@ import { Client } from '@replit/object-storage';
 
 const CACHE_KEY = 'reply-cache.json';
 const MAX_ENTRIES = 5000;
+const FLUSH_INTERVAL = 30 * 1000; // 30 seconds
 const isReplit = !!process.env['REPL_ID'];
 
 let cache: Set<string> = new Set();
 let dirty = false;
+let flushTimer: NodeJS.Timeout | null = null;
 
 /**
- * Load the reply cache from App Storage on startup.
+ * Load the reply cache from App Storage on startup and start periodic flushing.
  */
 export async function loadReplyCache(): Promise<void> {
   if (!isReplit) return;
@@ -27,6 +29,11 @@ export async function loadReplyCache(): Promise<void> {
   } catch (err) {
     console.error('[reply-cache] Failed to load cache:', err);
   }
+
+  // Start periodic flush (every 30s)
+  flushTimer = setInterval(() => {
+    flushReplyCache();
+  }, FLUSH_INTERVAL);
 }
 
 /**
@@ -37,9 +44,9 @@ export function hasReplied(postId: string): boolean {
 }
 
 /**
- * Mark a post as replied to and persist to App Storage.
+ * Mark a post as replied to. Stays in memory until next periodic flush.
  */
-export async function markReplied(postId: string): Promise<void> {
+export function markReplied(postId: string): void {
   cache.add(postId);
   dirty = true;
 
@@ -48,8 +55,6 @@ export async function markReplied(postId: string): Promise<void> {
     const entries = Array.from(cache);
     cache = new Set(entries.slice(entries.length - MAX_ENTRIES));
   }
-
-  await flushReplyCache();
 }
 
 /**
@@ -65,10 +70,22 @@ export async function flushReplyCache(): Promise<void> {
 
     if (ok) {
       dirty = false;
+      console.log(`[reply-cache] Flushed ${cache.size} entries to App Storage`);
     } else {
       console.error('[reply-cache] Flush failed:', error);
     }
   } catch (err) {
     console.error('[reply-cache] Failed to flush cache:', err);
   }
+}
+
+/**
+ * Stop periodic flushing and do a final flush.
+ */
+export async function stopReplyCache(): Promise<void> {
+  if (flushTimer) {
+    clearInterval(flushTimer);
+    flushTimer = null;
+  }
+  await flushReplyCache();
 }
