@@ -4,20 +4,25 @@ import http from 'http';
 
 const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
 
-// Start the web server
-async function startWebServer() {
-  try {
-    // @ts-ignore - JS web module, will be fully migrated in Phase 6
-    const { default: app } = await import('../web/app.js');
-    const port = process.env.PORT || 3000;
-    app.set('port', port);
-    const server = http.createServer(app);
+// Start the web server and wait for it to be listening
+async function startWebServer(): Promise<void> {
+  // @ts-ignore - JS web module, will be fully migrated in Phase 6
+  const { default: app } = await import('../web/app.js');
+  const port = process.env.PORT || 3000;
+  app.set('port', port);
+  const server = http.createServer(app);
+
+  return new Promise((resolve, reject) => {
     server.listen(port);
     server.on('listening', () => {
       console.log(`[web] Server listening on port ${port}`);
+      resolve();
     });
     server.on('error', (error: NodeJS.ErrnoException) => {
-      if (error.syscall !== 'listen') throw error;
+      if (error.syscall !== 'listen') {
+        reject(error);
+        return;
+      }
       if (error.code === 'EACCES') {
         console.error(`Port ${port} requires elevated privileges`);
         process.exit(1);
@@ -25,12 +30,10 @@ async function startWebServer() {
         console.error(`Port ${port} is already in use`);
         process.exit(1);
       } else {
-        throw error;
+        reject(error);
       }
     });
-  } catch (err) {
-    console.error('Failed to start web server:', err);
-  }
+  });
 }
 
 async function runLoop() {
