@@ -33,6 +33,12 @@ This is a **Wordle scoring bot** that runs on Mastodon and Bluesky. Users mentio
 - **Search** — Server-side SQLite queries in `web/routes/search.js`, vanilla JS frontend in `web/static/javascripts/score-search.js`
 - Migration script from MongoDB: `scripts/migrate-from-mongo.ts`
 
+### Mastodon Bot: Follower vs Non-Follower Behavior
+In `MastoWordleBot.handleUpdate()`, posts from the `#Wordle` hashtag stream are handled differently based on whether the user follows the bot:
+- **Followers** (`isFollowingBot: true`): Full processing via `processPost()` — writes to `globalScores`, `topScores`, `analyzedPosts`, `users`, and replies to the post
+- **Non-followers** (`isFollowingBot: false`): Only writes to `globalScores` — no reply, no search visibility, no daily leaderboard. This still contributes to the "Solved above X others" comparison stat used in reply messages.
+- The `autoScore` field (`auto_score` in SQLite) indicates whether the bot found the post organically (true/1) vs the user @mentioned the bot (false/0)
+
 ### Key Patterns
 - ESM modules throughout (`"type": "module"` in package.json, `nodenext` module resolution)
 - All TS imports use `.js` extensions (required for ESM + TypeScript)
