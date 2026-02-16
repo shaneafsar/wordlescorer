@@ -16,6 +16,7 @@ router.get('/api', function (req, res, next) {
     scoreMin = '',
     scoreMax = '',
     source = '',
+    autoScore = '',
     page = '0',
     pageSize = '20'
   } = req.query;
@@ -50,6 +51,10 @@ router.get('/api', function (req, res, next) {
   if (source) {
     where.push('source = ?');
     params.push(source);
+  }
+  if (autoScore !== '') {
+    where.push('auto_score = ?');
+    params.push(parseInt(autoScore, 10));
   }
 
   const whereClause = where.length > 0 ? 'WHERE ' + where.join(' AND ') : '';

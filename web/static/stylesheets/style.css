@@ -294,6 +294,12 @@ header.page-header .header-contact {
   background-color: var(--color-primary);
 }
 
+.result-card .tag-mention {
+  background-color: var(--color-highlight);
+  color: #fff;
+  font-weight: 700;
+}
+
 /* Pagination */
 .pagination {
   display: flex;

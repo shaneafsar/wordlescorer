@@ -26,6 +26,11 @@
       </select>
       <input type="number" name="scoreMin" placeholder="Min score" min="0" />
       <input type="number" name="scoreMax" placeholder="Max score" min="0" />
+      <select name="autoScore">
+        <option value="">All posts</option>
+        <option value="0">@ Mentioned bot</option>
+        <option value="1">Auto-scored</option>
+      </select>
       <button type="submit">Search</button>
     </form>
   `;
@@ -77,6 +82,7 @@
           <div class="card-tags">
             ${val.wordleNumber ? '<span class="tag">Wordle #' + val.wordleNumber + '</span>' : ''}
             ${val.solvedRow ? '<span class="tag">Row ' + val.solvedRow + '</span>' : '<span class="tag">Not solved</span>'}
+            ${!val.autoScore ? '<span class="tag tag-mention">@</span>' : ''}
             ${dateStr ? '<span class="tag">' + dateStr + '</span>' : ''}
           </div>
         </article>
