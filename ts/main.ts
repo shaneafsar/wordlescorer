@@ -1,8 +1,25 @@
+// Download DB from Replit App Storage BEFORE any other imports that touch SQLite
+import { downloadDB, startPeriodicSync, stopSync } from "./db/db-sync.js";
+await downloadDB();
+
 import BotController from "./BotController.js";
 import "./instrument.js";
 import http from 'http';
 
 const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
+
+// Graceful shutdown: upload DB to App Storage before exiting
+process.on('SIGTERM', async () => {
+  console.log('[main] SIGTERM received, syncing DB...');
+  await stopSync();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('[main] SIGINT received, syncing DB...');
+  await stopSync();
+  process.exit(0);
+});
 
 // Start the web server and wait for it to be listening
 async function startWebServer(): Promise<void> {
@@ -39,6 +56,9 @@ async function startWebServer(): Promise<void> {
 async function runLoop() {
   // Start web server alongside the bot
   await startWebServer();
+
+  // Start periodic DB sync to App Storage (every 15 min)
+  startPeriodicSync();
 
   while (true) {
     try {

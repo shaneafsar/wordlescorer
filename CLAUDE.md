@@ -51,7 +51,15 @@ All console output uses structured prefixes for easy filtering:
 ### Environment Variables
 Required: `MASTO_URI`, `MASTO_ACCESS_TOKEN`, `BSKY_USERNAME`, `BSKY_PASSWORD`, Sentry DSN. Optional: `PORT` (default 3000). Use a `.env` file in dev mode.
 
+### DB Sync (Replit App Storage)
+- `ts/db/db-sync.ts` syncs the SQLite DB to/from Replit App Storage (`@replit/object-storage`)
+- On startup: downloads DB from App Storage before SQLite opens it (top-level `await` in `main.ts` and `daily.ts`)
+- Every 15 minutes: uploads DB to App Storage
+- On shutdown (SIGTERM/SIGINT): final upload before exit
+- Skipped entirely when not on Replit (`REPL_ID` env var absent)
+- The `[db-sync]` log prefix tracks all sync activity
+
 ### Deployment Notes
 - `better-sqlite3` is a native C++ addon — it must be compiled for the target platform (`npm install` handles this)
-- The `data/` directory must be writable and persistent across deploys (contains `wordlescorer.db`)
-- On Replit: use the Nix-based Node.js template, set env vars in Secrets, and ensure the `data/` directory is on persistent storage (Replit's filesystem persists by default for Repls, but be aware deployments may use a read-only filesystem — see Replit docs on persistent storage)
+- The `data/` directory must be writable (contains `wordlescorer.db`)
+- On Replit: DB persists via App Storage sync — survives redeploys. Use Reserved VM (`gce`) deployment target for best results
