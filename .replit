@@ -13,25 +13,30 @@ expertMode = true
 runButton = "Project"
 
 [[workflows.workflow]]
-name = "Project"
+name = "Start app in dev mode"
+mode = "sequential"
+author = 10595772
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm install && npm run compile"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+
+[[workflows.workflow]]
+name = "Start app in dev mode"
 mode = "parallel"
 author = "agent"
 
 [[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start application"
-
-[[workflows.workflow]]
-name = "Start application"
-author = "agent"
+task = "shell.exec"
+args = "npm install && npm run compile && npm run dev"
+waitForPort = 5000
 
 [workflows.workflow.metadata]
 outputType = "webview"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run start"
-waitForPort = 5000
 
 [[ports]]
 localPort = 3000
