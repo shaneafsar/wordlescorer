@@ -15,6 +15,7 @@ import logConsole from '../debug/log-console.js';
 import { getCompliment } from '../display/getCompliment.js';
 import { isWordleHardModeFromList } from '../extract/isWordleHardMode.js';
 import { retry } from '../util/retry.js';
+import { hasReplied, markReplied } from '../db/reply-cache.js';
 
 //FINAL TODOs: add env variables to prevent write, compile, npm start
 
@@ -328,6 +329,11 @@ export default class MastoWordleBot {
       const { wordlePrefix, aboveTotal } = await getScorerGlobalStats({solvedRow, wordleNumber, date: new Date()}, this.globalScores);
       const status = this.buildStatus(screenName, wordlePrefix, wordleScore, solvedRow, aboveTotal, isGrowth);
 
+      if (hasReplied(postId)) {
+        logConsole(`[bot:masto] skipping duplicate reply to ${postId}`);
+        return;
+      }
+
       const shouldPostRealStatus = !IS_DEVELOPMENT || (IS_DEVELOPMENT && ALLOW_LIST.has(screenName));
 
       if(shouldPostRealStatus) {
@@ -335,6 +341,7 @@ export default class MastoWordleBot {
           status,
           inReplyToId: postId
         });
+        await markReplied(postId);
         logConsole(`[bot:masto] reply to ${postId}: ${status}`);
       } else if (IS_DEVELOPMENT) {
         logConsole(`[bot:masto] [DRY RUN] ${screenName} | Wordle #${wordleNumber} | Score: ${wordleScore} | Row: ${solvedRow} | Reply: "${status}"`);

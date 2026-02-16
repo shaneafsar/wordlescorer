@@ -1,9 +1,11 @@
 // Download DB from Replit App Storage BEFORE any other imports that touch SQLite.
 // db-sync has no static dependency on sqlite.ts, so this is safe to import statically.
 import { downloadDB, startPeriodicSync, stopSync } from "./db/db-sync.js";
+import { loadReplyCache } from "./db/reply-cache.js";
 import http from 'http';
 
 await downloadDB();
+await loadReplyCache();
 
 // Dynamic imports — these transitively import sqlite.ts which opens the DB on load.
 // Must come AFTER downloadDB() so the file is in place first.

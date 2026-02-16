@@ -19,6 +19,7 @@ import logConsole from '../debug/log-console.js';
 import { getCompliment } from '../display/getCompliment.js';
 import { isWordleHardModeFromList } from '../extract/isWordleHardMode.js';
 import { retry } from '../util/retry.js';
+import { hasReplied, markReplied } from '../db/reply-cache.js';
 
 //FINAL TODOs: add env variables to prevent write, compile, npm start
 
@@ -363,6 +364,13 @@ export default class BlueskyWordleBot {
         }
       }
 
+      if (hasReplied(postId)) {
+        logConsole(`[bot:bsky] skipping duplicate reply to ${postId}`);
+        this.PROCESSING.delete(postId);
+        this.PROCESSED.add(postId);
+        return;
+      }
+
       // We should only reply at most once to new users who havent @-mentioned us before
       const isGrowthAlreadyChecked = isGrowth && await this.userGrowth.hasKeyAsync(userId);
       //const shouldPostRealStatus = !IS_DEVELOPMENT && !isGrowthAlreadyChecked;
@@ -377,6 +385,7 @@ export default class BlueskyWordleBot {
           reply: replyRef
         });
 
+        await markReplied(postId);
         logConsole(`[bot:bsky] ${isGrowth ? 'random' : 'normal'} reply to ${url}: ${status}`);
 
         if (isGrowth) {
