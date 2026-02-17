@@ -1,6 +1,6 @@
 // @ts-nocheck
 import * as express from "express";
-import db from '../../db/sqlite.js';
+import db from '../../dist/db/sqlite.js';
 
 const router = express.Router();
 
