@@ -5,7 +5,11 @@ import BotController from '../../dist/BotController.js';
 
 const router = express.Router();
 
-const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+function getYesterdayDateKey() {
+  const yesterday = new Date();
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  return yesterday.toISOString().slice(0, 10);
+}
 
 router.post('/', async function (req, res) {
   const secret = process.env['DAILY_POST_SECRET'];
@@ -18,44 +22,34 @@ router.post('/', async function (req, res) {
     return res.status(401).json({ status: 'error', message: 'Unauthorized' });
   }
 
-  // Check for duplicate post within 24 hours
+  const postedFor = getYesterdayDateKey();
+
+  // Check if we already posted for yesterday's date
   const row = db.prepare(
     `SELECT value FROM bot_state WHERE key = ? AND source IS NULL`
-  ).get('last_daily_post');
+  ).get('last_daily_post_date');
 
-  const lastPostedAt = row?.value || null;
-
-  if (lastPostedAt) {
-    const elapsed = Date.now() - new Date(lastPostedAt).getTime();
-    if (elapsed < TWENTY_FOUR_HOURS) {
-      return res.status(409).json({
-        status: 'skipped',
-        message: 'Daily post already made within the last 24 hours',
-        lastPostedAt
-      });
-    }
+  if (row?.value === postedFor) {
+    return res.status(409).json({
+      status: 'skipped',
+      message: `Daily post already made for ${postedFor}`,
+      postedFor
+    });
   }
 
   try {
     await BotController.postOnly();
 
-    const now = new Date().toISOString();
-
-    // Upsert last_daily_post timestamp
+    // Record which date we posted for
     db.prepare(
       `INSERT INTO bot_state (key, source, value) VALUES (?, NULL, ?)
        ON CONFLICT(key, source) DO UPDATE SET value = excluded.value`
-    ).run('last_daily_post', now);
-
-    // The daily post covers yesterday's date
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const postedFor = yesterday.toISOString().slice(0, 10);
+    ).run('last_daily_post_date', postedFor);
 
     return res.status(200).json({
       status: 'success',
       message: 'Daily post completed',
-      lastPostedAt: now,
+      lastPostedAt: new Date().toISOString(),
       postedFor
     });
   } catch (e) {

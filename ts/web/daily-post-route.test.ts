@@ -23,6 +23,13 @@ const mockRun = (db as any).__mockRun;
 const mockPrepare = (db as any).__mockPrepare;
 const mockPostOnly = (BotController as any).__mockPostOnly;
 
+// Helper: yesterday's date key in UTC (matches route logic)
+function getYesterdayDateKey(): string {
+  const yesterday = new Date();
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  return yesterday.toISOString().slice(0, 10);
+}
+
 // Helper: invoke the POST handler directly with fake req/res
 function invokeHandler(headers: Record<string, string> = {}): Promise<{ status: number; body: any }> {
   return new Promise((resolve, reject) => {
@@ -38,7 +45,6 @@ function invokeHandler(headers: Record<string, string> = {}): Promise<{ status: 
     const layer = (dailyPostRouter as any).stack.find((l: any) => l.route?.methods?.post);
     if (!layer) return reject(new Error('No POST route found'));
     const handler = layer.route.stack[0].handle;
-    // The handler is async, catch errors
     Promise.resolve(handler(req, res, () => {})).catch(reject);
   });
 }
@@ -74,19 +80,27 @@ describe('POST /daily-post', () => {
     expect(body.status).toBe('error');
   });
 
-  it('returns 409 when daily post was made within 24 hours', async () => {
-    const recentTime = new Date(Date.now() - 1000 * 60 * 60).toISOString(); // 1 hour ago
-    mockGet.mockReturnValue({ value: recentTime });
+  it('returns 409 when yesterday has already been posted', async () => {
+    const yesterday = getYesterdayDateKey();
+    mockGet.mockReturnValue({ value: yesterday });
 
     const { status, body } = await invokeHandler({ Authorization: 'Bearer test-secret' });
     expect(status).toBe(409);
     expect(body.status).toBe('skipped');
-    expect(body.lastPostedAt).toBe(recentTime);
+    expect(body.postedFor).toBe(yesterday);
   });
 
-  it('allows posting when last post was more than 24 hours ago', async () => {
-    const oldTime = new Date(Date.now() - 1000 * 60 * 60 * 25).toISOString(); // 25 hours ago
-    mockGet.mockReturnValue({ value: oldTime });
+  it('allows posting when last post was for a different date', async () => {
+    mockGet.mockReturnValue({ value: '2020-01-01' }); // old date
+
+    const { status, body } = await invokeHandler({ Authorization: 'Bearer test-secret' });
+    expect(status).toBe(200);
+    expect(body.status).toBe('success');
+    expect(mockPostOnly).toHaveBeenCalledOnce();
+  });
+
+  it('allows posting when no previous post exists', async () => {
+    mockGet.mockReturnValue(undefined);
 
     const { status, body } = await invokeHandler({ Authorization: 'Bearer test-secret' });
     expect(status).toBe(200);
@@ -101,15 +115,16 @@ describe('POST /daily-post', () => {
     expect(body.message).toBe('Daily post completed');
     expect(body.lastPostedAt).toBeDefined();
     expect(body.postedFor).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(body.postedFor).toBe(getYesterdayDateKey());
     expect(mockPostOnly).toHaveBeenCalledOnce();
   });
 
-  it('writes last_daily_post to bot_state after success', async () => {
+  it('writes last_daily_post_date to bot_state after success', async () => {
     await invokeHandler({ Authorization: 'Bearer test-secret' });
     expect(mockPrepare).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO bot_state')
     );
-    expect(mockRun).toHaveBeenCalledWith('last_daily_post', expect.any(String));
+    expect(mockRun).toHaveBeenCalledWith('last_daily_post_date', getYesterdayDateKey());
   });
 
   it('returns 500 when postOnly throws', async () => {
