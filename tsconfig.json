@@ -1,6 +1,7 @@
 {
     //"extends": "@tsconfig/node18-strictest-esm",
     "include": ["ts/**/*"],
+    "exclude": ["ts/**/*.test.ts"],
     /*"compilerOptions": {
       "lib": [
          "esnext.asynciterable"
