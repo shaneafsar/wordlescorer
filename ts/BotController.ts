@@ -61,7 +61,7 @@ export default class BotController {
 
     static async postOnly():Promise<void> {
         let botController:BotController|null = new BotController();
-        await botController.buildBots();
+        await botController.buildClients();
 
         // Assume we are running this as a cron at the top of the current day
         const currentDate = new Date();
@@ -70,7 +70,7 @@ export default class BotController {
 
         await botController.postDailyTopScore(yesterday);
         await botController.postGlobalStats(yesterday);
-        
+
         botController.destroy();
         botController = null;
     }
@@ -95,6 +95,30 @@ export default class BotController {
         this.BAgent = undefined;
         this.MWordleBot = undefined;
         this.BSkyBot = undefined;
+    }
+
+    /**
+     * Authenticate API clients only — no bot instances, no polling/streaming.
+     * Used by postOnly() which just needs to read the DB and post.
+     */
+    private async buildClients() {
+        try {
+            if (ENABLE_MASTO_BOT) {
+                this.MClient = createRestAPIClient({
+                    url: MASTO_AUTH.url,
+                    accessToken: MASTO_AUTH.accessToken,
+                });
+                logConsole('[bot] Authenticated Mastodon client');
+            }
+
+            if (ENABLE_BSKY_BOT) {
+                this.BAgent = new AtpAgent({ service: 'https://bsky.social' });
+                await this.BAgent.login(BSKY_AUTH);
+                logConsole('[bot] Authenticated Bluesky client');
+            }
+        } catch (e) {
+            logError('[bot] Error authenticating clients | ', e);
+        }
     }
 
     private async buildBots() {
