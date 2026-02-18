@@ -8,7 +8,7 @@ const DATA_DIR = path.join(__dirname, '..', '..', 'data');
 const DB_PATH = process.env['SQLITE_DB_PATH'] || path.join(DATA_DIR, 'wordlescorer.db');
 const REMOTE_DB_KEY = 'wordlescorer.db';
 
-const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const SYNC_INTERVAL = 12 * 60 * 60 * 1000; // 12 hours
 
 let syncTimer: NodeJS.Timeout | null = null;
 let lastUploadSize: number = 0;
@@ -87,7 +87,7 @@ export function startPeriodicSync(): void {
     uploadDB();
   }, SYNC_INTERVAL);
 
-  console.log('[db-sync] Periodic sync started (every 5 min)');
+  console.log('[db-sync] Periodic sync started (every 12 hr)');
 }
 
 /**
