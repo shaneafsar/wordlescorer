@@ -54,8 +54,15 @@ All console output uses structured prefixes for easy filtering:
 - `[bot:bsky]` — Bluesky bot activity
 - Dry-run messages append `[DRY RUN]` after the source prefix
 
+### Daily Post HTTP Endpoint
+- `POST /daily-post` — Triggers the daily top scorer + global stats posts via the running Express server
+- Auth: `Authorization: Bearer <DAILY_POST_SECRET>` header required
+- 24-hour duplicate prevention: tracks `last_daily_post` in `bot_state` table, returns 409 if already posted within 24 hours
+- Response JSON: `{ status, message, lastPostedAt, postedFor }`
+- Route file: `web/routes/daily-post.js`
+
 ### Environment Variables
-Required: `MASTO_URI`, `MASTO_ACCESS_TOKEN`, `BSKY_USERNAME`, `BSKY_PASSWORD`, Sentry DSN. Optional: `PORT` (default 3000). Use a `.env` file in dev mode.
+Required: `MASTO_URI`, `MASTO_ACCESS_TOKEN`, `BSKY_USERNAME`, `BSKY_PASSWORD`, Sentry DSN. Optional: `PORT` (default 3000), `DAILY_POST_SECRET` (for `/daily-post` endpoint auth). Use a `.env` file in dev mode.
 
 ### DB Sync (Replit App Storage)
 - `ts/db/db-sync.ts` syncs the SQLite DB to/from Replit App Storage (`@replit/object-storage`)

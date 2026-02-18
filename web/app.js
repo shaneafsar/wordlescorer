@@ -7,6 +7,7 @@ import logger from "morgan";
 import { fileURLToPath } from 'url';
 import indexRouter from "./routes/index.js";
 import searchRouter from "./routes/search.js";
+import dailyPostRouter from "./routes/daily-post.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -21,6 +22,7 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'static')));
 app.use('/', indexRouter);
 app.use('/search', searchRouter);
+app.use('/daily-post', dailyPostRouter);
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
     next(createError(404));
