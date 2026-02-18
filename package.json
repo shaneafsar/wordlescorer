@@ -10,8 +10,8 @@
     "compile": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
-    "daily": "npm run file-copy && node dist/daily.js",
-    "daily:dev": "npm run file-copy && NODE_ENV=develop node dist/daily.js",
+    "daily": "node dist/daily.js",
+    "daily:dev": "NODE_ENV=develop node dist/daily.js",
     "file-copy": "cp -R ./web/routes ./dist/web/ && cp -R ./web/views ./dist/web/ && cp -R ./web/static ./dist/web/"
   },
   "repository": {
