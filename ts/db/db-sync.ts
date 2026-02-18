@@ -11,7 +11,7 @@ const REMOTE_DB_KEY = 'wordlescorer.db';
 const REMOTE_WAL_KEY = 'wordlescorer.db-wal';
 
 const WAL_SYNC_INTERVAL = 5 * 60 * 1000;      // 5 minutes — WAL is small
-const FULL_SYNC_INTERVAL = 4 * 60 * 60 * 1000; // 4 hours  — checkpoint + full DB
+const FULL_SYNC_INTERVAL = 12 * 60 * 60 * 1000; // 12 hours — checkpoint + full DB
 
 let walTimer: NodeJS.Timeout | null = null;
 let fullTimer: NodeJS.Timeout | null = null;
