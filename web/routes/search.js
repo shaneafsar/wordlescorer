@@ -4,11 +4,47 @@ import db from '../../dist/db/sqlite.js';
 
 const router = express.Router();
 
+// Simple in-memory rate limiter: 30 requests per minute per IP
+const RATE_LIMIT_WINDOW = 60 * 1000;
+const RATE_LIMIT_MAX = 30;
+const rateLimitMap = new Map();
+
+// Clean up stale entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitMap) {
+    if (now - entry.windowStart > RATE_LIMIT_WINDOW) {
+      rateLimitMap.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
+function rateLimit(req, res, next) {
+  const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+  const now = Date.now();
+  let entry = rateLimitMap.get(ip);
+
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW) {
+    entry = { windowStart: now, count: 0 };
+    rateLimitMap.set(ip, entry);
+  }
+
+  entry.count++;
+
+  if (entry.count > RATE_LIMIT_MAX) {
+    const retryAfter = Math.ceil((entry.windowStart + RATE_LIMIT_WINDOW - now) / 1000);
+    res.set('Retry-After', String(retryAfter));
+    return res.status(429).json({ error: 'Too many requests. Try again later.' });
+  }
+
+  next();
+}
+
 router.get('/', function (req, res, next) {
   res.send('respond with a resource');
 });
 
-router.get('/api', function (req, res, next) {
+router.get('/api', rateLimit, function (req, res, next) {
   const {
     q = '',
     wordleNumber = '',

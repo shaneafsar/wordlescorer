@@ -65,7 +65,7 @@ async function runLoop() {
   // Start web server first — must be up before Replit's health check timeout
   await startWebServer();
 
-  // Start periodic DB sync to App Storage (every 15 min)
+  // Start periodic DB sync to App Storage (WAL every 5 min, full every 4 hr)
   startPeriodicSync();
 
   while (true) {
