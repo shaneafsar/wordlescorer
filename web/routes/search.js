@@ -122,6 +122,7 @@ router.get('/api', rateLimit, function (req, res, next) {
     ).all(...params);
   }
 
+  res.set('Cache-Control', 'public, max-age=60');
   res.json({
     hits: rows.map(r => ({
       id: r.id,

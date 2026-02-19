@@ -48,6 +48,7 @@ router.get('/', (_req, res) => {
     const timeTillDailyTopScore = `Daily Top Score post happening in about ${((finalTime - currentTime)/1000/60/60).toFixed(2)} hours!`;
 
     //Render page
+    res.set('Cache-Control', 'public, max-age=300');
     res.render('index.pug', { 
       title: 'Score My Wordle',
       globalStats: stats,
