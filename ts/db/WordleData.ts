@@ -1,4 +1,5 @@
 import db from './sqlite.js';
+import { recordWrite } from './pending-writes.js';
 
 function getDateKey(date: Date): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
@@ -133,13 +134,16 @@ class WordleData {
     const dateKey = date ? getDateKey(date) : this.date ? getDateKey(this.date) : getDateKey(new Date());
 
     if (key === 'since_id') {
-      db.prepare('INSERT OR REPLACE INTO bot_state (key, source, value) VALUES (?, ?, ?)').run('since_id', this.recordType, data);
+      const sinceParams = ['since_id', this.recordType, data];
+      db.prepare('INSERT OR REPLACE INTO bot_state (key, source, value) VALUES (?, ?, ?)').run(...sinceParams);
+      recordWrite(`bot_state:since_id:${this.recordType}`, 'INSERT OR REPLACE INTO bot_state (key, source, value) VALUES (?, ?, ?)', sinceParams);
       return;
     }
 
     if (this.name === 'global-scores') {
-      db.prepare(`INSERT OR REPLACE INTO global_scores (user_key, wordle_number, wordle_score, solved_row, screen_name, url, user_id, is_hard_mode, source, created_at, date_key)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      const globalSql = `INSERT OR REPLACE INTO global_scores (user_key, wordle_number, wordle_score, solved_row, screen_name, url, user_id, is_hard_mode, source, created_at, date_key)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const globalParams = [
         key,
         data.wordleNumber || 0,
         data.wordleScore || 0,
@@ -151,13 +155,16 @@ class WordleData {
         data.source || this.recordType || '',
         data.datetime || now,
         dateKey
-      );
+      ];
+      db.prepare(globalSql).run(...globalParams);
+      recordWrite(`global_scores:${key}:${dateKey}`, globalSql, globalParams);
       return;
     }
 
     if (this.name === 'top-scores') {
-      db.prepare(`INSERT OR REPLACE INTO top_scores (user_key, screen_name, wordle_number, score, solved_row, source, url, auto_score, is_hard_mode, created_at, date_key)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      const topSql = `INSERT OR REPLACE INTO top_scores (user_key, screen_name, wordle_number, score, solved_row, source, url, auto_score, is_hard_mode, created_at, date_key)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const topParams = [
         key,
         data.screenName || '',
         data.wordleNumber || 0,
@@ -169,13 +176,16 @@ class WordleData {
         data.isHardMode ? 1 : 0,
         data.datetime || now,
         dateKey
-      );
+      ];
+      db.prepare(topSql).run(...topParams);
+      recordWrite(`top_scores:${key}:${dateKey}`, topSql, topParams);
       return;
     }
 
     if (this.name === 'analyzed') {
-      db.prepare(`INSERT OR REPLACE INTO analyzed_posts (id, scorer_name, wordle_number, score, solved_row, is_hard_mode, source, url, auto_score, created_at, date_key)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      const analyzedSql = `INSERT OR REPLACE INTO analyzed_posts (id, scorer_name, wordle_number, score, solved_row, is_hard_mode, source, url, auto_score, created_at, date_key)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const analyzedParams = [
         key,
         data.scorerName || '',
         data.wordleNumber || 0,
@@ -187,35 +197,45 @@ class WordleData {
         data.autoScore ? 1 : 0,
         data.date_timestamp ? data.date_timestamp * 1000 : now,
         dateKey
-      );
+      ];
+      db.prepare(analyzedSql).run(...analyzedParams);
+      recordWrite(`analyzed_posts:${key}`, analyzedSql, analyzedParams);
       return;
     }
 
     if (this.name === 'users') {
-      db.prepare(`INSERT OR REPLACE INTO users (id, source, screen_name, photo_url, updated_at)
-        VALUES (?, ?, ?, ?, ?)`).run(
+      const usersSql = `INSERT OR REPLACE INTO users (id, source, screen_name, photo_url, updated_at)
+        VALUES (?, ?, ?, ?, ?)`;
+      const usersParams = [
         key,
         this.recordType || '',
         data.screen_name || '',
         data.photo || '',
         now
-      );
+      ];
+      db.prepare(usersSql).run(...usersParams);
+      recordWrite(`users:${key}`, usersSql, usersParams);
       return;
     }
 
     if (this.name === 'user-growth') {
-      db.prepare(`INSERT OR REPLACE INTO user_growth (user_key, source, last_check_time)
-        VALUES (?, ?, ?)`).run(
+      const growthSql = `INSERT OR REPLACE INTO user_growth (user_key, source, last_check_time)
+        VALUES (?, ?, ?)`;
+      const growthParams = [
         key,
         this.recordType || '',
         data.lastCheckTime || now
-      );
+      ];
+      db.prepare(growthSql).run(...growthParams);
+      recordWrite(`user_growth:${key}`, growthSql, growthParams);
       return;
     }
 
     if (this.name === 'last-mention') {
       if (key === 'since_id') {
-        db.prepare('INSERT OR REPLACE INTO bot_state (key, source, value) VALUES (?, ?, ?)').run('since_id', this.recordType, data);
+        const mentionParams = ['since_id', this.recordType, data];
+        db.prepare('INSERT OR REPLACE INTO bot_state (key, source, value) VALUES (?, ?, ?)').run(...mentionParams);
+        recordWrite(`bot_state:since_id:${this.recordType}:last-mention`, 'INSERT OR REPLACE INTO bot_state (key, source, value) VALUES (?, ?, ?)', mentionParams);
       }
       return;
     }

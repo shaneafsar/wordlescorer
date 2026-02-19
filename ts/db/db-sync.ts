@@ -2,13 +2,12 @@ import { Client } from '@replit/object-storage';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { clearPending } from './pending-writes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', '..', 'data');
 const DB_PATH = process.env['SQLITE_DB_PATH'] || path.join(DATA_DIR, 'wordlescorer.db');
 const REMOTE_DB_KEY = 'wordlescorer.db';
-
-const SYNC_INTERVAL = 12 * 60 * 60 * 1000; // 12 hours
 
 let syncTimer: NodeJS.Timeout | null = null;
 let lastUploadSize: number = 0;
@@ -69,6 +68,7 @@ export async function uploadDB(): Promise<void> {
     if (ok) {
       lastUploadSize = size;
       console.log(`[db-sync] Uploaded DB to App Storage (${size} bytes)`);
+      await clearPending();
     } else {
       console.error('[db-sync] DB upload failed:', error);
     }
@@ -78,24 +78,35 @@ export async function uploadDB(): Promise<void> {
 }
 
 /**
- * Start periodic sync: checkpoint + upload every 5 minutes.
+ * Schedule daily DB sync at 23:00 UTC (1 hour before the daily post).
  */
 export function startPeriodicSync(): void {
   if (!isReplit) return;
 
-  syncTimer = setInterval(() => {
-    uploadDB();
-  }, SYNC_INTERVAL);
+  function scheduleNext() {
+    const now = new Date();
+    const next = new Date(now);
+    next.setUTCHours(23, 0, 0, 0);
+    if (next <= now) {
+      next.setUTCDate(next.getUTCDate() + 1);
+    }
+    const ms = next.getTime() - now.getTime();
+    console.log(`[db-sync] Next sync scheduled for ${next.toISOString()} (in ${Math.round(ms / 60000)} min)`);
+    syncTimer = setTimeout(async () => {
+      await uploadDB();
+      scheduleNext();
+    }, ms);
+  }
 
-  console.log('[db-sync] Periodic sync started (every 12 hr)');
+  scheduleNext();
 }
 
 /**
- * Stop periodic sync and do a final upload.
+ * Stop scheduled sync and do a final upload.
  */
 export async function stopSync(): Promise<void> {
   if (syncTimer) {
-    clearInterval(syncTimer);
+    clearTimeout(syncTimer);
     syncTimer = null;
   }
   await uploadDB();

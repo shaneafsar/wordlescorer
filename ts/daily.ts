@@ -2,7 +2,9 @@
 // Note: daily.ts is read-only — it never uploads the DB back, to avoid
 // overwriting changes made by the always-on main app.
 import { downloadDB } from "./db/db-sync.js";
+import { loadAndReplay } from "./db/pending-writes.js";
 await downloadDB();
+await loadAndReplay();
 
 // Dynamic imports — these transitively import sqlite.ts
 const { default: BotController } = await import("./BotController.js");

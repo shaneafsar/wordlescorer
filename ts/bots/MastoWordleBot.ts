@@ -184,9 +184,8 @@ export default class MastoWordleBot {
     const relationships = await this.masto.v1.accounts.relationships.fetch({ id: [status.account.id] });
     // There should only ever be 1 here, but api returns as array
     let isFollowingBot = relationships[0]?.followedBy || false;
-    logConsole('[bot:masto] isFollowing? ', isFollowingBot , ' | ', status.account.acct);
     if(isFollowingBot) {
-
+      logConsole('[bot:masto] isFollowing? true | ', status.account.acct);
       this.processPost(status, {isGrowth: false, isParent: false});
 
     } else {
@@ -196,14 +195,12 @@ export default class MastoWordleBot {
       const listOfContent = [textContent, ...altTexts];
       const wordleMatrix = getWordleMatrixFromList(listOfContent);
       // Add domain for local users
-      const userId = status.account.acct.indexOf('@') > -1 ? status.account.acct : status.account.acct+'@mastodon.social'; 
+      const userId = status.account.acct.indexOf('@') > -1 ? status.account.acct : status.account.acct+'@mastodon.social';
       const screenName = '@' + status.account.acct;
       const url = status.url || '';
       const wordleNumber = getWordleNumberFromList(listOfContent);
       const isHardMode = isWordleHardModeFromList(listOfContent);
       const solvedRow = getSolvedRow(wordleMatrix);
-
-    
 
       if (isValidWordle(wordleMatrix, wordleNumber, solvedRow)) {
 
@@ -221,6 +218,9 @@ export default class MastoWordleBot {
         };
 
         this.globalScores.write(userId, scoreObj);
+        logConsole('[bot:masto] isFollowing? false | ', status.account.acct, ' | added to global scores');
+      } else {
+        logConsole('[bot:masto] isFollowing? false | ', status.account.acct, ' | invalid wordle, skipped');
       }
     }
   }
