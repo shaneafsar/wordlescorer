@@ -38,6 +38,7 @@ describe('getWordleNumberFromText', () => {
     expect(getWordleNumberFromText('WORDLE 500 3/6')).toBe(500);
     expect(getWordleNumberFromText('wordle 500 3/6')).toBe(500);
   });
+
 });
 
 describe('getWordleNumberFromList', () => {
