@@ -1,6 +1,6 @@
 import { Client } from '@replit/object-storage';
 
-const STORAGE_KEY = 'pending-writes.json';
+const BATCH_PREFIX = 'pending-writes-';
 const FLUSH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const isReplit = !!process.env['REPL_ID'];
 
@@ -9,9 +9,11 @@ interface PendingWrite {
   params: any[];
 }
 
+// Full buffer (for dedup — later writes to same key overwrite earlier ones)
 let pending: Map<string, PendingWrite> = new Map();
-let dirty = false;
-let lastFlushedSize = 0;
+// Only entries added/changed since last flush
+let newEntries: Map<string, PendingWrite> = new Map();
+let batchCounter = 0;
 let flushTimer: NodeJS.Timeout | null = null;
 
 /**
@@ -20,74 +22,90 @@ let flushTimer: NodeJS.Timeout | null = null;
  */
 export function recordWrite(dedupKey: string, sql: string, params: any[]): void {
   if (!isReplit) return;
-  pending.set(dedupKey, { sql, params });
-  dirty = true;
+  const entry = { sql, params };
+  pending.set(dedupKey, entry);
+  newEntries.set(dedupKey, entry);
 }
 
 /**
  * Load pending writes from App Storage and replay them into the DB.
- * Called on startup after downloadDB() but before the app starts processing.
+ * Reads all batch files sequentially — later batches win on dedup conflicts.
  */
 export async function loadAndReplay(): Promise<void> {
   if (!isReplit) return;
 
   try {
     const client = new Client();
-    const { ok, value } = await client.downloadAsText(STORAGE_KEY);
+    const allEntries: [string, PendingWrite][] = [];
 
-    if (ok && value) {
+    // Load all batch files
+    let i = 0;
+    while (true) {
+      const { ok, value } = await client.downloadAsText(`${BATCH_PREFIX}${i}.json`);
+      if (!ok || !value) break;
       const entries: [string, PendingWrite][] = JSON.parse(value);
+      allEntries.push(...entries);
+      i++;
+    }
 
-      if (entries.length > 0) {
-        // Dynamic import to avoid loading sqlite.ts before DB is downloaded
-        const { default: db } = await import('./sqlite.js');
-
-        let replayed = 0;
-        for (const [, { sql, params }] of entries) {
-          try {
-            db.prepare(sql).run(...params);
-            replayed++;
-          } catch (err) {
-            console.error('[pending-writes] Failed to replay write:', err);
-          }
-        }
-        console.log(`[pending-writes] Replayed ${replayed}/${entries.length} pending writes`);
+    // Also check for legacy single-file format
+    if (i === 0) {
+      const { ok, value } = await client.downloadAsText('pending-writes.json');
+      if (ok && value) {
+        const entries: [string, PendingWrite][] = JSON.parse(value);
+        allEntries.push(...entries);
+        // Clean up legacy file
+        try { await client.delete('pending-writes.json'); } catch {}
       }
+    }
+
+    if (allEntries.length > 0) {
+      const { default: db } = await import('./sqlite.js');
+
+      // Dedup: build map so later entries overwrite earlier ones
+      const deduped = new Map(allEntries);
+
+      let replayed = 0;
+      for (const [, { sql, params }] of deduped) {
+        try {
+          db.prepare(sql).run(...params);
+          replayed++;
+        } catch (err) {
+          console.error('[pending-writes] Failed to replay write:', err);
+        }
+      }
+      console.log(`[pending-writes] Replayed ${replayed} writes from ${i || 1} batch(es)`);
     } else {
       console.log('[pending-writes] No pending writes found in App Storage');
     }
+
+    batchCounter = i;
   } catch (err) {
     console.error('[pending-writes] Failed to load pending writes:', err);
   }
 
-  // Start periodic flush (every 30s)
+  // Start periodic flush
   flushTimer = setInterval(() => {
     flushPending();
   }, FLUSH_INTERVAL);
 }
 
 /**
- * Persist pending writes to App Storage if dirty.
+ * Flush only new entries since last flush as a separate batch file.
  */
 async function flushPending(): Promise<void> {
-  if (!isReplit || !dirty) return;
+  if (!isReplit || newEntries.size === 0) return;
 
   try {
     const client = new Client();
-    const data = JSON.stringify(Array.from(pending.entries()));
-
-    // Skip upload if buffer content hasn't changed size (dedup overwrites)
-    if (data.length === lastFlushedSize) {
-      dirty = false;
-      return;
-    }
-
-    const { ok, error } = await client.uploadFromText(STORAGE_KEY, data);
+    const data = JSON.stringify(Array.from(newEntries.entries()));
+    const key = `${BATCH_PREFIX}${batchCounter}.json`;
+    const { ok, error } = await client.uploadFromText(key, data);
 
     if (ok) {
-      dirty = false;
-      lastFlushedSize = data.length;
-      console.log(`[pending-writes] Flushed ${pending.size} entries to App Storage (${(data.length / 1024).toFixed(1)} KB)`);
+      console.log(`[pending-writes] Flushed batch ${batchCounter}: ${newEntries.size} entries (${(data.length / 1024).toFixed(1)} KB)`);
+      batchCounter++;
+      newEntries.clear();
     } else {
       console.error('[pending-writes] Flush failed:', error);
     }
@@ -103,17 +121,19 @@ async function flushPending(): Promise<void> {
 export async function clearPending(): Promise<void> {
   if (!isReplit) return;
 
-  pending.clear();
-  dirty = false;
-  lastFlushedSize = 0;
-
   try {
     const client = new Client();
-    await client.delete(STORAGE_KEY);
-    console.log('[pending-writes] Cleared pending writes from App Storage');
+    for (let i = 0; i < batchCounter; i++) {
+      try { await client.delete(`${BATCH_PREFIX}${i}.json`); } catch {}
+    }
+    console.log(`[pending-writes] Cleared ${batchCounter} batch(es) from App Storage`);
   } catch (err) {
     console.error('[pending-writes] Failed to clear from App Storage:', err);
   }
+
+  pending.clear();
+  newEntries.clear();
+  batchCounter = 0;
 }
 
 /**
