@@ -1,7 +1,7 @@
 import { Client } from '@replit/object-storage';
 
 const STORAGE_KEY = 'pending-writes.json';
-const FLUSH_INTERVAL = 30 * 1000; // 30 seconds
+const FLUSH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const isReplit = !!process.env['REPL_ID'];
 
 interface PendingWrite {
@@ -11,6 +11,7 @@ interface PendingWrite {
 
 let pending: Map<string, PendingWrite> = new Map();
 let dirty = false;
+let lastFlushedSize = 0;
 let flushTimer: NodeJS.Timeout | null = null;
 
 /**
@@ -74,11 +75,19 @@ async function flushPending(): Promise<void> {
   try {
     const client = new Client();
     const data = JSON.stringify(Array.from(pending.entries()));
+
+    // Skip upload if buffer content hasn't changed size (dedup overwrites)
+    if (data.length === lastFlushedSize) {
+      dirty = false;
+      return;
+    }
+
     const { ok, error } = await client.uploadFromText(STORAGE_KEY, data);
 
     if (ok) {
       dirty = false;
-      console.log(`[pending-writes] Flushed ${pending.size} entries to App Storage`);
+      lastFlushedSize = data.length;
+      console.log(`[pending-writes] Flushed ${pending.size} entries to App Storage (${(data.length / 1024).toFixed(1)} KB)`);
     } else {
       console.error('[pending-writes] Flush failed:', error);
     }
@@ -96,6 +105,7 @@ export async function clearPending(): Promise<void> {
 
   pending.clear();
   dirty = false;
+  lastFlushedSize = 0;
 
   try {
     const client = new Client();
