@@ -1,10 +1,10 @@
-// Wordle #1 = June 19, 2021
+// Wordle #0 = June 19, 2021
 const WORDLE_EPOCH = new Date('2021-06-19T00:00:00Z').getTime();
 const MS_PER_DAY = 86400000;
 const WINDOW = 7; // ±7 days tolerance
 
 function getExpectedWordleNumber(): number {
-  return Math.floor((Date.now() - WORDLE_EPOCH) / MS_PER_DAY) + 1;
+  return Math.floor((Date.now() - WORDLE_EPOCH) / MS_PER_DAY);
 }
 
 function isValidWordle(wordle: number[], wordleNumber?: number, solvedRow?: number): boolean {

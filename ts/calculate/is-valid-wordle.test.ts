@@ -3,7 +3,7 @@ import isValidWordle from './is-valid-wordle.js';
 
 // Calculate today's expected wordle number for tests
 const WORDLE_EPOCH = new Date('2021-06-19T00:00:00Z').getTime();
-const todayWordle = Math.floor((Date.now() - WORDLE_EPOCH) / 86400000) + 1;
+const todayWordle = Math.floor((Date.now() - WORDLE_EPOCH) / 86400000);
 
 describe('isValidWordle', () => {
   it('returns false for empty array', () => {
