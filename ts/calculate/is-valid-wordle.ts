@@ -7,7 +7,7 @@ function getExpectedWordleNumber(): number {
   return Math.floor((Date.now() - WORDLE_EPOCH) / MS_PER_DAY);
 }
 
-function isValidWordle(wordle: number[], wordleNumber?: number, solvedRow?: number): boolean {
+function isValidWordle(wordle: number[], wordleNumber?: number, solvedRow?: number, checkDate: boolean = true): boolean {
   if (wordle.length === 0 || wordle.length % 5 !== 0) {
     return false;
   }
@@ -16,7 +16,7 @@ function isValidWordle(wordle: number[], wordleNumber?: number, solvedRow?: numb
     return false;
   }
 
-  if (typeof wordleNumber === 'number') {
+  if (checkDate && typeof wordleNumber === 'number') {
     const expected = getExpectedWordleNumber();
     if (Math.abs(wordleNumber - expected) > WINDOW) {
       return false;

@@ -448,7 +448,7 @@ export default class BlueskyWordleBot {
 
     this.PROCESSING.add(postId);
 
-    const isValid = isValidWordle(wordleMatrix, wordleNumber, solvedRow);
+    const isValid = isValidWordle(wordleMatrix, wordleNumber, solvedRow, isGrowth);
 
     if (isValid) {
 

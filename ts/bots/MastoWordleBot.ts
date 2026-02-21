@@ -388,7 +388,7 @@ export default class MastoWordleBot {
 
     this.PROCESSING.add(postId);
 
-    const isValid = isValidWordle(wordleMatrix, wordleNumber, solvedRow);
+    const isValid = isValidWordle(wordleMatrix, wordleNumber, solvedRow, isGrowth);
     logConsole(`[bot:masto] processing ${postId} | ${screenName} | isValidWordle? `, isValid, ' | wordle number: ', wordleNumber, '| solvedRow: ', solvedRow, ' | isHardMode: ', isHardMode);
 
     if (isValid) {

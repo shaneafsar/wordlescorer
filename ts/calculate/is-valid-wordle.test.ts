@@ -53,4 +53,9 @@ describe('isValidWordle', () => {
   it('returns true when solvedRow is 0 (unsolved)', () => {
     expect(isValidWordle(Array(30).fill(0), todayWordle, 0)).toBe(true);
   });
+
+  it('skips date check when checkDate is false (direct mentions)', () => {
+    expect(isValidWordle([2, 2, 2, 2, 2], 5, 1, false)).toBe(true);
+    expect(isValidWordle([2, 2, 2, 2, 2], 228, 3, false)).toBe(true);
+  });
 });
