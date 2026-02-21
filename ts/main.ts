@@ -3,6 +3,7 @@
 import { downloadDB, startPeriodicSync, stopSync } from "./db/db-sync.js";
 import { loadReplyCache, stopReplyCache } from "./db/reply-cache.js";
 import { loadAndReplay, stopPendingWrites } from "./db/pending-writes.js";
+import { startNetMonitor, stopNetMonitor } from "./util/net-monitor.js";
 import http from 'http';
 
 await downloadDB();
@@ -19,6 +20,7 @@ const IS_DEVELOPMENT = process.env['NODE_ENV'] === 'develop';
 // Graceful shutdown: upload DB to App Storage before exiting
 process.on('SIGTERM', async () => {
   console.log('[main] SIGTERM received, syncing...');
+  stopNetMonitor();
   await stopPendingWrites();
   await stopReplyCache();
   await stopSync();
@@ -27,6 +29,7 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
   console.log('[main] SIGINT received, syncing...');
+  stopNetMonitor();
   await stopPendingWrites();
   await stopReplyCache();
   await stopSync();
@@ -71,6 +74,9 @@ async function runLoop() {
 
   // Start daily DB sync to App Storage (23:00 UTC)
   startPeriodicSync();
+
+  // Log network egress/ingress every hour
+  startNetMonitor();
 
   while (true) {
     try {
