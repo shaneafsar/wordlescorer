@@ -327,6 +327,150 @@ header.page-header .header-contact {
   font-size: 0.9rem;
 }
 
+/* Recent days */
+.recent-days {
+  margin: 0 10vw;
+}
+
+.recent-days-title {
+  margin-bottom: 16px;
+}
+
+.recent-days-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rd-card {
+  border: 2px solid var(--color-secondary);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.rd-card.rd-expanded {
+  border-color: var(--color-highlight);
+}
+
+.rd-card-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 14px 18px;
+  background: none;
+  border: none;
+  color: var(--text-color-primary);
+  font-family: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+  gap: 12px;
+  text-align: left;
+  transition: background-color 0.2s;
+}
+
+.rd-card-header:hover {
+  background-color: var(--color-secondary);
+}
+
+.rd-date {
+  font-weight: bold;
+  min-width: 120px;
+}
+
+.rd-meta {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  color: var(--text-color-secondary);
+  font-size: 0.9rem;
+}
+
+.rd-chevron {
+  font-size: 0.7rem;
+  color: var(--text-color-secondary);
+  transition: transform 0.2s;
+}
+
+.rd-expanded .rd-chevron {
+  transform: rotate(180deg);
+}
+
+.rd-detail {
+  padding: 0 18px 18px;
+}
+
+.rd-distribution {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.rd-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 100px;
+  align-items: center;
+  gap: 10px;
+}
+
+.rd-row-label {
+  font-size: 0.85rem;
+  color: var(--text-color-secondary);
+  text-align: right;
+}
+
+.rd-row-count {
+  font-size: 0.85rem;
+  color: var(--text-color-secondary);
+}
+
+.rd-winners {
+  border-top: 1px solid var(--color-secondary);
+  padding-top: 12px;
+}
+
+.rd-winners-title {
+  font-size: clamp(14px, 2.5vw, 20px);
+  color: var(--color-accent);
+  margin-bottom: 8px;
+}
+
+.rd-winner-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rd-winner-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rd-winner-list a {
+  color: var(--color-highlight);
+  font-weight: bold;
+}
+
+.rd-winner-list a:hover {
+  text-decoration: underline;
+}
+
+.rd-winner-score {
+  color: var(--color-highlight);
+  font-weight: bold;
+}
+
+.rd-winner-row {
+  color: var(--text-color-secondary);
+  font-size: 0.85rem;
+}
+
 /* Search wrapper layout — single column */
 .wrapper {
   margin: 0 10vw;
@@ -350,5 +494,14 @@ header.page-header .header-contact {
 
   .wrapper {
     margin: 0 5vw;
+  }
+
+  .recent-days {
+    margin: 0 5vw;
+  }
+
+  .rd-row {
+    grid-template-columns: 65px 1fr 80px;
+    gap: 6px;
   }
 }
