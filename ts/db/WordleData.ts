@@ -10,9 +10,9 @@ class WordleData {
   private name: string;
   private recordType: string | undefined;
 
-  constructor(name: string, subdir?: string, date?: Date) {
+  constructor(name: string, tableName?: string, date?: Date) {
     this.date = date;
-    this.name = subdir || name.split('_')[0];
+    this.name = tableName || name.split('_')[0];
     if (name.includes('_')) {
       this.recordType = name.split('_')[1];
       if (this.recordType === 'masto') {
@@ -28,7 +28,7 @@ class WordleData {
     return new WordleData(`${name}-${date.getUTCMonth()}-${date.getUTCDate()}-${date.getUTCFullYear()}`, name, date);
   }
 
-  async read(key?: string | null, date: Date | null = null, forceMongo: boolean = true): Promise<any> {
+  async read(key?: string | null, date: Date | null = null): Promise<any> {
     const dateKey = date ? getDateKey(date) : this.date ? getDateKey(this.date) : null;
 
     if (this.name === 'global-scores') {
@@ -129,9 +129,11 @@ class WordleData {
     return 0;
   }
 
-  async write(key: string, data: any, date: Date | null = null, forceMongo: boolean = false): Promise<any> {
+  async write(key: string, data: any, date: Date | null = null): Promise<any> {
     const now = Date.now();
-    const dateKey = date ? getDateKey(date) : this.date ? getDateKey(this.date) : getDateKey(new Date());
+    // Always use current date for writes (not the stale this.date from construction)
+    // so scores go to today's partition even after midnight UTC
+    const dateKey = date ? getDateKey(date) : getDateKey(new Date());
 
     if (key === 'since_id') {
       const sinceParams = ['since_id', this.recordType, data];

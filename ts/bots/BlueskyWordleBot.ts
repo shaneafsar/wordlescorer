@@ -343,7 +343,7 @@ export default class BlueskyWordleBot {
     { postId, replyRef, url }: PostInfo,
     { isGrowth }: ProccessOptions) {
     try {
-      const { wordlePrefix, aboveTotal } = await getScorerGlobalStats({solvedRow, wordleNumber, date: new Date()}, this.globalScores);
+      const { wordlePrefix, aboveTotal } = await getScorerGlobalStats({solvedRow, wordleNumber, date: new Date()});
       const status = this.buildStatus(screenName, wordlePrefix, wordleScore, solvedRow, aboveTotal, isGrowth);
 
       // Set/cache last reply time

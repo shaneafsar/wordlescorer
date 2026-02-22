@@ -160,7 +160,7 @@ export default class BotController {
 
     async postGlobalStats(date: Date): Promise<void> {
       try {
-        const stats = await getGlobalStats(date, null, true);
+        const stats = await getGlobalStats(date);
         const formattedStats = getFormattedGlobalStats(stats);
 
         // Only post the most popular one for now.
@@ -201,7 +201,7 @@ export default class BotController {
 
     async postDailyTopScore(date: Date): Promise<void> {
       
-        const scorer = await getTopScorerInfo(date, true);
+        const scorer = await getTopScorerInfo(date);
         
         if (scorer) {
             const formattedDate = getFormattedDate(date);

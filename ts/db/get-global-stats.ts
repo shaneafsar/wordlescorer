@@ -17,19 +17,13 @@ interface ScorerData {
 }
 
 /**
- * @param date datetime of global stats to pull 
- * @param globalScoreDB instance of globalScoreDB
- * @param forceMongo force mongo to be used
+ * @param date datetime of global stats to pull
  * @returns Returns array of wordle stats
  */
-async function getGlobalStats(
-  date: Date, 
-  globalScoreDB?: any, 
-  forceMongo: boolean = true
-): Promise<WordleScoreStats[]> {
-  const GlobalScoreStatsDB = globalScoreDB || getGlobalScoreDB(date);
+async function getGlobalStats(date: Date): Promise<WordleScoreStats[]> {
+  const GlobalScoreStatsDB = getGlobalScoreDB(date);
 
-  let data = await GlobalScoreStatsDB.read(null, date, forceMongo).catch((err: Error) => {
+  let data = await GlobalScoreStatsDB.read(null, date).catch((err: Error) => {
     console.error(err);
   });
 

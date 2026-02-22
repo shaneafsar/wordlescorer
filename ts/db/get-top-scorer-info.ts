@@ -17,13 +17,13 @@ interface ScorerInfo {
   percentage?: string;
 }
 
-async function getTopScorerInfo(date: Date, forceMongo: boolean = true): Promise<ScorerInfo | null> {
+async function getTopScorerInfo(date: Date): Promise<ScorerInfo | null> {
   const TopScoreDB = getTopScoreDB(date);
-  const globalStats = await getGlobalStats(date, null, forceMongo).catch((err: Error) => {
+  const globalStats = await getGlobalStats(date).catch((err: Error) => {
     console.error(err);
   });
 
-  let data = await TopScoreDB.read(null, date, forceMongo).catch((err: Error) => {
+  let data = await TopScoreDB.read(null, date).catch((err: Error) => {
     console.error(err);
   });
 

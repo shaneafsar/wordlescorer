@@ -154,7 +154,7 @@ export default class MastoWordleBot {
    * Useful for cold starts or catching up after (un)expected downtime.
    */
   private async processRecentMentions() {
-    let lastNotifId = await this.lastMention.read(SINCE_ID, null, true) as string || null;
+    let lastNotifId = await this.lastMention.read(SINCE_ID) as string || null;
     //console.log('mastobot notif | ', lastNotifId);
     const notifs = await this.masto.v1.notifications.list({ limit: 100, sinceId: lastNotifId });
 
@@ -326,7 +326,7 @@ export default class MastoWordleBot {
     { postId }: PostInfo,
     { isGrowth }: ProccessOptions) {
     try {
-      const { wordlePrefix, aboveTotal } = await getScorerGlobalStats({solvedRow, wordleNumber, date: new Date()}, this.globalScores);
+      const { wordlePrefix, aboveTotal } = await getScorerGlobalStats({solvedRow, wordleNumber, date: new Date()});
       const status = this.buildStatus(screenName, wordlePrefix, wordleScore, solvedRow, aboveTotal, isGrowth);
 
       if (hasReplied(postId)) {

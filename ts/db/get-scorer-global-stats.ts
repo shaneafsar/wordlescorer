@@ -15,10 +15,9 @@ interface GetScorerGlobalStatsInput {
 }
 
 async function getScorerGlobalStats(
-  { solvedRow, wordleNumber, date }: GetScorerGlobalStatsInput,
-  globalScoreDB?: any
+  { solvedRow, wordleNumber, date }: GetScorerGlobalStatsInput
 ): Promise<GlobalStatsResult> {
-  const globalStats = await getGlobalStats(date, null, true).catch((err: Error) => {
+  const globalStats = await getGlobalStats(date).catch((err: Error) => {
     console.error(err);
   });
 
