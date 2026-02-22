@@ -4,25 +4,32 @@ import db from '../../dist/db/sqlite.js';
 
 const router = express.Router();
 
-// In-memory cache: old days never change, only today's data shifts
+// In-memory cache: all returned days are finalized (today excluded).
+// Invalidates on new day rollover or after 1 hour.
 let cache = null;
-let cacheExpiry = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+let cacheDate = '';
 
 function getRecentDays() {
-  const now = Date.now();
-  if (cache && now < cacheExpiry) return cache;
+  const today = todayDateKey();
+  if (cache && cacheDate === today) return cache;
 
-  const days = buildRecentDays();
+  const days = buildRecentDays(today);
   cache = days;
-  cacheExpiry = now + CACHE_TTL;
+  cacheDate = today;
   return days;
 }
 
-function buildRecentDays() {
+function todayDateKey() {
+  const d = new Date();
+  return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+}
+
+function buildRecentDays(today) {
   const days = db.prepare(
-    `SELECT DISTINCT date_key FROM global_scores ORDER BY date_key DESC LIMIT 7`
-  ).all();
+    `SELECT DISTINCT date_key FROM global_scores WHERE date_key < ? ORDER BY date_key DESC LIMIT 7`
+  ).all(today);
 
   const result = days.map(({ date_key }) => {
     // Row distribution: rows 0-6
@@ -80,8 +87,8 @@ function buildRecentDays() {
 
 router.get('/recent-days', function (_req, res) {
   const days = getRecentDays();
-  // Browser can cache for 5 min; CDN/proxy for longer since data is mostly static
-  res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
+  // Data is finalized (today excluded), cache aggressively
+  res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
   res.json({ days });
 });
 
