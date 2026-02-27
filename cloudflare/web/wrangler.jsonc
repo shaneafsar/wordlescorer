@@ -1,0 +1,13 @@
+{
+  "name": "scoremywordle",
+  "pages_build_output_dir": "dist",
+  "compatibility_date": "2024-12-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "wordlescorer",
+      "database_id": "1ada81ac-0660-4f63-9038-b3573b15ed0d"
+    }
+  ]
+}

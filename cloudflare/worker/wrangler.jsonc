@@ -1,0 +1,27 @@
+{
+  "name": "wordlescorer-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2024-12-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "wordlescorer",
+      "database_id": "1ada81ac-0660-4f63-9038-b3573b15ed0d"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "BOT_MANAGER",
+        "class_name": "BotManager"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["BotManager"]
+    }
+  ]
+}

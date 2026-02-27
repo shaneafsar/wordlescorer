@@ -1,0 +1,201 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const title = 'Score My Wordle';
+const db = Astro.locals.runtime.env.DB;
+
+// Helper: format percentage
+function getPercent(num: number, total: number): string {
+  if (num === 0) return '0%';
+  const pct = Math.round((num / total) * 100);
+  if (pct === 0) return '<1%';
+  return pct + '%';
+}
+
+const formatter = new Intl.NumberFormat();
+
+// Get today's date key
+const currentDate = new Date();
+const dateKey = currentDate.toISOString().slice(0, 10);
+
+// Fetch global scores for today
+const globalRows = await db
+  .prepare('SELECT wordle_number, solved_row FROM global_scores WHERE date_key = ?')
+  .bind(dateKey)
+  .all();
+
+// Build stats by wordle number
+const wordleScores: Record<string, { total: number; key: number; solvedRowCounts: number[] }> = {};
+
+for (const r of globalRows.results) {
+  const row = r as { wordle_number: number; solved_row: number };
+  const keyStr = String(row.wordle_number);
+  if (row.solved_row < 7) {
+    if (!wordleScores[keyStr]) {
+      wordleScores[keyStr] = { total: 0, key: row.wordle_number, solvedRowCounts: [0, 0, 0, 0, 0, 0, 0] };
+    }
+    wordleScores[keyStr].total++;
+    wordleScores[keyStr].solvedRowCounts[row.solved_row]++;
+  }
+}
+
+// Sort: top 2 by popularity, then by wordle number descending
+const globalStats = Object.values(wordleScores)
+  .sort((a, b) => b.total - a.total)
+  .slice(0, 2)
+  .sort((a, b) => b.key - a.key)
+  .map(item => ({
+    ...item,
+    solvedRowPercents: item.solvedRowCounts.map(c => getPercent(c, item.total)),
+    solvedRowCountsFormatted: item.solvedRowCounts.map(c => formatter.format(c)),
+    totalFormatted: formatter.format(item.total),
+  }));
+
+// Fetch top scorer for today
+let topScorerInfo: any = null;
+
+const topScoreRows = await db
+  .prepare('SELECT user_key, screen_name, wordle_number, score, solved_row, source, url, created_at FROM top_scores WHERE date_key = ?')
+  .bind(dateKey)
+  .all();
+
+if (topScoreRows.results.length > 0 && globalStats.length > 0) {
+  const mainWordle = globalStats.length > 1
+    ? (globalStats[0].total < globalStats[1].total ? globalStats[1] : globalStats[0])
+    : globalStats[0];
+
+  let scorers = topScoreRows.results
+    .filter((r: any) => r.wordle_number === mainWordle.key)
+    .map((r: any) => {
+      const solvedRowCounts = mainWordle.solvedRowCounts.slice(0);
+      solvedRowCounts.push(mainWordle.solvedRowCounts[0]);
+      let aboveTotal = 0;
+      if (r.solved_row !== 0) {
+        for (let i = r.solved_row + 1; i < solvedRowCounts.length; i++) {
+          aboveTotal += solvedRowCounts[i];
+        }
+      }
+      return {
+        screenName: r.screen_name,
+        score: r.score,
+        solvedRow: r.solved_row,
+        wordleNumber: r.wordle_number,
+        aboveTotal: formatter.format(aboveTotal),
+        percentage: getPercent(aboveTotal, mainWordle.total),
+        datetime: r.created_at,
+      };
+    });
+
+  scorers.sort((a: any, b: any) => {
+    if (a.score === b.score) {
+      if (a.solvedRow === b.solvedRow) return a.datetime - b.datetime;
+      return a.solvedRow - b.solvedRow;
+    }
+    return b.score - a.score;
+  });
+
+  topScorerInfo = scorers[0] || null;
+}
+
+// Counts
+const analyzedCount = await db.prepare('SELECT COUNT(*) as cnt FROM analyzed_posts').first<{ cnt: number }>();
+const userCount = await db.prepare('SELECT COUNT(*) as cnt FROM users').first<{ cnt: number }>();
+
+const scoredCount = analyzedCount?.cnt ?? 0;
+const totalUsers = userCount?.cnt ?? 0;
+
+const renderDate = new Intl.DateTimeFormat('en-US', {
+  dateStyle: 'short',
+  timeStyle: 'long',
+  timeZone: 'America/New_York',
+}).format(currentDate);
+
+const finalTime = new Date().setUTCHours(24, 0, 0, 0);
+const timeTillDailyTopScore = `Daily Top Score post happening in about ${((finalTime - currentDate.getTime()) / 1000 / 60 / 60).toFixed(2)} hours!`;
+
+function parseProgressValue(pct: string): number {
+  return parseInt(pct.replace('<', ''), 10);
+}
+---
+
+<Layout title={title}>
+  <header class="page-header">
+    <img src="/images/logo.png" alt="wordle logo" />
+    <h1>{title}</h1>
+    <ul class="header-contact">
+      <li><a rel="me" href="https://mastodon.social/@scoremywordle">Mastodon</a></li>
+      <li><a rel="me" href="https://bsky.app/profile/scoremywordle.bsky.social">Bluesky</a></li>
+    </ul>
+  </header>
+
+  <div class="spacer"></div>
+
+  <section id="wordle-stats">
+    {globalStats.map((val) => (
+      <article>
+        <h2>Wordle {val.key}</h2>
+        <p>Unique users - {val.totalFormatted}</p>
+        <h4>Row 1 <span> - {val.solvedRowCountsFormatted[1]} ({val.solvedRowPercents[1]})</span></h4>
+        <progress max="100" value={parseProgressValue(val.solvedRowPercents[1])}></progress>
+        <h4>Row 2 <span> - {val.solvedRowCountsFormatted[2]} ({val.solvedRowPercents[2]})</span></h4>
+        <progress max="100" value={parseProgressValue(val.solvedRowPercents[2])}></progress>
+        <h4>Row 3 <span> - {val.solvedRowCountsFormatted[3]} ({val.solvedRowPercents[3]})</span></h4>
+        <progress max="100" value={parseProgressValue(val.solvedRowPercents[3])}></progress>
+        <h4>Row 4 <span> - {val.solvedRowCountsFormatted[4]} ({val.solvedRowPercents[4]})</span></h4>
+        <progress max="100" value={parseProgressValue(val.solvedRowPercents[4])}></progress>
+        <h4>Row 5 <span> - {val.solvedRowCountsFormatted[5]} ({val.solvedRowPercents[5]})</span></h4>
+        <progress max="100" value={parseProgressValue(val.solvedRowPercents[5])}></progress>
+        <h4>Row 6 <span> - {val.solvedRowCountsFormatted[6]} ({val.solvedRowPercents[6]})</span></h4>
+        <progress max="100" value={parseProgressValue(val.solvedRowPercents[6])}></progress>
+        <h4>No Solve <span> - {val.solvedRowCountsFormatted[0]} ({val.solvedRowPercents[0]})</span></h4>
+        <progress max="100" value={parseProgressValue(val.solvedRowPercents[0])}></progress>
+      </article>
+    ))}
+  </section>
+
+  <div class="spacer"></div>
+
+  <section id="info">
+    {topScorerInfo && topScorerInfo.wordleNumber && (
+      <article id="top-scorer">
+        <h2>{topScorerInfo.screenName}</h2>
+        <h4>Top Scorer of the Day</h4>
+        <ul>
+          <li><p>Wordle {topScorerInfo.wordleNumber}</p></li>
+          <li><p>Score: {topScorerInfo.score}</p></li>
+          {topScorerInfo.solvedRow === 0 ? (
+            <li><p>Not solved</p></li>
+          ) : (
+            <li><p>Solved on Row {topScorerInfo.solvedRow}</p></li>
+          )}
+          <li><p>Beat {topScorerInfo.aboveTotal} (~{topScorerInfo.percentage}) other users</p></li>
+        </ul>
+        <aside id="top-score-tweet">
+          <p>{timeTillDailyTopScore}</p>
+        </aside>
+      </article>
+    )}
+
+    <article id="global-stats">
+      <h3>Last Updated</h3>
+      <h4>{renderDate}</h4>
+      <h3>Total Games Scored</h3>
+      <h4>{scoredCount}</h4>
+      <h3>Total User Count</h3>
+      <h4>{totalUsers}</h4>
+    </article>
+  </section>
+
+  <div class="spacer"></div>
+
+  <section id="recent-days" class="recent-days"></section>
+
+  <div class="spacer"></div>
+
+  <div id="searchbox" class="search-container"></div>
+  <div class="wrapper">
+    <div id="stats"></div>
+    <section id="wordles"></section>
+    <div id="pagination"></div>
+  </div>
+</Layout>
