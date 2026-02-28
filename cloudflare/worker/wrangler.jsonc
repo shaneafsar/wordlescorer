@@ -3,6 +3,10 @@
   "main": "src/index.ts",
   "compatibility_date": "2024-12-01",
   "compatibility_flags": ["nodejs_compat"],
+  // Set DRY_RUN=false when ready to post live replies (after Replit bot is stopped)
+  "vars": {
+    "DRY_RUN": "false"
+  },
   "d1_databases": [
     {
       "binding": "DB",
@@ -23,5 +27,11 @@
       "tag": "v1",
       "new_sqlite_classes": ["BotManager"]
     }
-  ]
+  ],
+  "observability": {
+    "enabled": true
+  },
+  "triggers": {
+    "crons": ["0 0 * * *"]
+  }
 }
