@@ -31,11 +31,40 @@
         <option value="0">@ Mentioned bot</option>
         <option value="1">Auto-scored</option>
       </select>
-      <button type="submit">Search</button>
+      <button type="submit">
+        <span class="btn-label">Search</span>
+        <span class="btn-spinner" aria-hidden="true"></span>
+      </button>
+      <span id="search-status" class="search-status" role="status" aria-live="polite"></span>
     </form>
   `;
 
   const form = document.getElementById('search-form');
+  const wrapper = document.querySelector('.wrapper');
+  const statusEl = document.getElementById('search-status');
+  const submitButton = form.querySelector('button[type="submit"]');
+  let activeRequestId = 0;
+
+  function setLoadingState(isLoading) {
+    form.classList.toggle('is-loading', isLoading);
+    if (submitButton) submitButton.disabled = isLoading;
+    if (statusEl) statusEl.textContent = isLoading ? 'Searching...' : '';
+    if (wrapper) wrapper.classList.toggle('is-loading', isLoading);
+
+    if (isLoading) {
+      // Keep current result area height while loading to avoid layout jumps.
+      const currentHeight = wordlesContainer.offsetHeight;
+      if (currentHeight > 0) {
+        wordlesContainer.style.minHeight = currentHeight + 'px';
+      }
+      wordlesContainer.setAttribute('aria-busy', 'true');
+    } else {
+      wordlesContainer.removeAttribute('aria-busy');
+      requestAnimationFrame(function() {
+        wordlesContainer.style.minHeight = '';
+      });
+    }
+  }
 
   form.addEventListener('submit', function(e) {
     e.preventDefault();
@@ -49,13 +78,26 @@
   });
 
   function fetchResults() {
+    const requestId = ++activeRequestId;
+    setLoadingState(true);
     const params = new URLSearchParams({ ...currentParams, page: currentPage, pageSize: 20 });
     fetch('/api/search?' + params.toString())
-      .then(r => r.json())
-      .then(renderResults)
+      .then(function(r) {
+        if (!r.ok) throw new Error('Search request failed with status ' + r.status);
+        return r.json();
+      })
+      .then(function(data) {
+        if (requestId !== activeRequestId) return;
+        renderResults(data);
+      })
       .catch(err => {
+        if (requestId !== activeRequestId) return;
         wordlesContainer.innerHTML = '<p>Error loading results.</p>';
         console.error(err);
+      })
+      .finally(function() {
+        if (requestId !== activeRequestId) return;
+        setLoadingState(false);
       });
   }
 

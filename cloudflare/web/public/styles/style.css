@@ -215,11 +215,48 @@ header.page-header .header-contact {
   font-family: inherit;
   font-size: 1rem;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 110px;
   transition: background-color 0.2s;
 }
 
 #search-form button[type="submit"]:hover {
   background-color: #1578d4;
+}
+
+#search-form button[type="submit"]:disabled {
+  cursor: wait;
+}
+
+#search-form .btn-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  animation: search-spin 0.8s linear infinite;
+}
+
+#search-form.is-loading .btn-spinner {
+  opacity: 1;
+}
+
+.search-status {
+  color: var(--text-color-secondary);
+  font-size: 0.85rem;
+  min-width: 90px;
+  min-height: 1.2em;
+}
+
+@keyframes search-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Search stats */
@@ -474,6 +511,17 @@ header.page-header .header-contact {
 /* Search wrapper layout — single column */
 .wrapper {
   margin: 0 10vw;
+  position: relative;
+}
+
+#wordles {
+  transition: opacity 0.2s ease;
+}
+
+.wrapper.is-loading #wordles,
+.wrapper.is-loading #stats,
+.wrapper.is-loading #pagination {
+  opacity: 0.65;
 }
 
 @media screen and (min-width: 850px) {
