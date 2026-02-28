@@ -126,24 +126,6 @@ header.page-header .header-contact {
   color: var(--text-color-secondary);
 }
 
-/* Hero stats bars: make empty tracks subtler than recent-days bars */
-#wordle-stats progress {
-  height: 6px;
-  background-color: rgba(180, 187, 195, 0.18);
-}
-
-#wordle-stats progress::-webkit-progress-bar {
-  background-color: rgba(180, 187, 195, 0.18);
-}
-
-#wordle-stats progress[value="0"]::-webkit-progress-bar {
-  background-color: rgba(180, 187, 195, 0.1);
-}
-
-#wordle-stats progress[value="0"] {
-  background-color: rgba(180, 187, 195, 0.1);
-}
-
 #info {
   margin-left: 10vw;
   margin-right: 10vw;
@@ -460,13 +442,11 @@ header.page-header .header-contact {
   flex-direction: column;
   gap: 6px;
   margin-bottom: 16px;
-  width: 100%;
-  max-width: 980px;
 }
 
 .rd-row {
   display: grid;
-  grid-template-columns: 80px minmax(220px, 1fr) max-content;
+  grid-template-columns: 80px 1fr 100px;
   align-items: center;
   gap: 10px;
 }
@@ -480,7 +460,6 @@ header.page-header .header-contact {
 .rd-row-count {
   font-size: 0.85rem;
   color: var(--text-color-secondary);
-  white-space: nowrap;
 }
 
 .rd-winners {
