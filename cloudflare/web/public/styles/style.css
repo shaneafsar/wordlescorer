@@ -67,6 +67,10 @@ progress::-webkit-progress-value {
   border-radius: 4px;
   background-color: var(--color-highlight);
 }
+progress::-moz-progress-bar {
+  border-radius: 4px;
+  background-color: var(--color-highlight);
+}
 
 header.page-header {
   display: flex;
@@ -124,6 +128,19 @@ header.page-header .header-contact {
 }
 #wordle-stats article p {
   color: var(--text-color-secondary);
+}
+
+#wordle-stats progress {
+  height: 6px;
+}
+
+#wordle-stats progress::-webkit-progress-bar {
+  background-color: rgba(180, 187, 195, 0.12);
+}
+
+#wordle-stats progress::-moz-progress-bar {
+  background-color: var(--color-highlight);
+  border-radius: 4px;
 }
 
 #info {
@@ -442,6 +459,7 @@ header.page-header .header-contact {
   flex-direction: column;
   gap: 6px;
   margin-bottom: 16px;
+  max-width: 700px;
 }
 
 .rd-row {
@@ -460,6 +478,7 @@ header.page-header .header-contact {
 .rd-row-count {
   font-size: 0.85rem;
   color: var(--text-color-secondary);
+  white-space: nowrap;
 }
 
 .rd-winners {
