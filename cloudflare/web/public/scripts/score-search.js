@@ -44,6 +44,8 @@
   const statusEl = document.getElementById('search-status');
   const submitButton = form.querySelector('button[type="submit"]');
   let activeRequestId = 0;
+  let lastResultsHeight = 0;
+  let holdResultsHeight = false;
 
   function setLoadingState(isLoading) {
     form.classList.toggle('is-loading', isLoading);
@@ -52,17 +54,22 @@
     if (wrapper) wrapper.classList.toggle('is-loading', isLoading);
 
     if (isLoading) {
+      holdResultsHeight = false;
       // Keep current result area height while loading to avoid layout jumps.
-      const currentHeight = wordlesContainer.offsetHeight;
-      if (currentHeight > 0) {
-        wordlesContainer.style.minHeight = currentHeight + 'px';
+      lastResultsHeight = wordlesContainer.offsetHeight;
+      if (lastResultsHeight > 0) {
+        wordlesContainer.style.minHeight = lastResultsHeight + 'px';
       }
       wordlesContainer.setAttribute('aria-busy', 'true');
     } else {
       wordlesContainer.removeAttribute('aria-busy');
-      requestAnimationFrame(function() {
-        wordlesContainer.style.minHeight = '';
-      });
+      if (holdResultsHeight && lastResultsHeight > 0) {
+        wordlesContainer.style.minHeight = lastResultsHeight + 'px';
+      } else {
+        requestAnimationFrame(function() {
+          wordlesContainer.style.minHeight = '';
+        });
+      }
     }
   }
 
@@ -92,6 +99,8 @@
       })
       .catch(err => {
         if (requestId !== activeRequestId) return;
+        holdResultsHeight = false;
+        wordlesContainer.classList.remove('is-empty-state');
         wordlesContainer.innerHTML = '<p>Error loading results.</p>';
         console.error(err);
       })
@@ -107,11 +116,15 @@
     }
 
     if (data.hits.length === 0) {
-      wordlesContainer.innerHTML = '<p>No results found.</p>';
+      holdResultsHeight = lastResultsHeight > 0;
+      wordlesContainer.classList.add('is-empty-state');
+      wordlesContainer.innerHTML = '<div class="search-empty-state"><p>No results found.</p></div>';
       paginationContainer.innerHTML = '';
       return;
     }
 
+    holdResultsHeight = false;
+    wordlesContainer.classList.remove('is-empty-state');
     wordlesContainer.innerHTML = '<div class="results-grid">' + data.hits.map(function(val) {
       const dateStr = val.date_timestamp ? new Date(val.date_timestamp * 1000).toLocaleDateString('en-US') : '';
       const link = val.url || '#';
