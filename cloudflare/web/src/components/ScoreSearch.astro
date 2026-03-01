@@ -1,0 +1,246 @@
+---
+---
+
+<div id="searchbox" class="search-container">
+  <form id="search-form" class="search-form">
+    <input type="text" name="q" placeholder="Search by username..." />
+    <input type="number" name="wordleNumber" placeholder="Wordle #" min="1" />
+    <select name="solvedRow">
+      <option value="">Any row</option>
+      <option value="1">Row 1</option>
+      <option value="2">Row 2</option>
+      <option value="3">Row 3</option>
+      <option value="4">Row 4</option>
+      <option value="5">Row 5</option>
+      <option value="6">Row 6</option>
+      <option value="0">Not solved</option>
+    </select>
+    <input type="number" name="scoreMin" placeholder="Min score" min="0" />
+    <input type="number" name="scoreMax" placeholder="Max score" min="0" />
+    <select name="autoScore">
+      <option value="">All posts</option>
+      <option value="0">@ Mentioned bot</option>
+      <option value="1">Auto-scored</option>
+    </select>
+    <button type="submit">
+      <span class="btn-label">Search</span>
+      <span class="btn-spinner" aria-hidden="true"></span>
+    </button>
+    <span id="search-status" class="search-status" role="status" aria-live="polite"></span>
+  </form>
+</div>
+
+<div class="wrapper">
+  <div id="stats"></div>
+  <section id="wordles"></section>
+  <div id="pagination"></div>
+</div>
+
+<script>
+  const searchbox = document.getElementById('searchbox')!;
+  const form = document.getElementById('search-form') as HTMLFormElement;
+  const wordlesContainer = document.getElementById('wordles')!;
+  const paginationContainer = document.getElementById('pagination')!;
+  const statsContainer = document.getElementById('stats')!;
+  const wrapper = document.querySelector('.wrapper')!;
+  const statusEl = document.getElementById('search-status')!;
+  const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+
+  let currentPage = 0;
+  let currentParams: Record<string, string> = {};
+  let activeRequestId = 0;
+  let lastResultsHeight = 0;
+  let holdResultsHeight = false;
+
+  function setLoadingState(isLoading: boolean) {
+    form.classList.toggle('is-loading', isLoading);
+    submitButton.disabled = isLoading;
+    statusEl.textContent = isLoading ? 'Searching...' : '';
+    wrapper.classList.toggle('is-loading', isLoading);
+
+    if (isLoading) {
+      holdResultsHeight = false;
+      lastResultsHeight = wordlesContainer.offsetHeight;
+      if (lastResultsHeight > 0) {
+        wordlesContainer.style.minHeight = lastResultsHeight + 'px';
+      }
+      wordlesContainer.setAttribute('aria-busy', 'true');
+    } else {
+      wordlesContainer.removeAttribute('aria-busy');
+      if (holdResultsHeight && lastResultsHeight > 0) {
+        wordlesContainer.style.minHeight = lastResultsHeight + 'px';
+      } else {
+        requestAnimationFrame(() => {
+          wordlesContainer.style.minHeight = '';
+        });
+      }
+    }
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    currentPage = 0;
+    const formData = new FormData(form);
+    currentParams = {};
+    for (const [key, val] of formData.entries()) {
+      if (val) currentParams[key] = val as string;
+    }
+    fetchResults();
+  });
+
+  function fetchResults() {
+    const requestId = ++activeRequestId;
+    setLoadingState(true);
+    const params = new URLSearchParams({ ...currentParams, page: String(currentPage), pageSize: '20' });
+    fetch('/api/search?' + params.toString())
+      .then((r) => {
+        if (!r.ok) throw new Error('Search request failed with status ' + r.status);
+        return r.json();
+      })
+      .then((data) => {
+        if (requestId !== activeRequestId) return;
+        renderResults(data);
+      })
+      .catch((err) => {
+        if (requestId !== activeRequestId) return;
+        holdResultsHeight = false;
+        wordlesContainer.classList.remove('is-empty-state');
+        wordlesContainer.textContent = '';
+        const p = document.createElement('p');
+        p.textContent = 'Error loading results.';
+        wordlesContainer.appendChild(p);
+        console.error(err);
+      })
+      .finally(() => {
+        if (requestId !== activeRequestId) return;
+        setLoadingState(false);
+      });
+  }
+
+  function renderResults(data: any) {
+    if (statsContainer) {
+      statsContainer.textContent = '';
+      const p = document.createElement('p');
+      p.textContent = data.total.toLocaleString() + ' results found';
+      statsContainer.appendChild(p);
+    }
+
+    if (data.hits.length === 0) {
+      holdResultsHeight = lastResultsHeight > 0;
+      wordlesContainer.classList.add('is-empty-state');
+      wordlesContainer.textContent = '';
+      const emptyDiv = document.createElement('div');
+      emptyDiv.className = 'search-empty-state';
+      const p = document.createElement('p');
+      p.textContent = 'No results found.';
+      emptyDiv.appendChild(p);
+      wordlesContainer.appendChild(emptyDiv);
+      paginationContainer.textContent = '';
+      return;
+    }
+
+    holdResultsHeight = false;
+    wordlesContainer.classList.remove('is-empty-state');
+    wordlesContainer.textContent = '';
+
+    const grid = document.createElement('div');
+    grid.className = 'results-grid';
+
+    for (const val of data.hits) {
+      const dateStr = val.date_timestamp ? new Date(val.date_timestamp * 1000).toLocaleDateString('en-US') : '';
+      const link = val.url || '#';
+
+      const article = document.createElement('article');
+      article.className = 'result-card';
+
+      const header = document.createElement('div');
+      header.className = 'card-header';
+      const a = document.createElement('a');
+      a.href = link;
+      a.target = '_blank';
+      a.textContent = val.scorerName;
+      header.appendChild(a);
+      if (val.score != null) {
+        const scoreSpan = document.createElement('span');
+        scoreSpan.className = 'card-score';
+        scoreSpan.textContent = String(val.score);
+        header.appendChild(scoreSpan);
+      }
+      article.appendChild(header);
+
+      const tags = document.createElement('div');
+      tags.className = 'card-tags';
+      if (val.wordleNumber) {
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = 'Wordle #' + val.wordleNumber;
+        tags.appendChild(tag);
+      }
+      const rowTag = document.createElement('span');
+      rowTag.className = 'tag';
+      rowTag.textContent = val.solvedRow ? 'Row ' + val.solvedRow : 'Not solved';
+      tags.appendChild(rowTag);
+      if (!val.autoScore) {
+        const mentionTag = document.createElement('span');
+        mentionTag.className = 'tag tag-mention';
+        mentionTag.textContent = '@';
+        tags.appendChild(mentionTag);
+      }
+      if (dateStr) {
+        const dateTag = document.createElement('span');
+        dateTag.className = 'tag';
+        dateTag.textContent = dateStr;
+        tags.appendChild(dateTag);
+      }
+      article.appendChild(tags);
+
+      grid.appendChild(article);
+    }
+
+    wordlesContainer.appendChild(grid);
+
+    // Pagination
+    paginationContainer.textContent = '';
+    if (data.totalPages > 1) {
+      const nav = document.createElement('div');
+      nav.className = 'pagination';
+
+      if (currentPage > 0) {
+        const prev = document.createElement('a');
+        prev.href = '#';
+        prev.className = 'page-link';
+        prev.innerHTML = '&laquo; Prev';
+        prev.addEventListener('click', (e) => {
+          e.preventDefault();
+          currentPage--;
+          fetchResults();
+          searchbox.scrollIntoView({ behavior: 'smooth' });
+        });
+        nav.appendChild(prev);
+      }
+
+      const info = document.createElement('span');
+      info.textContent = 'Page ' + (currentPage + 1) + ' of ' + data.totalPages;
+      nav.appendChild(info);
+
+      if (currentPage < data.totalPages - 1) {
+        const next = document.createElement('a');
+        next.href = '#';
+        next.className = 'page-link';
+        next.innerHTML = 'Next &raquo;';
+        next.addEventListener('click', (e) => {
+          e.preventDefault();
+          currentPage++;
+          fetchResults();
+          searchbox.scrollIntoView({ behavior: 'smooth' });
+        });
+        nav.appendChild(next);
+      }
+
+      paginationContainer.appendChild(nav);
+    }
+  }
+
+  // Auto-load initial results
+  fetchResults();
+</script>

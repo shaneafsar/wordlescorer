@@ -1,5 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import RecentDays from '../components/RecentDays.astro';
+import ScoreSearch from '../components/ScoreSearch.astro';
 
 const title = 'Score My Wordle';
 const db = Astro.locals.runtime.env.DB;
@@ -188,14 +190,9 @@ function parseProgressValue(pct: string): number {
 
   <div class="spacer"></div>
 
-  <section id="recent-days" class="recent-days"></section>
+  <RecentDays />
 
   <div class="spacer"></div>
 
-  <div id="searchbox" class="search-container"></div>
-  <div class="wrapper">
-    <div id="stats"></div>
-    <section id="wordles"></section>
-    <div id="pagination"></div>
-  </div>
+  <ScoreSearch />
 </Layout>

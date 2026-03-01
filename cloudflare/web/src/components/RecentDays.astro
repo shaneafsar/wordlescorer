@@ -1,0 +1,165 @@
+---
+const db = Astro.locals.runtime.env.DB;
+
+function getPercent(num: number, total: number): string {
+  if (num === 0) return '0%';
+  const pct = (num / total) * 100;
+  if (pct > 0 && pct < 1) return '<1%';
+  return Math.round(pct) + '%';
+}
+
+function todayDateKey(): string {
+  const d = new Date();
+  return (
+    d.getFullYear() +
+    '-' +
+    String(d.getMonth() + 1).padStart(2, '0') +
+    '-' +
+    String(d.getDate()).padStart(2, '0')
+  );
+}
+
+function formatDate(dateKey: string): string {
+  const parts = dateKey.split('-');
+  const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+const today = todayDateKey();
+
+const daysResult = await db
+  .prepare('SELECT DISTINCT date_key FROM global_scores WHERE date_key < ? ORDER BY date_key DESC LIMIT 7')
+  .bind(today)
+  .all();
+
+const days = await Promise.all(
+  daysResult.results.map(async (dayRow: any) => {
+    const dateKey = dayRow.date_key as string;
+
+    const rowsResult = await db
+      .prepare('SELECT solved_row, COUNT(*) as cnt FROM global_scores WHERE date_key = ? GROUP BY solved_row')
+      .bind(dateKey)
+      .all();
+
+    const solvedRowCounts = [0, 0, 0, 0, 0, 0, 0];
+    let totalPlayers = 0;
+    for (const r of rowsResult.results as any[]) {
+      if (r.solved_row >= 0 && r.solved_row <= 6) {
+        solvedRowCounts[r.solved_row] = r.cnt;
+      }
+      totalPlayers += r.cnt;
+    }
+
+    const solvedRowPercents = solvedRowCounts.map((c) => getPercent(c, totalPlayers));
+
+    const wnRow = await db
+      .prepare(
+        'SELECT wordle_number, COUNT(*) as cnt FROM global_scores WHERE date_key = ? GROUP BY wordle_number ORDER BY cnt DESC LIMIT 1'
+      )
+      .bind(dateKey)
+      .first<{ wordle_number: number }>();
+    const wordleNumber = wnRow?.wordle_number ?? null;
+
+    const winnersResult = await db
+      .prepare(
+        `SELECT screen_name, score, solved_row, source, url FROM top_scores
+         WHERE date_key = ? AND score = (SELECT MAX(score) FROM top_scores WHERE date_key = ?)
+         ORDER BY created_at ASC`
+      )
+      .bind(dateKey, dateKey)
+      .all();
+
+    const winners = winnersResult.results.map((w: any) => ({
+      screenName: w.screen_name as string,
+      score: w.score as number,
+      solvedRow: w.solved_row as number,
+      source: w.source as string,
+      url: w.url as string | null,
+    }));
+
+    return {
+      dateKey,
+      wordleNumber,
+      totalPlayers,
+      solvedRowCounts,
+      solvedRowPercents,
+      winners,
+    };
+  })
+);
+
+const rowOrder = [1, 2, 3, 4, 5, 6, 0];
+const rowLabels = ['No Solve', 'Row 1', 'Row 2', 'Row 3', 'Row 4', 'Row 5', 'Row 6'];
+---
+
+{days.length > 0 && (
+  <section class="recent-days">
+    <h2 class="recent-days-title">Recent Wordles</h2>
+    <div class="recent-days-list">
+      {days.map((day) => {
+        const dateLabel = formatDate(day.dateKey);
+        const wordleLabel = day.wordleNumber ? `Wordle #${day.wordleNumber}` : '';
+        const playersLabel = `${day.totalPlayers.toLocaleString()} player${day.totalPlayers !== 1 ? 's' : ''}`;
+        const winnerTitle = day.winners.length === 1 ? 'Top Scorer' : 'Top Scorers (tied)';
+
+        return (
+          <div class="rd-card">
+            <button class="rd-card-header" aria-expanded="false">
+              <span class="rd-date">{dateLabel}</span>
+              <span class="rd-meta">
+                {wordleLabel && <span class="rd-wordle">{wordleLabel}</span>}
+                <span class="rd-players">{playersLabel}</span>
+              </span>
+              <span class="rd-chevron">&#9660;</span>
+            </button>
+
+            <div class="rd-detail" hidden>
+              <div class="rd-distribution">
+                {rowOrder.map((idx) => {
+                  const pctNum = day.totalPlayers > 0 ? (day.solvedRowCounts[idx] / day.totalPlayers) * 100 : 0;
+                  return (
+                    <div class="rd-row">
+                      <span class="rd-row-label">{rowLabels[idx]}</span>
+                      <progress max="100" value={pctNum.toFixed(1)}></progress>
+                      <span class="rd-row-count">{day.solvedRowCounts[idx]} ({day.solvedRowPercents[idx]})</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {day.winners.length > 0 && (
+                <div class="rd-winners">
+                  <h4 class="rd-winners-title">{winnerTitle}</h4>
+                  <ul class="rd-winner-list">
+                    {day.winners.map((w) => (
+                      <li>
+                        {w.url ? <a href={w.url} target="_blank">{w.screenName}</a> : w.screenName}
+                        <span class="rd-winner-score">{w.score} pts</span>
+                        <span class="rd-winner-row">Row {w.solvedRow}</span>
+                        <span class="tag">{w.source}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </section>
+)}
+
+<script>
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as Element).closest('.rd-card-header');
+    if (!btn) return;
+    const card = btn.closest('.rd-card');
+    if (!card) return;
+    const detail = card.querySelector('.rd-detail') as HTMLElement;
+    const expanded = btn.getAttribute('aria-expanded') === 'true';
+    btn.setAttribute('aria-expanded', String(!expanded));
+    detail.hidden = expanded;
+    card.classList.toggle('rd-expanded', !expanded);
+  });
+</script>

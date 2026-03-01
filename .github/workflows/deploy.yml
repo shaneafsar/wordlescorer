@@ -61,6 +61,10 @@ jobs:
         working-directory: cloudflare/web
         run: npm ci
 
+      - name: Type check
+        working-directory: cloudflare/web
+        run: npm run check
+
       - name: Build Astro site
         working-directory: cloudflare/web
         run: npm run build
