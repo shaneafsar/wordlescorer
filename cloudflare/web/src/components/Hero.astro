@@ -1,0 +1,127 @@
+---
+import DistributionChart from './DistributionChart.astro';
+import StatsStrip from './StatsStrip.astro';
+
+interface GlobalStat {
+  key: number;
+  total: number;
+  totalFormatted: string;
+  solvedRowCounts: number[];
+}
+
+interface Props {
+  globalStats: GlobalStat[];
+  gamesScored: number;
+  totalUsers: number;
+  lastUpdated: string;
+  siteKey: string;
+}
+
+const { globalStats, gamesScored, totalUsers, lastUpdated, siteKey } = Astro.props;
+---
+
+<section class="relative pb-8">
+  <!-- Header -->
+  <div class="flex flex-col items-center text-center pt-10 pb-6">
+    <div class="flex items-center gap-4 mb-2">
+      <img src="/images/logo.png" alt="wordle logo" class="w-14 h-14 sm:w-16 sm:h-16" />
+      <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold text-text-primary">Score My Wordle</h1>
+    </div>
+    <ul class="flex gap-4 text-sm text-text-secondary list-none p-0 mt-2">
+      <li><a rel="me" href="https://mastodon.social/@scoremywordle" class="hover:text-accent-blue">Mastodon</a></li>
+      <li class="text-bg-tertiary">|</li>
+      <li><a rel="me" href="https://bsky.app/profile/scoremywordle.bsky.social" class="hover:text-accent-blue">Bluesky</a></li>
+    </ul>
+  </div>
+
+  <!-- Today's Distribution -->
+  {globalStats.length > 0 && (
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 mb-8">
+      <div class={`grid gap-6 ${globalStats.length > 1 ? 'md:grid-cols-2' : 'max-w-md mx-auto'}`}>
+        {globalStats.map((stat) => (
+          <div class="rounded-xl bg-bg-secondary border border-bg-tertiary p-5">
+            <div class="flex items-baseline justify-between mb-3">
+              <h2 class="text-xl font-bold text-text-primary">Wordle {stat.key}</h2>
+              <span class="text-sm text-text-secondary">{stat.totalFormatted} players</span>
+            </div>
+            <DistributionChart counts={stat.solvedRowCounts} total={stat.total} compact />
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
+
+  <!-- Search Bar -->
+  <div id="searchbox" class="max-w-3xl mx-auto px-4 sm:px-6 mb-6">
+    <form id="search-form" class="flex flex-wrap gap-2 items-center">
+      <input
+        type="text"
+        name="q"
+        placeholder="Search by username..."
+        class="flex-1 min-w-[180px] bg-bg-secondary border border-bg-tertiary text-text-primary rounded-lg px-4 py-2.5 text-sm placeholder:text-text-secondary focus:border-accent-blue focus:ring-1 focus:ring-accent-blue"
+      />
+      <input
+        type="number"
+        name="wordleNumber"
+        placeholder="Wordle #"
+        min="1"
+        class="w-24 bg-bg-secondary border border-bg-tertiary text-text-primary rounded-lg px-3 py-2.5 text-sm placeholder:text-text-secondary focus:border-accent-blue focus:ring-1 focus:ring-accent-blue"
+      />
+      <select
+        name="solvedRow"
+        class="bg-bg-secondary border border-bg-tertiary text-text-primary rounded-lg px-3 py-2.5 text-sm focus:border-accent-blue focus:ring-1 focus:ring-accent-blue cursor-pointer"
+      >
+        <option value="">Any row</option>
+        <option value="1">Row 1</option>
+        <option value="2">Row 2</option>
+        <option value="3">Row 3</option>
+        <option value="4">Row 4</option>
+        <option value="5">Row 5</option>
+        <option value="6">Row 6</option>
+        <option value="0">Not solved</option>
+      </select>
+      <input
+        type="number"
+        name="scoreMin"
+        placeholder="Min score"
+        min="0"
+        class="w-24 bg-bg-secondary border border-bg-tertiary text-text-primary rounded-lg px-3 py-2.5 text-sm placeholder:text-text-secondary focus:border-accent-blue focus:ring-1 focus:ring-accent-blue"
+      />
+      <input
+        type="number"
+        name="scoreMax"
+        placeholder="Max score"
+        min="0"
+        class="w-24 bg-bg-secondary border border-bg-tertiary text-text-primary rounded-lg px-3 py-2.5 text-sm placeholder:text-text-secondary focus:border-accent-blue focus:ring-1 focus:ring-accent-blue"
+      />
+      <select
+        name="autoScore"
+        class="bg-bg-secondary border border-bg-tertiary text-text-primary rounded-lg px-3 py-2.5 text-sm focus:border-accent-blue focus:ring-1 focus:ring-accent-blue cursor-pointer"
+      >
+        <option value="">All posts</option>
+        <option value="0">@ Mentioned bot</option>
+        <option value="1">Auto-scored</option>
+      </select>
+      <div class="cf-turnstile" data-sitekey={siteKey} data-appearance="interaction-only"></div>
+      <button
+        type="submit"
+        class="inline-flex items-center justify-center gap-2 bg-accent-blue hover:bg-blue-600 text-white rounded-lg px-5 py-2.5 text-sm font-medium transition-colors min-w-[100px] disabled:cursor-wait"
+      >
+        <span class="btn-label">Search</span>
+        <span class="btn-spinner w-3 h-3 border-2 border-white/35 border-t-white rounded-full opacity-0 animate-[search-spin_0.8s_linear_infinite]" aria-hidden="true"></span>
+      </button>
+      <span id="search-status" class="text-text-secondary text-sm min-w-[80px]" role="status" aria-live="polite"></span>
+    </form>
+  </div>
+
+  <!-- Stats Strip -->
+  <div class="max-w-3xl mx-auto px-4 sm:px-6">
+    <StatsStrip gamesScored={gamesScored} totalUsers={totalUsers} lastUpdated={lastUpdated} />
+  </div>
+</section>
+
+<style>
+  form.is-loading .btn-spinner {
+    opacity: 1;
+  }
+</style>

@@ -1,5 +1,4 @@
 ---
-const siteKey = Astro.locals.runtime.env.TURNSTILE_SITE_KEY;
 const db = Astro.locals.runtime.env.DB;
 const pageSize = 20;
 
@@ -32,57 +31,31 @@ function formatDate(ts: number): string {
 }
 ---
 
-<div id="searchbox" class="search-container">
-  <form id="search-form" class="search-form">
-    <input type="text" name="q" placeholder="Search by username..." />
-    <input type="number" name="wordleNumber" placeholder="Wordle #" min="1" />
-    <select name="solvedRow">
-      <option value="">Any row</option>
-      <option value="1">Row 1</option>
-      <option value="2">Row 2</option>
-      <option value="3">Row 3</option>
-      <option value="4">Row 4</option>
-      <option value="5">Row 5</option>
-      <option value="6">Row 6</option>
-      <option value="0">Not solved</option>
-    </select>
-    <input type="number" name="scoreMin" placeholder="Min score" min="0" />
-    <input type="number" name="scoreMax" placeholder="Max score" min="0" />
-    <select name="autoScore">
-      <option value="">All posts</option>
-      <option value="0">@ Mentioned bot</option>
-      <option value="1">Auto-scored</option>
-    </select>
-    <div class="cf-turnstile" data-sitekey={siteKey} data-appearance="interaction-only"></div>
-    <button type="submit">
-      <span class="btn-label">Search</span>
-      <span class="btn-spinner" aria-hidden="true"></span>
-    </button>
-    <span id="search-status" class="search-status" role="status" aria-live="polite"></span>
-  </form>
-</div>
-
-<div class="wrapper">
-  <div id="stats"><p>{total.toLocaleString()} results found</p></div>
-  <section id="wordles">
+<div>
+  <div id="stats" class="mb-2">
+    <p class="text-text-secondary text-sm">{total.toLocaleString()} results found</p>
+  </div>
+  <section id="wordles" class="transition-opacity duration-200">
     {hits.length === 0 ? (
-      <div class="search-empty-state"><p>No results found.</p></div>
+      <div class="text-center py-12 text-text-secondary">
+        <p>No results found.</p>
+      </div>
     ) : (
-      <div class="results-grid">
+      <div class="results-grid grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
         {hits.map((val) => {
           const dateStr = val.dateTimestamp ? formatDate(val.dateTimestamp) : '';
           const link = val.url || '#';
           return (
-            <article class="result-card">
-              <div class="card-header">
-                <a href={link} target="_blank">{val.scorerName}</a>
-                {val.score != null && <span class="card-score">{val.score}</span>}
+            <article class="result-card border border-bg-tertiary rounded-lg p-4 transition-colors hover:bg-bg-secondary group">
+              <div class="card-header flex justify-between items-baseline mb-2">
+                <a href={link} target="_blank" class="text-text-primary text-sm font-medium hover:text-accent-blue transition-colors no-underline">{val.scorerName}</a>
+                {val.score != null && <span class="card-score text-xl font-bold text-accent-blue">{val.score}</span>}
               </div>
-              <div class="card-tags">
-                {val.wordleNumber ? <span class="tag">Wordle #{val.wordleNumber}</span> : null}
-                <span class="tag">{val.solvedRow ? `Row ${val.solvedRow}` : 'Not solved'}</span>
-                {!val.autoScore && <span class="tag tag-mention">@</span>}
-                {dateStr && <span class="tag">{dateStr}</span>}
+              <div class="card-tags flex gap-1.5 flex-wrap mt-2">
+                {val.wordleNumber ? <span class="tag bg-bg-tertiary rounded px-2 py-0.5 text-xs text-text-secondary group-hover:bg-bg-primary">Wordle #{val.wordleNumber}</span> : null}
+                <span class="tag bg-bg-tertiary rounded px-2 py-0.5 text-xs text-text-secondary group-hover:bg-bg-primary">{val.solvedRow ? `Row ${val.solvedRow}` : 'Not solved'}</span>
+                {!val.autoScore && <span class="tag-mention bg-accent-blue rounded px-2 py-0.5 text-xs text-white font-bold">@</span>}
+                {dateStr && <span class="tag bg-bg-tertiary rounded px-2 py-0.5 text-xs text-text-secondary group-hover:bg-bg-primary">{dateStr}</span>}
               </div>
             </article>
           );
@@ -92,9 +65,9 @@ function formatDate(ts: number): string {
   </section>
   <div id="pagination">
     {totalPages > 1 && (
-      <div class="pagination">
-        <span>Page 1 of {totalPages}</span>
-        <a href="#" class="page-link" data-page="1">Next &raquo;</a>
+      <div class="flex items-center gap-3 mt-5 flex-wrap">
+        <span class="text-text-secondary text-sm">Page 1 of {totalPages}</span>
+        <a href="#" class="page-link inline-block px-3 py-1.5 bg-bg-tertiary text-text-primary rounded-md text-sm hover:bg-accent-blue transition-colors no-underline" data-page="1">Next &raquo;</a>
       </div>
     )}
   </div>
@@ -106,7 +79,6 @@ function formatDate(ts: number): string {
   const wordlesContainer = document.getElementById('wordles')!;
   const paginationContainer = document.getElementById('pagination')!;
   const statsContainer = document.getElementById('stats')!;
-  const wrapper = document.querySelector('.wrapper')!;
   const statusEl = document.getElementById('search-status')!;
   const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
 
@@ -116,14 +88,12 @@ function formatDate(ts: number): string {
   let lastResultsHeight = 0;
   let holdResultsHeight = false;
 
-  // Wire up server-rendered pagination links
   bindPaginationLinks();
 
   function setLoadingState(isLoading: boolean) {
     form.classList.toggle('is-loading', isLoading);
     submitButton.disabled = isLoading;
     statusEl.textContent = isLoading ? 'Searching...' : '';
-    wrapper.classList.toggle('is-loading', isLoading);
 
     if (isLoading) {
       holdResultsHeight = false;
@@ -131,8 +101,14 @@ function formatDate(ts: number): string {
       if (lastResultsHeight > 0) {
         wordlesContainer.style.minHeight = lastResultsHeight + 'px';
       }
+      wordlesContainer.style.opacity = '0.5';
       wordlesContainer.setAttribute('aria-busy', 'true');
+      statsContainer.style.opacity = '0.5';
+      paginationContainer.style.opacity = '0.5';
     } else {
+      wordlesContainer.style.opacity = '';
+      statsContainer.style.opacity = '';
+      paginationContainer.style.opacity = '';
       wordlesContainer.removeAttribute('aria-busy');
       if (holdResultsHeight && lastResultsHeight > 0) {
         wordlesContainer.style.minHeight = lastResultsHeight + 'px';
@@ -174,9 +150,9 @@ function formatDate(ts: number): string {
       .catch((err) => {
         if (requestId !== activeRequestId) return;
         holdResultsHeight = false;
-        wordlesContainer.classList.remove('is-empty-state');
         wordlesContainer.textContent = '';
         const p = document.createElement('p');
+        p.className = 'text-text-secondary text-sm py-4';
         p.textContent = err instanceof Error ? err.message : 'Error loading results.';
         wordlesContainer.appendChild(p);
         console.error(err);
@@ -192,16 +168,16 @@ function formatDate(ts: number): string {
     if (statsContainer) {
       statsContainer.textContent = '';
       const p = document.createElement('p');
+      p.className = 'text-text-secondary text-sm';
       p.textContent = data.total.toLocaleString() + ' results found';
       statsContainer.appendChild(p);
     }
 
     if (data.hits.length === 0) {
       holdResultsHeight = lastResultsHeight > 0;
-      wordlesContainer.classList.add('is-empty-state');
       wordlesContainer.textContent = '';
       const emptyDiv = document.createElement('div');
-      emptyDiv.className = 'search-empty-state';
+      emptyDiv.className = 'text-center py-12 text-text-secondary';
       const p = document.createElement('p');
       p.textContent = 'No results found.';
       emptyDiv.appendChild(p);
@@ -211,55 +187,55 @@ function formatDate(ts: number): string {
     }
 
     holdResultsHeight = false;
-    wordlesContainer.classList.remove('is-empty-state');
     wordlesContainer.textContent = '';
 
     const grid = document.createElement('div');
-    grid.className = 'results-grid';
+    grid.className = 'results-grid grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3';
 
     for (const val of data.hits) {
       const dateStr = val.date_timestamp ? new Date(val.date_timestamp * 1000).toLocaleDateString('en-US') : '';
       const link = val.url || '#';
 
       const article = document.createElement('article');
-      article.className = 'result-card';
+      article.className = 'result-card border border-bg-tertiary rounded-lg p-4 transition-colors hover:bg-bg-secondary group';
 
       const header = document.createElement('div');
-      header.className = 'card-header';
+      header.className = 'card-header flex justify-between items-baseline mb-2';
       const a = document.createElement('a');
       a.href = link;
       a.target = '_blank';
+      a.className = 'text-text-primary text-sm font-medium hover:text-accent-blue transition-colors';
       a.textContent = val.scorerName;
       header.appendChild(a);
       if (val.score != null) {
         const scoreSpan = document.createElement('span');
-        scoreSpan.className = 'card-score';
+        scoreSpan.className = 'card-score text-xl font-bold text-accent-blue';
         scoreSpan.textContent = String(val.score);
         header.appendChild(scoreSpan);
       }
       article.appendChild(header);
 
       const tags = document.createElement('div');
-      tags.className = 'card-tags';
+      tags.className = 'card-tags flex gap-1.5 flex-wrap mt-2';
       if (val.wordleNumber) {
         const tag = document.createElement('span');
-        tag.className = 'tag';
+        tag.className = 'tag bg-bg-tertiary rounded px-2 py-0.5 text-xs text-text-secondary';
         tag.textContent = 'Wordle #' + val.wordleNumber;
         tags.appendChild(tag);
       }
       const rowTag = document.createElement('span');
-      rowTag.className = 'tag';
+      rowTag.className = 'tag bg-bg-tertiary rounded px-2 py-0.5 text-xs text-text-secondary';
       rowTag.textContent = val.solvedRow ? 'Row ' + val.solvedRow : 'Not solved';
       tags.appendChild(rowTag);
       if (!val.autoScore) {
         const mentionTag = document.createElement('span');
-        mentionTag.className = 'tag tag-mention';
+        mentionTag.className = 'tag-mention bg-accent-blue rounded px-2 py-0.5 text-xs text-white font-bold';
         mentionTag.textContent = '@';
         tags.appendChild(mentionTag);
       }
       if (dateStr) {
         const dateTag = document.createElement('span');
-        dateTag.className = 'tag';
+        dateTag.className = 'tag bg-bg-tertiary rounded px-2 py-0.5 text-xs text-text-secondary';
         dateTag.textContent = dateStr;
         tags.appendChild(dateTag);
       }
@@ -274,12 +250,12 @@ function formatDate(ts: number): string {
     paginationContainer.textContent = '';
     if (data.totalPages > 1) {
       const nav = document.createElement('div');
-      nav.className = 'pagination';
+      nav.className = 'flex items-center gap-3 mt-5 flex-wrap';
 
       if (currentPage > 0) {
         const prev = document.createElement('a');
         prev.href = '#';
-        prev.className = 'page-link';
+        prev.className = 'page-link inline-block px-3 py-1.5 bg-bg-tertiary text-text-primary rounded-md text-sm hover:bg-accent-blue transition-colors';
         prev.innerHTML = '&laquo; Prev';
         prev.addEventListener('click', (e) => {
           e.preventDefault();
@@ -291,13 +267,14 @@ function formatDate(ts: number): string {
       }
 
       const info = document.createElement('span');
+      info.className = 'text-text-secondary text-sm';
       info.textContent = 'Page ' + (currentPage + 1) + ' of ' + data.totalPages;
       nav.appendChild(info);
 
       if (currentPage < data.totalPages - 1) {
         const next = document.createElement('a');
         next.href = '#';
-        next.className = 'page-link';
+        next.className = 'page-link inline-block px-3 py-1.5 bg-bg-tertiary text-text-primary rounded-md text-sm hover:bg-accent-blue transition-colors';
         next.innerHTML = 'Next &raquo;';
         next.addEventListener('click', (e) => {
           e.preventDefault();

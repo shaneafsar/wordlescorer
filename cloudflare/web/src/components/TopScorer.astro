@@ -1,0 +1,50 @@
+---
+interface Props {
+  screenName: string;
+  wordleNumber: number;
+  score: number;
+  solvedRow: number;
+  aboveTotal: string;
+  percentage: string;
+  countdown: string;
+}
+
+const { screenName, wordleNumber, score, solvedRow, aboveTotal, percentage, countdown } = Astro.props;
+
+const initial = screenName.replace(/^@/, '').charAt(0).toUpperCase();
+---
+
+<div class="rounded-xl border border-accent-purple/30 bg-gradient-to-br from-accent-purple/10 to-bg-secondary p-6">
+  <div class="flex items-center gap-4 mb-4">
+    <div class="w-12 h-12 rounded-full bg-accent-purple/20 border-2 border-accent-purple flex items-center justify-center text-accent-purple text-xl font-bold shrink-0">
+      {initial}
+    </div>
+    <div class="min-w-0">
+      <h3 class="text-lg font-bold text-text-primary truncate">{screenName}</h3>
+      <p class="text-sm text-accent-purple font-medium">Top Scorer of the Day</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-3 mb-4">
+    <div class="rounded-lg bg-bg-primary/50 px-3 py-2">
+      <div class="text-xs text-text-secondary">Wordle</div>
+      <div class="text-lg font-bold text-text-primary">#{wordleNumber}</div>
+    </div>
+    <div class="rounded-lg bg-bg-primary/50 px-3 py-2">
+      <div class="text-xs text-text-secondary">Score</div>
+      <div class="text-lg font-bold text-accent-blue">{score}</div>
+    </div>
+    <div class="rounded-lg bg-bg-primary/50 px-3 py-2">
+      <div class="text-xs text-text-secondary">Solved</div>
+      <div class="text-lg font-bold text-text-primary">{solvedRow === 0 ? 'No' : `Row ${solvedRow}`}</div>
+    </div>
+    <div class="rounded-lg bg-bg-primary/50 px-3 py-2">
+      <div class="text-xs text-text-secondary">Beat</div>
+      <div class="text-sm font-bold text-wordle-green">{aboveTotal} (~{percentage})</div>
+    </div>
+  </div>
+
+  <div class="text-xs text-text-secondary text-center border-t border-bg-tertiary pt-3">
+    {countdown}
+  </div>
+</div>

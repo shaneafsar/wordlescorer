@@ -1,0 +1,43 @@
+---
+interface Props {
+  counts: number[];
+  total: number;
+  labels?: string[];
+  compact?: boolean;
+}
+
+const { counts, total, labels = ['No Solve', 'Row 1', 'Row 2', 'Row 3', 'Row 4', 'Row 5', 'Row 6'], compact = false } = Astro.props;
+
+const rowOrder = [1, 2, 3, 4, 5, 6, 0];
+
+function getPercent(num: number, total: number): string {
+  if (num === 0) return '0%';
+  const pct = Math.round((num / total) * 100);
+  if (pct === 0) return '<1%';
+  return pct + '%';
+}
+
+const formatter = new Intl.NumberFormat();
+---
+
+<div class={`flex flex-col ${compact ? 'gap-1.5' : 'gap-2'}`}>
+  {rowOrder.map((idx) => {
+    const pct = total > 0 ? (counts[idx] / total) * 100 : 0;
+    const label = labels[idx];
+    const isNoSolve = idx === 0;
+    return (
+      <div class={`grid items-center gap-2 ${compact ? 'grid-cols-[60px_1fr_70px]' : 'grid-cols-[70px_1fr_100px]'}`}>
+        <span class={`text-right text-text-secondary ${compact ? 'text-xs' : 'text-sm'}`}>{label}</span>
+        <div class="h-2 rounded-full bg-bg-tertiary overflow-hidden">
+          <div
+            class={`bar-fill ${isNoSolve ? 'bg-wordle-yellow' : 'bg-wordle-green'}`}
+            style={`width: ${Math.max(pct, pct > 0 ? 1 : 0)}%`}
+          />
+        </div>
+        <span class={`text-text-secondary whitespace-nowrap ${compact ? 'text-xs' : 'text-sm'}`}>
+          {formatter.format(counts[idx])} ({getPercent(counts[idx], total)})
+        </span>
+      </div>
+    );
+  })}
+</div>

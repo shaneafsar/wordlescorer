@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-bg-primary text-text-primary font-outfit antialiased;
+    scrollbar-width: thin;
+    scrollbar-color: #2a2a2a #0a0a0a;
+  }
+
+  body::-webkit-scrollbar {
+    width: 4px;
+  }
+  body::-webkit-scrollbar-track {
+    background: #0a0a0a;
+  }
+  body::-webkit-scrollbar-thumb {
+    background-color: #2a2a2a;
+    border-radius: 2px;
+  }
+
+  a {
+    @apply text-accent-blue hover:underline transition-colors;
+  }
+}
+
+@layer components {
+  .bar-fill {
+    @apply h-full rounded-full transition-all duration-500 ease-out;
+    min-width: 2px;
+  }
+}
+
+@keyframes search-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

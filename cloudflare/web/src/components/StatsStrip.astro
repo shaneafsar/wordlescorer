@@ -1,0 +1,25 @@
+---
+interface Props {
+  gamesScored: number;
+  totalUsers: number;
+  lastUpdated: string;
+}
+
+const { gamesScored, totalUsers, lastUpdated } = Astro.props;
+const formatter = new Intl.NumberFormat();
+---
+
+<div class="grid grid-cols-3 gap-4 rounded-xl bg-bg-secondary/50 border border-bg-tertiary px-6 py-4">
+  <div class="text-center">
+    <div class="text-2xl font-bold text-text-primary">{formatter.format(gamesScored)}</div>
+    <div class="text-xs text-text-secondary uppercase tracking-wider mt-1">Games Scored</div>
+  </div>
+  <div class="text-center border-x border-bg-tertiary">
+    <div class="text-2xl font-bold text-text-primary">{formatter.format(totalUsers)}</div>
+    <div class="text-xs text-text-secondary uppercase tracking-wider mt-1">Users</div>
+  </div>
+  <div class="text-center">
+    <div class="text-sm font-medium text-text-primary">{lastUpdated}</div>
+    <div class="text-xs text-text-secondary uppercase tracking-wider mt-1">Last Updated</div>
+  </div>
+</div>

@@ -1,10 +1,13 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import Hero from '../components/Hero.astro';
+import TopScorer from '../components/TopScorer.astro';
 import RecentDays from '../components/RecentDays.astro';
 import ScoreSearch from '../components/ScoreSearch.astro';
 
 const title = 'Score My Wordle';
 const db = Astro.locals.runtime.env.DB;
+const siteKey = Astro.locals.runtime.env.TURNSTILE_SITE_KEY;
 
 // Helper: format percentage
 function getPercent(num: number, total: number): string {
@@ -48,8 +51,6 @@ const globalStats = Object.values(wordleScores)
   .sort((a, b) => b.key - a.key)
   .map(item => ({
     ...item,
-    solvedRowPercents: item.solvedRowCounts.map(c => getPercent(c, item.total)),
-    solvedRowCountsFormatted: item.solvedRowCounts.map(c => formatter.format(c)),
     totalFormatted: formatter.format(item.total),
   }));
 
@@ -108,91 +109,50 @@ const totalUsers = userCount?.cnt ?? 0;
 
 const renderDate = new Intl.DateTimeFormat('en-US', {
   dateStyle: 'short',
-  timeStyle: 'long',
+  timeStyle: 'short',
   timeZone: 'America/New_York',
 }).format(currentDate);
 
 const finalTime = new Date().setUTCHours(24, 0, 0, 0);
-const timeTillDailyTopScore = `Daily Top Score post happening in about ${((finalTime - currentDate.getTime()) / 1000 / 60 / 60).toFixed(2)} hours!`;
-
-function parseProgressValue(pct: string): number {
-  return parseInt(pct.replace('<', ''), 10);
-}
+const timeTillDailyTopScore = `Daily Top Score post in ~${((finalTime - currentDate.getTime()) / 1000 / 60 / 60).toFixed(1)} hours`;
 ---
 
 <Layout title={title}>
-  <header class="page-header">
-    <img src="/images/logo.png" alt="wordle logo" />
-    <h1>{title}</h1>
-    <ul class="header-contact">
-      <li><a rel="me" href="https://mastodon.social/@scoremywordle">Mastodon</a></li>
-      <li><a rel="me" href="https://bsky.app/profile/scoremywordle.bsky.social">Bluesky</a></li>
-    </ul>
-  </header>
+  <div class="min-h-screen">
+    <!-- Hero: Logo, Distribution, Search, Stats -->
+    <Hero
+      globalStats={globalStats}
+      gamesScored={scoredCount}
+      totalUsers={totalUsers}
+      lastUpdated={renderDate}
+      siteKey={siteKey}
+    />
 
-  <div class="spacer"></div>
-
-  <section id="wordle-stats">
-    {globalStats.map((val) => (
-      <article>
-        <h2>Wordle {val.key}</h2>
-        <p>Unique users - {val.totalFormatted}</p>
-        <h4>Row 1 <span> - {val.solvedRowCountsFormatted[1]} ({val.solvedRowPercents[1]})</span></h4>
-        <progress max="100" value={parseProgressValue(val.solvedRowPercents[1])}></progress>
-        <h4>Row 2 <span> - {val.solvedRowCountsFormatted[2]} ({val.solvedRowPercents[2]})</span></h4>
-        <progress max="100" value={parseProgressValue(val.solvedRowPercents[2])}></progress>
-        <h4>Row 3 <span> - {val.solvedRowCountsFormatted[3]} ({val.solvedRowPercents[3]})</span></h4>
-        <progress max="100" value={parseProgressValue(val.solvedRowPercents[3])}></progress>
-        <h4>Row 4 <span> - {val.solvedRowCountsFormatted[4]} ({val.solvedRowPercents[4]})</span></h4>
-        <progress max="100" value={parseProgressValue(val.solvedRowPercents[4])}></progress>
-        <h4>Row 5 <span> - {val.solvedRowCountsFormatted[5]} ({val.solvedRowPercents[5]})</span></h4>
-        <progress max="100" value={parseProgressValue(val.solvedRowPercents[5])}></progress>
-        <h4>Row 6 <span> - {val.solvedRowCountsFormatted[6]} ({val.solvedRowPercents[6]})</span></h4>
-        <progress max="100" value={parseProgressValue(val.solvedRowPercents[6])}></progress>
-        <h4>No Solve <span> - {val.solvedRowCountsFormatted[0]} ({val.solvedRowPercents[0]})</span></h4>
-        <progress max="100" value={parseProgressValue(val.solvedRowPercents[0])}></progress>
-      </article>
-    ))}
-  </section>
-
-  <div class="spacer"></div>
-
-  <section id="info">
-    {topScorerInfo && topScorerInfo.wordleNumber && (
-      <article id="top-scorer">
-        <h2>{topScorerInfo.screenName}</h2>
-        <h4>Top Scorer of the Day</h4>
-        <ul>
-          <li><p>Wordle {topScorerInfo.wordleNumber}</p></li>
-          <li><p>Score: {topScorerInfo.score}</p></li>
-          {topScorerInfo.solvedRow === 0 ? (
-            <li><p>Not solved</p></li>
-          ) : (
-            <li><p>Solved on Row {topScorerInfo.solvedRow}</p></li>
+    <!-- Main Content: 2-column on desktop -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div class="lg:grid lg:grid-cols-[320px_1fr] lg:gap-8">
+        <!-- Sidebar -->
+        <aside class="mb-8 lg:mb-0 flex flex-col gap-6">
+          {topScorerInfo && topScorerInfo.wordleNumber && (
+            <TopScorer
+              screenName={topScorerInfo.screenName}
+              wordleNumber={topScorerInfo.wordleNumber}
+              score={topScorerInfo.score}
+              solvedRow={topScorerInfo.solvedRow}
+              aboveTotal={topScorerInfo.aboveTotal}
+              percentage={topScorerInfo.percentage}
+              countdown={timeTillDailyTopScore}
+            />
           )}
-          <li><p>Beat {topScorerInfo.aboveTotal} (~{topScorerInfo.percentage}) other users</p></li>
-        </ul>
-        <aside id="top-score-tweet">
-          <p>{timeTillDailyTopScore}</p>
+
+          <RecentDays />
         </aside>
-      </article>
-    )}
 
-    <article id="global-stats">
-      <h3>Last Updated</h3>
-      <h4>{renderDate}</h4>
-      <h3>Total Games Scored</h3>
-      <h4>{scoredCount}</h4>
-      <h3>Total User Count</h3>
-      <h4>{totalUsers}</h4>
-    </article>
-  </section>
-
-  <div class="spacer"></div>
-
-  <RecentDays />
-
-  <div class="spacer"></div>
-
-  <ScoreSearch />
+        <!-- Results -->
+        <main>
+          <ScoreSearch />
+        </main>
+      </div>
+    </div>
+  </div>
 </Layout>
