@@ -119,40 +119,40 @@ const timeTillDailyTopScore = `Daily Top Score post in ~${((finalTime - currentD
 
 <Layout title={title}>
   <div class="min-h-screen">
-    <!-- Hero: Logo, Distribution, Search, Stats -->
+    <!-- Hero: Logo, Distribution, Stats -->
     <Hero
       globalStats={globalStats}
       gamesScored={scoredCount}
       totalUsers={totalUsers}
       lastUpdated={renderDate}
-      siteKey={siteKey}
     />
 
-    <!-- Main Content: 2-column on desktop -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div class="lg:grid lg:grid-cols-[320px_1fr] lg:gap-8">
-        <!-- Sidebar -->
-        <aside class="mb-8 lg:mb-0 flex flex-col gap-6">
-          {topScorerInfo && topScorerInfo.wordleNumber && (
-            <TopScorer
-              screenName={topScorerInfo.screenName}
-              wordleNumber={topScorerInfo.wordleNumber}
-              score={topScorerInfo.score}
-              solvedRow={topScorerInfo.solvedRow}
-              aboveTotal={topScorerInfo.aboveTotal}
-              percentage={topScorerInfo.percentage}
-              countdown={timeTillDailyTopScore}
-            />
-          )}
+    <!-- Main Content -->
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-10">
+      <!-- Top Scorer -->
+      {topScorerInfo && topScorerInfo.wordleNumber && (
+        <section class="max-w-md">
+          <TopScorer
+            screenName={topScorerInfo.screenName}
+            wordleNumber={topScorerInfo.wordleNumber}
+            score={topScorerInfo.score}
+            solvedRow={topScorerInfo.solvedRow}
+            aboveTotal={topScorerInfo.aboveTotal}
+            percentage={topScorerInfo.percentage}
+            countdown={timeTillDailyTopScore}
+          />
+        </section>
+      )}
 
-          <RecentDays />
-        </aside>
+      <!-- Recent Days -->
+      <section>
+        <RecentDays />
+      </section>
 
-        <!-- Results -->
-        <main>
-          <ScoreSearch />
-        </main>
-      </div>
+      <!-- Search -->
+      <section>
+        <ScoreSearch siteKey={siteKey} />
+      </section>
     </div>
   </div>
 </Layout>
