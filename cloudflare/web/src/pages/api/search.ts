@@ -29,7 +29,7 @@ async function verifyTurnstile(token: string, secret: string, ip: string): Promi
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ secret, response: token, remoteip: ip }),
   });
-  const data = await res.json<{ success: boolean }>();
+  const data: { success: boolean } = await res.json();
   return data.success;
 }
 

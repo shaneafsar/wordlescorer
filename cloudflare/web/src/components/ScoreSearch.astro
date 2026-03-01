@@ -160,7 +160,7 @@ function formatDate(ts: number): string {
       .finally(() => {
         if (requestId !== activeRequestId) return;
         setLoadingState(false);
-        if (typeof turnstile !== 'undefined') turnstile.reset();
+        if (typeof (window as any).turnstile !== 'undefined') (window as any).turnstile.reset();
       });
   }
 
