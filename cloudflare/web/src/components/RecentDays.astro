@@ -55,7 +55,7 @@ const days = await Promise.all(
 
     const winnersResult = await db
       .prepare(
-        `SELECT screen_name, score, solved_row, source, url FROM top_scores
+        `SELECT screen_name, score, solved_row, is_hard_mode, source, url FROM top_scores
          WHERE date_key = ? AND score = (SELECT MAX(score) FROM top_scores WHERE date_key = ?)
          ORDER BY created_at ASC`
       )
@@ -66,6 +66,7 @@ const days = await Promise.all(
       screenName: w.screen_name as string,
       score: w.score as number,
       solvedRow: w.solved_row as number,
+      isHardMode: !!w.is_hard_mode,
       source: w.source as string,
       url: w.url as string | null,
     }));
@@ -129,7 +130,7 @@ const days = await Promise.all(
                     {day.winners.map((w) => (
                       <li class="flex items-center gap-2 flex-wrap text-sm">
                         {w.url ? <a href={w.url} target="_blank" class="text-accent-blue font-bold">{w.screenName}</a> : <span class="text-text-primary font-bold">{w.screenName}</span>}
-                        <span class="text-accent-blue font-bold">{w.score} pts</span>
+                        <span class="text-accent-blue font-bold">{w.score}{w.isHardMode && <span class="text-accent-purple">*</span>} pts</span>
                         <span class="text-text-secondary text-xs">Row {w.solvedRow}</span>
                         <span class="bg-bg-tertiary rounded px-2 py-0.5 text-xs text-text-secondary">{w.source}</span>
                       </li>

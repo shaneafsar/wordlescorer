@@ -4,12 +4,13 @@ interface Props {
   wordleNumber: number;
   score: number;
   solvedRow: number;
+  isHardMode: boolean;
   aboveTotal: string;
   percentage: string;
   countdown: string;
 }
 
-const { screenName, wordleNumber, score, solvedRow, aboveTotal, percentage, countdown } = Astro.props;
+const { screenName, wordleNumber, score, solvedRow, isHardMode, aboveTotal, percentage, countdown } = Astro.props;
 
 const initial = screenName.replace(/^@/, '').charAt(0).toUpperCase();
 ---
@@ -32,7 +33,7 @@ const initial = screenName.replace(/^@/, '').charAt(0).toUpperCase();
     </div>
     <div class="rounded-lg bg-bg-primary/50 px-3 py-2">
       <div class="text-xs text-text-secondary">Score</div>
-      <div class="text-lg font-bold text-accent-blue">{score}</div>
+      <div class="text-lg font-bold text-accent-blue">{score}{isHardMode && <span class="text-accent-purple">*</span>}</div>
     </div>
     <div class="rounded-lg bg-bg-primary/50 px-3 py-2">
       <div class="text-xs text-text-secondary">Solved</div>

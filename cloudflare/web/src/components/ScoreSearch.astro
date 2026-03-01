@@ -32,6 +32,7 @@ const hits = results.results.map((r: any) => ({
   wordleNumber: r.wordle_number as number,
   score: r.score as number,
   solvedRow: r.solved_row as number,
+  isHardMode: !!r.is_hard_mode,
   autoScore: !!r.auto_score,
   url: r.url as string | null,
   dateTimestamp: Math.floor(r.created_at / 1000),
@@ -131,11 +132,12 @@ function formatDate(ts: number): string {
             <article class="result-card border border-bg-tertiary rounded-lg p-4 transition-colors hover:bg-bg-secondary hover:border-accent-blue/50 cursor-pointer group">
               <div class="card-header flex justify-between items-baseline mb-2">
                 <a href={link} target="_blank" class="text-text-primary text-sm font-medium hover:text-accent-blue transition-colors no-underline">{val.scorerName}</a>
-                {val.score != null && <span class="card-score text-xl font-bold text-accent-blue">{val.score}</span>}
+                {val.score != null && <span class="card-score text-xl font-bold text-accent-blue">{val.score}{val.isHardMode && <span class="text-accent-purple">*</span>}</span>}
               </div>
               <div class="card-tags flex gap-1.5 flex-wrap mt-2">
                 {val.wordleNumber ? <span class="tag bg-bg-tertiary rounded px-2 py-0.5 text-xs text-text-secondary group-hover:bg-bg-primary">Wordle #{val.wordleNumber}</span> : null}
                 <span class="tag bg-bg-tertiary rounded px-2 py-0.5 text-xs text-text-secondary group-hover:bg-bg-primary">{val.solvedRow ? `Row ${val.solvedRow}` : 'Not solved'}</span>
+                {val.isHardMode && <span class="tag bg-accent-purple/20 text-accent-purple rounded px-2 py-0.5 text-xs font-bold group-hover:bg-accent-purple/30">H</span>}
                 {!val.autoScore && <span class="tag-mention bg-accent-blue rounded px-2 py-0.5 text-xs text-white font-bold">@</span>}
                 {dateStr && <span class="tag bg-bg-tertiary rounded px-2 py-0.5 text-xs text-text-secondary group-hover:bg-bg-primary">{dateStr}</span>}
               </div>
@@ -300,6 +302,12 @@ function formatDate(ts: number): string {
         const scoreSpan = document.createElement('span');
         scoreSpan.className = 'card-score text-xl font-bold text-accent-blue';
         scoreSpan.textContent = String(val.score);
+        if (val.isHardMode) {
+          const ast = document.createElement('span');
+          ast.className = 'text-accent-purple';
+          ast.textContent = '*';
+          scoreSpan.appendChild(ast);
+        }
         header.appendChild(scoreSpan);
       }
       article.appendChild(header);
@@ -316,6 +324,12 @@ function formatDate(ts: number): string {
       rowTag.className = 'tag bg-bg-tertiary rounded px-2 py-0.5 text-xs text-text-secondary';
       rowTag.textContent = val.solvedRow ? 'Row ' + val.solvedRow : 'Not solved';
       tags.appendChild(rowTag);
+      if (val.isHardMode) {
+        const hardTag = document.createElement('span');
+        hardTag.className = 'tag bg-accent-purple/20 text-accent-purple rounded px-2 py-0.5 text-xs font-bold';
+        hardTag.textContent = 'H';
+        tags.appendChild(hardTag);
+      }
       if (!val.autoScore) {
         const mentionTag = document.createElement('span');
         mentionTag.className = 'tag-mention bg-accent-blue rounded px-2 py-0.5 text-xs text-white font-bold';
