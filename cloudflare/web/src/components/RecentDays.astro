@@ -99,7 +99,9 @@ const days = await Promise.all(
                 {wordleLabel && <span>{wordleLabel}</span>}
                 <span>{playersLabel}</span>
               </span>
-              <span class="rd-chevron text-text-secondary text-[0.6rem] transition-transform duration-200">&#9660;</span>
+              <svg class="rd-chevron w-3 h-3 text-text-secondary transition-transform duration-200" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
             </button>
 
             <div class="rd-detail hidden px-4 pb-4">
