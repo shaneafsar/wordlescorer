@@ -137,9 +137,15 @@ function formatDate(ts: number): string {
   </section>
   <div id="pagination">
     {totalPages > 1 && (
-      <div class="flex items-center gap-3 mt-5 flex-wrap">
-        <span class="text-text-secondary text-sm">Page 1 of {totalPages}</span>
-        <a href="#" class="page-link inline-block px-3 py-1.5 bg-bg-tertiary text-text-primary rounded-md text-sm hover:bg-accent-blue transition-colors no-underline" data-page="1">Next &raquo;</a>
+      <div class="flex items-center gap-1.5 mt-5 flex-wrap">
+        <span class="page-link inline-block px-3 py-1.5 bg-accent-blue text-white rounded-md text-sm no-underline">1</span>
+        {totalPages > 1 && Array.from({ length: Math.min(4, totalPages - 1) }, (_, i) => i + 1).map((p) => (
+          <a href="#" class="page-link inline-block px-3 py-1.5 bg-bg-tertiary text-text-primary rounded-md text-sm hover:bg-accent-blue transition-colors no-underline" data-page={String(p)}>{p + 1}</a>
+        ))}
+        {totalPages > 5 && <span class="text-text-secondary text-sm px-1">&hellip;</span>}
+        {totalPages > 5 && (
+          <a href="#" class="page-link inline-block px-3 py-1.5 bg-bg-tertiary text-text-primary rounded-md text-sm hover:bg-accent-blue transition-colors no-underline" data-page={String(totalPages - 1)}>{totalPages}</a>
+        )}
       </div>
     )}
   </div>
@@ -322,40 +328,61 @@ function formatDate(ts: number): string {
     paginationContainer.textContent = '';
     if (data.totalPages > 1) {
       const nav = document.createElement('div');
-      nav.className = 'flex items-center gap-3 mt-5 flex-wrap';
+      nav.className = 'flex items-center gap-1.5 mt-5 flex-wrap';
 
-      if (currentPage > 0) {
-        const prev = document.createElement('a');
-        prev.href = '#';
-        prev.className = 'page-link inline-block px-3 py-1.5 bg-bg-tertiary text-text-primary rounded-md text-sm hover:bg-accent-blue transition-colors';
-        prev.innerHTML = '&laquo; Prev';
-        prev.addEventListener('click', (e) => {
-          e.preventDefault();
-          currentPage--;
-          fetchResults();
-          searchbox.scrollIntoView({ behavior: 'smooth' });
-        });
-        nav.appendChild(prev);
+      const linkClass = 'page-link inline-block px-3 py-1.5 bg-bg-tertiary text-text-primary rounded-md text-sm hover:bg-accent-blue transition-colors no-underline';
+      const activeClass = 'page-link inline-block px-3 py-1.5 bg-accent-blue text-white rounded-md text-sm no-underline';
+      const ellipsisClass = 'text-text-secondary text-sm px-1';
+
+      function addPageLink(page: number, label?: string) {
+        if (page === currentPage) {
+          const span = document.createElement('span');
+          span.className = activeClass;
+          span.textContent = label || String(page + 1);
+          nav.appendChild(span);
+        } else {
+          const a = document.createElement('a');
+          a.href = '#';
+          a.className = linkClass;
+          a.textContent = label || String(page + 1);
+          a.addEventListener('click', (e) => {
+            e.preventDefault();
+            currentPage = page;
+            fetchResults();
+            searchbox.scrollIntoView({ behavior: 'smooth' });
+          });
+          nav.appendChild(a);
+        }
       }
 
-      const info = document.createElement('span');
-      info.className = 'text-text-secondary text-sm';
-      info.textContent = 'Page ' + (currentPage + 1) + ' of ' + data.totalPages;
-      nav.appendChild(info);
-
-      if (currentPage < data.totalPages - 1) {
-        const next = document.createElement('a');
-        next.href = '#';
-        next.className = 'page-link inline-block px-3 py-1.5 bg-bg-tertiary text-text-primary rounded-md text-sm hover:bg-accent-blue transition-colors';
-        next.innerHTML = 'Next &raquo;';
-        next.addEventListener('click', (e) => {
-          e.preventDefault();
-          currentPage++;
-          fetchResults();
-          searchbox.scrollIntoView({ behavior: 'smooth' });
-        });
-        nav.appendChild(next);
+      function addEllipsis() {
+        const span = document.createElement('span');
+        span.className = ellipsisClass;
+        span.innerHTML = '&hellip;';
+        nav.appendChild(span);
       }
+
+      // Build page number window
+      const total = data.totalPages;
+      const cur = currentPage;
+      const windowSize = 2; // pages on each side of current
+
+      // First page
+      addPageLink(0);
+
+      // Ellipsis before window
+      if (cur - windowSize > 1) addEllipsis();
+
+      // Page window
+      for (let i = Math.max(1, cur - windowSize); i <= Math.min(total - 2, cur + windowSize); i++) {
+        addPageLink(i);
+      }
+
+      // Ellipsis after window
+      if (cur + windowSize < total - 2) addEllipsis();
+
+      // Last page (if more than 1 page)
+      if (total > 1) addPageLink(total - 1);
 
       paginationContainer.appendChild(nav);
     }
