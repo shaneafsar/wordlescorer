@@ -114,7 +114,12 @@ const renderDate = new Intl.DateTimeFormat('en-US', {
 }).format(currentDate);
 
 const finalTime = new Date().setUTCHours(24, 0, 0, 0);
-const timeTillDailyTopScore = `Daily Top Score post in ~${((finalTime - currentDate.getTime()) / 1000 / 60 / 60).toFixed(1)} hours`;
+const minutesTillDaily = (finalTime - currentDate.getTime()) / 1000 / 60;
+const timeTillDailyTopScore = minutesTillDaily < 1
+  ? 'Daily Top Score post shortly'
+  : minutesTillDaily < 60
+    ? `Daily Top Score post in about ${Math.round(minutesTillDaily)} minutes`
+    : `Daily Top Score post in about ${Math.round(minutesTillDaily / 60)} hours`;
 ---
 
 <Layout title={title}>
