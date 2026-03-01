@@ -3,6 +3,9 @@
   "pages_build_output_dir": "dist",
   "compatibility_date": "2024-12-01",
   "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "TURNSTILE_SITE_KEY": "0x4AAAAAACkIHEuCMskds9pq"
+  },
   "d1_databases": [
     {
       "binding": "DB",

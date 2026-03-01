@@ -23,6 +23,16 @@ async function checkRateLimit(ip: string): Promise<boolean> {
   return true;
 }
 
+async function verifyTurnstile(token: string, secret: string, ip: string): Promise<boolean> {
+  const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ secret, response: token, remoteip: ip }),
+  });
+  const data = await res.json<{ success: boolean }>();
+  return data.success;
+}
+
 export async function GET({ locals, request }: APIContext) {
   const ip = request.headers.get('cf-connecting-ip') || 'unknown';
   const allowed = await checkRateLimit(ip);
@@ -36,8 +46,26 @@ export async function GET({ locals, request }: APIContext) {
     });
   }
 
-  const db = locals.runtime.env.DB;
   const url = new URL(request.url);
+  const token = url.searchParams.get('token') || '';
+  const turnstileSecret = locals.runtime.env.TURNSTILE_SECRET;
+
+  if (!token) {
+    return new Response(JSON.stringify({ error: 'Missing Turnstile token' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const verified = await verifyTurnstile(token, turnstileSecret, ip);
+  if (!verified) {
+    return new Response(JSON.stringify({ error: 'Turnstile verification failed' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const db = locals.runtime.env.DB;
 
   const q = url.searchParams.get('q') || '';
   const wordleNumber = url.searchParams.get('wordleNumber') || '';

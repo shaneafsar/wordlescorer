@@ -5,6 +5,8 @@ type D1Database = import('@cloudflare/workers-types').D1Database;
 interface Env {
   DB: D1Database;
   DAILY_POST_SECRET?: string;
+  TURNSTILE_SITE_KEY: string;
+  TURNSTILE_SECRET: string;
 }
 
 type Runtime = import('@astrojs/cloudflare').Runtime<Env>;
