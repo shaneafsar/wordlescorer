@@ -30,7 +30,7 @@ const formatter = new Intl.NumberFormat();
         <span class={`text-right text-text-secondary ${compact ? 'text-xs' : 'text-sm'}`}>{label}</span>
         <div class="h-2 rounded-full bg-bg-tertiary overflow-hidden">
           <div
-            class={`bar-fill ${isNoSolve ? 'bg-wordle-yellow' : 'bg-wordle-green'}`}
+            class={`bar-fill ${isNoSolve ? 'bg-red-500' : 'bg-wordle-green'}`}
             style={`width: ${Math.max(pct, pct > 0 ? 1 : 0)}%`}
           />
         </div>
