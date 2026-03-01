@@ -13,6 +13,12 @@ const countResult = await db
 const total = countResult?.total || 0;
 const totalPages = Math.ceil(total / pageSize);
 
+const wordleRange = await db
+  .prepare('SELECT MIN(wordle_number) as min_wn, MAX(wordle_number) as max_wn FROM analyzed_posts')
+  .first<{ min_wn: number; max_wn: number }>();
+const minWordleNumber = wordleRange?.min_wn || 1;
+const maxWordleNumber = wordleRange?.max_wn || 99999;
+
 const results = await db
   .prepare(
     `SELECT id, scorer_name, wordle_number, score, solved_row, is_hard_mode, source, url, auto_score, created_at
@@ -44,13 +50,15 @@ function formatDate(ts: number): string {
         type="text"
         name="q"
         placeholder="Search by username..."
+        minlength="2"
         class="bg-bg-secondary border border-bg-tertiary text-text-primary rounded-lg px-4 py-2.5 text-sm placeholder:text-text-secondary focus:border-accent-blue focus:ring-1 focus:ring-accent-blue"
       />
       <input
         type="number"
         name="wordleNumber"
         placeholder="Wordle #"
-        min="1"
+        min={minWordleNumber}
+        max={maxWordleNumber}
         class="bg-bg-secondary border border-bg-tertiary text-text-primary rounded-lg px-3 py-2.5 text-sm placeholder:text-text-secondary focus:border-accent-blue focus:ring-1 focus:ring-accent-blue"
       />
       <select
@@ -72,6 +80,7 @@ function formatDate(ts: number): string {
           name="scoreMin"
           placeholder="Min score"
           min="0"
+          max="420"
           class="bg-bg-secondary border border-bg-tertiary text-text-primary rounded-lg px-3 py-2.5 text-sm placeholder:text-text-secondary focus:border-accent-blue focus:ring-1 focus:ring-accent-blue"
         />
         <input
@@ -79,6 +88,7 @@ function formatDate(ts: number): string {
           name="scoreMax"
           placeholder="Max score"
           min="0"
+          max="420"
           class="bg-bg-secondary border border-bg-tertiary text-text-primary rounded-lg px-3 py-2.5 text-sm placeholder:text-text-secondary focus:border-accent-blue focus:ring-1 focus:ring-accent-blue"
         />
       </div>
@@ -204,6 +214,7 @@ function formatDate(ts: number): string {
     const formData = new FormData(form);
     currentParams = {};
     for (const [key, val] of formData.entries()) {
+      if (key === 'q' && typeof val === 'string' && val.length > 0 && val.length < 2) continue;
       if (val) currentParams[key] = val as string;
     }
     fetchResults();

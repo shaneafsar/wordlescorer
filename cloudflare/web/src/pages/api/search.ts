@@ -84,25 +84,34 @@ export async function GET({ locals, request }: APIContext) {
   const where: string[] = [];
   const params: (string | number)[] = [];
 
-  if (q) {
+  if (q && q.length >= 2) {
     where.push('scorer_name LIKE ?');
     params.push(`%${q}%`);
   }
   if (wordleNumber) {
-    where.push('wordle_number = ?');
-    params.push(parseInt(wordleNumber, 10));
+    const wn = parseInt(wordleNumber, 10);
+    if (!isNaN(wn)) {
+      const wnRange = await db
+        .prepare('SELECT MIN(wordle_number) as min_wn, MAX(wordle_number) as max_wn FROM analyzed_posts')
+        .first<{ min_wn: number; max_wn: number }>();
+      const clampedWn = Math.max(wnRange?.min_wn || 1, Math.min(wnRange?.max_wn || 99999, wn));
+      where.push('wordle_number = ?');
+      params.push(clampedWn);
+    }
   }
   if (solvedRow !== '') {
     where.push('solved_row = ?');
     params.push(parseInt(solvedRow, 10));
   }
   if (scoreMin) {
+    const val = Math.max(0, Math.min(420, parseInt(scoreMin, 10) || 0));
     where.push('score >= ?');
-    params.push(parseInt(scoreMin, 10));
+    params.push(val);
   }
   if (scoreMax) {
+    const val = Math.max(0, Math.min(420, parseInt(scoreMax, 10) || 0));
     where.push('score <= ?');
-    params.push(parseInt(scoreMax, 10));
+    params.push(val);
   }
   if (source) {
     where.push('source = ?');
