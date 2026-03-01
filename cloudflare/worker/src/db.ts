@@ -212,6 +212,7 @@ interface ScorerInfo {
   wordleNumber: number;
   aboveTotal?: number | string;
   percentage?: string;
+  tiedWith?: number;
 }
 
 export async function getTopScorerInfo(db: D1Database, date: Date): Promise<ScorerInfo | null> {
@@ -286,5 +287,13 @@ export async function getTopScorerInfo(db: D1Database, date: Date): Promise<Scor
     return b.score - a.score;
   });
 
-  return scorerList[0] || null;
+  const top = scorerList[0];
+  if (!top) return null;
+
+  const tiedCount = scorerList.filter(s => s.score === top.score).length;
+  if (tiedCount > 1) {
+    top.tiedWith = tiedCount - 1;
+  }
+
+  return top;
 }

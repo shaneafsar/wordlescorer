@@ -21,7 +21,8 @@ export async function postDailyTopScore(
   const formattedDate = getFormattedDate(date);
   const scorerAppend = `They scored ${scorer.score} points for #Wordle ${scorer.wordleNumber} and solved it on row ${scorer.solvedRow}! That's better than ${scorer.aboveTotal} (~${scorer.percentage}) other users. ${getCompliment()}`;
   const scorerNameOnly = `${scorer.screenName || scorer.scorerName || scorer.name}!`;
-  const finalStatus = `The top scorer for ${formattedDate} is: ${scorerNameOnly} ${scorerAppend}`;
+  const tiedText = scorer.tiedWith ? ` (tied with ${scorer.tiedWith} other${scorer.tiedWith !== 1 ? 's' : ''})` : '';
+  const finalStatus = `The top scorer for ${formattedDate} is: ${scorerNameOnly}${tiedText} ${scorerAppend}`;
 
   if (dryRun) {
     console.log('[daily] [DRY RUN] Would post daily top score:', finalStatus);
