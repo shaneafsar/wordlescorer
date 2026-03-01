@@ -2,77 +2,87 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Build & Run Commands
+## Project Structure
 
-- **Compile TypeScript**: `npm run compile` (runs `tsc`, outputs to `./dist`)
-- **Run production**: `npm run start` (bot + web server in single process)
-- **Run dev mode**: `npm run dev` (sets `NODE_ENV=develop`, dry-run bot + web server)
-- **Run tests**: `npm test` (vitest run) or `npm run test:watch` (vitest watch mode)
-- **Post daily stats only**: `npm run daily` (prod) or `npm run daily:dev` (dev)
-- **File copy step**: `npm run file-copy` — copies web assets to dist
+This is a **Wordle scoring bot** that runs on Mastodon and Bluesky, deployed entirely on Cloudflare. The repo contains two subprojects:
+
+- `cloudflare/worker/` — Cloudflare Worker (bot logic, API endpoints, cron jobs)
+- `cloudflare/web/` — Cloudflare Pages + Astro (web dashboard with score search)
+
+Each subproject has its own `package.json`, `tsconfig.json`, and `wrangler.jsonc`.
+
+## Build & Deploy Commands
+
+### Worker (`cloudflare/worker/`)
+```bash
+npm run dev       # wrangler dev (local development)
+npm run deploy    # wrangler deploy (production)
+```
+
+### Web (`cloudflare/web/`)
+```bash
+npm run dev       # astro dev (local development)
+npm run build     # astro build (production build)
+npm run preview   # wrangler pages dev (preview with D1)
+```
 
 ## Architecture
 
-This is a **Wordle scoring bot** that runs on Mastodon and Bluesky. Users mention the bot with their Wordle results, and it replies with a calculated score. A single process runs both the bot and an Express web server.
+### Worker (`cloudflare/worker/src/`)
+- **Entry point**: `index.ts` — Exports `BotManager` Durable Object + Worker fetch/scheduled handlers
+- **BotManager** (Durable Object) — Singleton that polls Mastodon notifications + #Wordle hashtag timeline, and Bluesky notifications + search, on a 30-second alarm loop
+- **`mastodon.ts`** — Mastodon API client (notifications, posting, relationships, hashtag timeline)
+- **`bluesky.ts`** — Bluesky ATP client (notifications, search, posting)
+- **`process-post.ts`** — Core Wordle processing: extract matrix, calculate score, format reply, write to D1
+- **`daily-post.ts`** — Daily top scorer and global stats posts (triggered by cron)
+- **`db.ts`** — D1 database queries (analyzed posts, global scores, top scores, users)
+- **`shared/`** — Shared logic (calculate, extract, display, constants, enums)
 
-### Entry Points
-- `ts/main.ts` — Unified entry: starts Express web server + `BotController` (24-hour polling cycles)
-- `ts/daily.ts` — One-shot: posts daily top scorer and global stats, then exits
+### Web (`cloudflare/web/src/`)
+- **Astro + Cloudflare Pages** with server-side rendering
+- **`pages/index.astro`** — Homepage
+- **`pages/api/search.ts`** — Paginated score search endpoint
+- **`pages/api/recent-days.ts`** — Recent days stats endpoint
 
-### Core Flow
-1. **BotController** (`ts/BotController.ts`) — Orchestrates both platform bots, handles daily posts (top scorer, global stats)
-2. **Platform Bots** (`ts/bots/`) — `MastoWordleBot` and `BlueskyWordleBot` listen for mentions, extract Wordle data, score it, and reply
-3. **Extract** (`ts/extract/`) — Parse Wordle results from text, emoji grids, or wa11y.co image alt-text into a numeric matrix
-4. **Calculate** (`ts/calculate/`) — Score a Wordle matrix: multipliers reward earlier correct letters, bonuses for fewer rows, hard mode support
-5. **Display** (`ts/display/`) — Format responses: compliments, stats, percentages, date formatting
-6. **DB** (`ts/db/`) — SQLite queries via `better-sqlite3` for global scores, top scores, and scorer stats
+### HTTP Endpoints (Worker)
+- `GET /bot/status` — Bot status (polling state, dry-run mode, since IDs) — public
+- `POST /bot/start` — Start polling loop — requires `Authorization: Bearer <BOT_SECRET>`
+- `POST /bot/stop` — Stop polling loop — requires auth
+- `POST /bot/daily` — Trigger daily posts manually — requires auth
+- Cron trigger (`0 0 * * *`) — Automatic daily posts at midnight UTC
 
 ### Data Storage
-- **SQLite** (`data/wordlescorer.db`) — All persistent data via `ts/db/sqlite.ts` and `ts/db/WordleData.ts`
-- Tables are created automatically on first run by `WordleData` constructor
-- **Search** — Server-side SQLite queries in `web/routes/search.js`, vanilla JS frontend in `web/static/javascripts/score-search.js`
-- Migration script from MongoDB: `scripts/migrate-from-mongo.ts`
-
-### Mastodon Bot: Follower vs Non-Follower Behavior
-In `MastoWordleBot.handleUpdate()`, posts from the `#Wordle` hashtag stream are handled differently based on whether the user follows the bot:
-- **Followers** (`isFollowingBot: true`): Full processing via `processPost()` — writes to `globalScores`, `topScores`, `analyzedPosts`, `users`, and replies to the post
-- **Non-followers** (`isFollowingBot: false`): Only writes to `globalScores` — no reply, no search visibility, no daily leaderboard. This still contributes to the "Solved above X others" comparison stat used in reply messages.
-- The `autoScore` field (`auto_score` in SQLite) indicates whether the bot found the post organically (true/1) vs the user @mentioned the bot (false/0)
+- **Cloudflare D1** (SQLite) — Shared by worker and web, bound as `DB`
+- Database name: `wordlescorer`, same D1 instance for both subprojects
+- Durable Object storage — Bot state (since IDs, alarm scheduling)
 
 ### Key Patterns
-- ESM modules throughout (`"type": "module"` in package.json, `nodenext` module resolution)
-- All TS imports use `.js` extensions (required for ESM + TypeScript)
-- `NODE_ENV=develop` enables dev mode (loads `.env` via dotenv, `[DRY RUN]` logging instead of posting)
-- Sentry for error monitoring (`ts/instrument.ts`)
-- Web UI uses Pug templates (`web/views/`) and Express (`web/app.js`)
+- ESM modules throughout
+- Shared scoring/extraction logic lives in `cloudflare/worker/src/shared/`
+- `DRY_RUN` env var (defaults to true) — set to `"false"` in wrangler.jsonc for live replies
+- Sentry for error monitoring via `@sentry/cloudflare`
+
+### Mastodon Bot: Follower vs Non-Follower Behavior
+Posts from the `#Wordle` hashtag timeline are handled differently:
+- **Followers**: Full processing — writes to all tables and replies to the post
+- **Non-followers**: Only writes to `global_scores` — no reply, no search visibility, no daily leaderboard
 
 ### Log Prefixes
-All console output uses structured prefixes for easy filtering:
-- `[web]` — Express web server (in `ts/main.ts`)
-- `[bot]` — BotController orchestration
+- `[bot]` — BotManager orchestration
 - `[bot:masto]` — Mastodon bot activity
 - `[bot:bsky]` — Bluesky bot activity
-- Dry-run messages append `[DRY RUN]` after the source prefix
+- `[cron]` — Cron-triggered daily posts
+- `[DRY RUN]` appended when dry-run mode is active
 
-### Daily Post HTTP Endpoint
-- `POST /daily-post` — Triggers the daily top scorer + global stats posts via the running Express server
-- Auth: `Authorization: Bearer <DAILY_POST_SECRET>` header required
-- 24-hour duplicate prevention: tracks `last_daily_post` in `bot_state` table, returns 409 if already posted within 24 hours
-- Response JSON: `{ status, message, lastPostedAt, postedFor }`
-- Route file: `web/routes/daily-post.js`
+### Environment Variables (Worker)
+Set as secrets in Cloudflare dashboard or wrangler.jsonc vars:
 
-### Environment Variables
-Required: `MASTO_URI`, `MASTO_ACCESS_TOKEN`, `BSKY_USERNAME`, `BSKY_PASSWORD`, Sentry DSN. Optional: `PORT` (default 3000), `DAILY_POST_SECRET` (for `/daily-post` endpoint auth). Use a `.env` file in dev mode.
-
-### DB Sync (Replit App Storage)
-- `ts/db/db-sync.ts` syncs the SQLite DB to/from Replit App Storage (`@replit/object-storage`)
-- On startup: downloads DB from App Storage before SQLite opens it (top-level `await` in `main.ts` and `daily.ts`)
-- Every 5 minutes: uploads DB to App Storage
-- On shutdown (SIGTERM/SIGINT): final upload before exit
-- Skipped entirely when not on Replit (`REPL_ID` env var absent)
-- The `[db-sync]` log prefix tracks all sync activity
-
-### Deployment Notes
-- `better-sqlite3` is a native C++ addon — it must be compiled for the target platform (`npm install` handles this)
-- The `data/` directory must be writable (contains `wordlescorer.db`)
-- On Replit: DB persists via App Storage sync — survives redeploys. Use Reserved VM (`gce`) deployment target for best results
+| Variable | Description |
+|----------|-------------|
+| `MASTO_URI` | Mastodon instance URL |
+| `MASTO_ACCESS_TOKEN` | Mastodon bot access token |
+| `BSKY_USERNAME` | Bluesky bot username |
+| `BSKY_PASSWORD` | Bluesky bot app password |
+| `BOT_SECRET` | Bearer token for /bot/* endpoint auth |
+| `SENTRY_DSN` | Sentry DSN for error monitoring |
+| `DRY_RUN` | Set to `"false"` for live replies (default: true) |
