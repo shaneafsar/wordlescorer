@@ -31,7 +31,8 @@ const formatter = new Intl.NumberFormat();
         <div class="h-2 rounded-full bg-bg-tertiary overflow-hidden">
           <div
             class={`bar-fill ${isNoSolve ? 'bg-red-500' : 'bg-wordle-green'}`}
-            style={`width: ${Math.max(pct, pct > 0 ? 1 : 0)}%`}
+            style="width: 0%"
+            data-target-width={`${Math.max(pct, pct > 0 ? 1 : 0)}%`}
           />
         </div>
         <span class={`text-text-secondary whitespace-nowrap ${compact ? 'text-xs' : 'text-sm'}`}>
@@ -41,3 +42,19 @@ const formatter = new Intl.NumberFormat();
     );
   })}
 </div>
+
+<script>
+  function animateBars() {
+    requestAnimationFrame(() => {
+      document.querySelectorAll<HTMLElement>('.bar-fill[data-target-width]').forEach((bar) => {
+        bar.style.width = bar.dataset.targetWidth!;
+      });
+    });
+  }
+  animateBars();
+  document.addEventListener('click', (e) => {
+    if ((e.target as Element).closest('.rd-card-header')) {
+      setTimeout(animateBars, 10);
+    }
+  });
+</script>
