@@ -159,6 +159,7 @@ function formatDate(ts: number): string {
     const params = new URLSearchParams({ ...currentParams, page: String(currentPage), pageSize: '20' });
     fetch('/api/search?' + params.toString())
       .then((r) => {
+        if (r.status === 429) throw new Error('Too many searches — please wait a moment and try again.');
         if (!r.ok) throw new Error('Search request failed with status ' + r.status);
         return r.json();
       })
@@ -172,7 +173,7 @@ function formatDate(ts: number): string {
         wordlesContainer.classList.remove('is-empty-state');
         wordlesContainer.textContent = '';
         const p = document.createElement('p');
-        p.textContent = 'Error loading results.';
+        p.textContent = err instanceof Error ? err.message : 'Error loading results.';
         wordlesContainer.appendChild(p);
         console.error(err);
       })

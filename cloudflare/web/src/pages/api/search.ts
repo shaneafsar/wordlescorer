@@ -1,6 +1,41 @@
 import type { APIContext } from 'astro';
 
+const RATE_LIMIT = 30;
+const RATE_WINDOW_SECONDS = 60;
+
+async function checkRateLimit(ip: string): Promise<boolean> {
+  const cache = await caches.open('rate-limit');
+  const key = new Request(`https://rate-limit.local/search/${ip}`);
+  const cached = await cache.match(key);
+
+  let count = 1;
+  if (cached) {
+    count = parseInt(await cached.text(), 10) + 1;
+    if (count > RATE_LIMIT) return false;
+  }
+
+  await cache.put(
+    key,
+    new Response(String(count), {
+      headers: { 'Cache-Control': `max-age=${RATE_WINDOW_SECONDS}` },
+    })
+  );
+  return true;
+}
+
 export async function GET({ locals, request }: APIContext) {
+  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+  const allowed = await checkRateLimit(ip);
+  if (!allowed) {
+    return new Response(JSON.stringify({ error: 'Too many requests' }), {
+      status: 429,
+      headers: {
+        'Content-Type': 'application/json',
+        'Retry-After': String(RATE_WINDOW_SECONDS),
+      },
+    });
+  }
+
   const db = locals.runtime.env.DB;
   const url = new URL(request.url);
 
