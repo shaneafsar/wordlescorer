@@ -118,7 +118,7 @@ function formatDate(ts: number): string {
           const dateStr = val.dateTimestamp ? formatDate(val.dateTimestamp) : '';
           const link = val.url || '#';
           return (
-            <article class="result-card border border-bg-tertiary rounded-lg p-4 transition-colors hover:bg-bg-secondary group">
+            <article class="result-card border border-bg-tertiary rounded-lg p-4 transition-colors hover:bg-bg-secondary hover:border-accent-blue/50 cursor-pointer group">
               <div class="card-header flex justify-between items-baseline mb-2">
                 <a href={link} target="_blank" class="text-text-primary text-sm font-medium hover:text-accent-blue transition-colors no-underline">{val.scorerName}</a>
                 {val.score != null && <span class="card-score text-xl font-bold text-accent-blue">{val.score}</span>}
@@ -269,7 +269,7 @@ function formatDate(ts: number): string {
       const link = val.url || '#';
 
       const article = document.createElement('article');
-      article.className = 'result-card border border-bg-tertiary rounded-lg p-4 transition-colors hover:bg-bg-secondary group';
+      article.className = 'result-card border border-bg-tertiary rounded-lg p-4 transition-colors hover:bg-bg-secondary hover:border-accent-blue/50 cursor-pointer group';
 
       const header = document.createElement('div');
       header.className = 'card-header flex justify-between items-baseline mb-2';
