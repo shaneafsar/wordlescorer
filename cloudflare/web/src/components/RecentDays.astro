@@ -70,12 +70,27 @@ const days = await Promise.all(
       url: w.url as string | null,
     }));
 
+    const otherTiedRow = await db
+      .prepare(
+        `SELECT COUNT(*) as cnt FROM global_scores
+         WHERE date_key = ?
+           AND wordle_score = (SELECT MAX(score) FROM top_scores WHERE date_key = ?)
+           AND user_key NOT IN (
+             SELECT user_key FROM top_scores
+             WHERE date_key = ? AND score = (SELECT MAX(score) FROM top_scores WHERE date_key = ?)
+           )`
+      )
+      .bind(dateKey, dateKey, dateKey, dateKey)
+      .first<{ cnt: number }>();
+    const otherTiedCount = otherTiedRow?.cnt ?? 0;
+
     return {
       dateKey,
       wordleNumber,
       totalPlayers,
       solvedRowCounts,
       winners,
+      otherTiedCount,
     };
   })
 );
@@ -120,6 +135,11 @@ const days = await Promise.all(
                       </li>
                     ))}
                   </ul>
+                  {day.otherTiedCount > 0 && (
+                    <p class="text-xs text-text-secondary mt-2 italic">
+                      +{day.otherTiedCount} other{day.otherTiedCount !== 1 ? 's' : ''} also tied (not @mentioning or following the bot)
+                    </p>
+                  )}
                 </div>
               )}
             </div>
