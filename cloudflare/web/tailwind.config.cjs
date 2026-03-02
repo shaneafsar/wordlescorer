@@ -11,6 +11,8 @@ module.exports = {
         'wordle-yellow': '#c9b458',
         'accent-blue': '#1e90ff',
         'accent-purple': '#a855f7',
+        'accent-red': '#ef4444',
+        'accent-green': '#22c55e',
         'text-primary': '#fdfdfd',
         'text-secondary': '#9ca3af',
       },

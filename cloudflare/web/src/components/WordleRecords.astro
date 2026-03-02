@@ -1,0 +1,81 @@
+---
+const db = Astro.locals.runtime.env.DB;
+
+const cache = await caches.open('wordle-difficulty');
+const cacheKey = 'https://cache.local/wordle-difficulty';
+const cacheReq = new Request(cacheKey);
+let hardest: { wordleNumber: number; failRate: number; total: number } | null = null;
+let easiest: { wordleNumber: number; failRate: number; total: number } | null = null;
+
+const cached = await cache.match(cacheReq);
+if (cached) {
+  const data = await cached.json();
+  hardest = data.hardest;
+  easiest = data.easiest;
+} else {
+  const result = await db
+    .prepare(
+      `SELECT wordle_number,
+              COUNT(*) as total,
+              SUM(CASE WHEN solved_row = 0 THEN 1 ELSE 0 END) as unsolved
+       FROM global_scores
+       GROUP BY wordle_number
+       HAVING total >= 1000`
+    )
+    .all();
+
+  let maxRate = -1;
+  let minRate = 2;
+
+  for (const r of result.results as any[]) {
+    const rate = r.unsolved / r.total;
+    if (rate > maxRate) {
+      maxRate = rate;
+      hardest = { wordleNumber: r.wordle_number, failRate: rate, total: r.total };
+    }
+    if (rate < minRate) {
+      minRate = rate;
+      easiest = { wordleNumber: r.wordle_number, failRate: rate, total: r.total };
+    }
+  }
+
+  if (hardest && easiest) {
+    const res = new Response(JSON.stringify({ hardest, easiest }), {
+      headers: { 'Cache-Control': 'max-age=21600' },
+    });
+    await cache.put(cacheReq, res);
+  }
+}
+
+function pct(rate: number): string {
+  return (rate * 100).toFixed(1) + '%';
+}
+
+function formatNum(n: number): string {
+  return n.toLocaleString();
+}
+---
+
+{hardest && easiest && (
+  <div>
+    <h2 class="text-xl font-bold text-text-primary mb-4">Wordle Records</h2>
+    <div class="grid grid-cols-2 gap-3">
+      <div class="border border-bg-tertiary rounded-lg bg-bg-secondary p-4">
+        <p class="text-xs text-text-secondary uppercase tracking-wide mb-1">Hardest Wordle</p>
+        <p class="text-2xl font-bold text-accent-red">#{hardest.wordleNumber}</p>
+        <p class="text-sm text-text-secondary mt-1">
+          <span class="text-accent-red font-semibold">{pct(hardest.failRate)}</span> fail rate
+        </p>
+        <p class="text-xs text-text-secondary mt-0.5">{formatNum(hardest.total)} players</p>
+      </div>
+      <div class="border border-bg-tertiary rounded-lg bg-bg-secondary p-4">
+        <p class="text-xs text-text-secondary uppercase tracking-wide mb-1">Easiest Wordle</p>
+        <p class="text-2xl font-bold text-accent-green">#{easiest.wordleNumber}</p>
+        <p class="text-sm text-text-secondary mt-1">
+          <span class="text-accent-green font-semibold">{pct(easiest.failRate)}</span> fail rate
+        </p>
+        <p class="text-xs text-text-secondary mt-0.5">{formatNum(easiest.total)} players</p>
+      </div>
+    </div>
+  </div>
+)}

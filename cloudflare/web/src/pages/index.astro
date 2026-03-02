@@ -4,6 +4,7 @@ import Hero from '../components/Hero.astro';
 import TopScorer from '../components/TopScorer.astro';
 import RecentDays from '../components/RecentDays.astro';
 import ScoreSearch from '../components/ScoreSearch.astro';
+import WordleRecords from '../components/WordleRecords.astro';
 
 const title = 'Score My Wordle';
 const db = Astro.locals.runtime.env.DB;
@@ -159,6 +160,11 @@ const timeTillDailyTopScore = minutesTillDaily < 1
       <!-- Search -->
       <section>
         <ScoreSearch siteKey={siteKey} />
+      </section>
+
+      <!-- Wordle Records -->
+      <section>
+        <WordleRecords />
       </section>
     </div>
   </div>
