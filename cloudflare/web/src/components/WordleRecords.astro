@@ -16,10 +16,11 @@ if (cached) {
   const result = await db
     .prepare(
       `SELECT wordle_number,
+              date_key,
               COUNT(*) as total,
               SUM(CASE WHEN solved_row = 0 THEN 1 ELSE 0 END) as unsolved
        FROM global_scores
-       GROUP BY wordle_number
+       GROUP BY wordle_number, date_key
        HAVING total >= 1000`
     )
     .all();
