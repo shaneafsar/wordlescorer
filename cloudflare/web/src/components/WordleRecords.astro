@@ -1,11 +1,20 @@
 ---
+import DistributionChart from './DistributionChart.astro';
+
 const db = Astro.locals.runtime.env.DB;
 
+interface RecordData {
+  wordleNumber: number;
+  failRate: number;
+  total: number;
+  counts: number[];
+}
+
 const cache = await caches.open('wordle-difficulty');
-const cacheKey = 'https://cache.local/wordle-difficulty-v2';
+const cacheKey = 'https://cache.local/wordle-difficulty-v3';
 const cacheReq = new Request(cacheKey);
-let hardest: { wordleNumber: number; failRate: number; total: number } | null = null;
-let easiest: { wordleNumber: number; failRate: number; total: number } | null = null;
+let hardest: RecordData | null = null;
+let easiest: RecordData | null = null;
 
 const cached = await cache.match(cacheReq);
 if (cached) {
@@ -27,20 +36,50 @@ if (cached) {
 
   let maxRate = -1;
   let minRate = 2;
+  let hardestNumber = 0;
+  let hardestDateKey = '';
+  let easiestNumber = 0;
+  let easiestDateKey = '';
 
   for (const r of result.results as any[]) {
     const rate = r.unsolved / r.total;
     if (rate > maxRate) {
       maxRate = rate;
-      hardest = { wordleNumber: r.wordle_number, failRate: rate, total: r.total };
+      hardestNumber = r.wordle_number;
+      hardestDateKey = r.date_key;
+      hardest = { wordleNumber: r.wordle_number, failRate: rate, total: r.total, counts: [] };
     }
     if (rate < minRate) {
       minRate = rate;
-      easiest = { wordleNumber: r.wordle_number, failRate: rate, total: r.total };
+      easiestNumber = r.wordle_number;
+      easiestDateKey = r.date_key;
+      easiest = { wordleNumber: r.wordle_number, failRate: rate, total: r.total, counts: [] };
     }
   }
 
+  // Fetch distributions for hardest and easiest
   if (hardest && easiest) {
+    const distQuery = `SELECT solved_row, COUNT(*) as cnt
+                       FROM global_scores
+                       WHERE wordle_number = ? AND date_key = ?
+                       GROUP BY solved_row`;
+
+    const [hardestDist, easiestDist] = await Promise.all([
+      db.prepare(distQuery).bind(hardestNumber, hardestDateKey).all(),
+      db.prepare(distQuery).bind(easiestNumber, easiestDateKey).all(),
+    ]);
+
+    function buildCounts(rows: any[]): number[] {
+      const counts = [0, 0, 0, 0, 0, 0, 0]; // index 0=unsolved, 1-6=solved row
+      for (const r of rows) {
+        counts[r.solved_row] = r.cnt;
+      }
+      return counts;
+    }
+
+    hardest.counts = buildCounts(hardestDist.results as any[]);
+    easiest.counts = buildCounts(easiestDist.results as any[]);
+
     const res = new Response(JSON.stringify({ hardest, easiest }), {
       headers: { 'Cache-Control': 'max-age=21600' },
     });
@@ -67,7 +106,8 @@ function formatNum(n: number): string {
         <p class="text-sm text-text-secondary mt-1">
           <span class="text-accent-red font-semibold">{pct(hardest.failRate)}</span> fail rate
         </p>
-        <p class="text-xs text-text-secondary mt-0.5">{formatNum(hardest.total)} players</p>
+        <p class="text-xs text-text-secondary mt-0.5 mb-3">{formatNum(hardest.total)} players</p>
+        <DistributionChart counts={hardest.counts} total={hardest.total} compact />
       </div>
       <div class="border border-bg-tertiary rounded-lg bg-bg-secondary p-4">
         <p class="text-xs text-text-secondary uppercase tracking-wide mb-1">Easiest Wordle</p>
@@ -75,7 +115,8 @@ function formatNum(n: number): string {
         <p class="text-sm text-text-secondary mt-1">
           <span class="text-accent-green font-semibold">{pct(easiest.failRate)}</span> fail rate
         </p>
-        <p class="text-xs text-text-secondary mt-0.5">{formatNum(easiest.total)} players</p>
+        <p class="text-xs text-text-secondary mt-0.5 mb-3">{formatNum(easiest.total)} players</p>
+        <DistributionChart counts={easiest.counts} total={easiest.total} compact />
       </div>
     </div>
   </div>
