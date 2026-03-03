@@ -2,7 +2,7 @@
 const db = Astro.locals.runtime.env.DB;
 
 const cache = await caches.open('wordle-difficulty');
-const cacheKey = 'https://cache.local/wordle-difficulty';
+const cacheKey = 'https://cache.local/wordle-difficulty-v2';
 const cacheReq = new Request(cacheKey);
 let hardest: { wordleNumber: number; failRate: number; total: number } | null = null;
 let easiest: { wordleNumber: number; failRate: number; total: number } | null = null;
