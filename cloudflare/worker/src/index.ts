@@ -14,7 +14,7 @@ import {
 import { processWordlePost, processGlobalScoreOnly, type ProcessPostInput } from './process-post';
 import { postDailyTopScore, postDailyGlobalStats } from './daily-post';
 import { stripHtml } from './util';
-import { hasAnalyzedPost } from './db';
+import { hasAnalyzedPost, setBotState } from './db';
 import WordleSource from './shared/enum/WordleSource';
 
 export interface Env {
@@ -96,7 +96,9 @@ class BotManagerBase implements DurableObject {
       yesterday.setUTCDate(yesterday.getUTCDate() - 1);
       const topResult = await postDailyTopScore(this.env.DB, this.mastoClient, this.bskyAgent, yesterday, this.dryRun);
       const statsResult = await postDailyGlobalStats(this.env.DB, this.mastoClient, this.bskyAgent, yesterday, this.dryRun);
-      return Response.json({ dryRun: this.dryRun, topScorer: topResult, globalStats: statsResult });
+      const dateKey = yesterday.toISOString().slice(0, 10);
+      await setBotState(this.env.DB, 'last_daily_post_date', dateKey, 'daily');
+      return Response.json({ dryRun: this.dryRun, topScorer: topResult, globalStats: statsResult, dateKey });
     }
 
     return new Response('Not found', { status: 404 });
