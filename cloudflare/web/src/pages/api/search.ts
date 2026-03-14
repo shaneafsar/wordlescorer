@@ -1,4 +1,5 @@
 import type { APIContext } from 'astro';
+import { env } from 'cloudflare:workers';
 
 const RATE_LIMIT = 30;
 const RATE_WINDOW_SECONDS = 60;
@@ -33,7 +34,7 @@ async function verifyTurnstile(token: string, secret: string, ip: string): Promi
   return data.success;
 }
 
-export async function GET({ locals, request }: APIContext) {
+export async function GET({ request }: APIContext) {
   const ip = request.headers.get('cf-connecting-ip') || 'unknown';
   const allowed = await checkRateLimit(ip);
   if (!allowed) {
@@ -48,7 +49,7 @@ export async function GET({ locals, request }: APIContext) {
 
   const url = new URL(request.url);
   const token = url.searchParams.get('token') || '';
-  const turnstileSecret = locals.runtime.env.TURNSTILE_SECRET;
+  const turnstileSecret = env.TURNSTILE_SECRET;
 
   if (!token) {
     return new Response(JSON.stringify({ error: 'Missing Turnstile token' }), {
@@ -65,7 +66,7 @@ export async function GET({ locals, request }: APIContext) {
     });
   }
 
-  const db = locals.runtime.env.DB;
+  const db = env.DB;
 
   const q = url.searchParams.get('q') || '';
   const wordleNumber = url.searchParams.get('wordleNumber') || '';

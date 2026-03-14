@@ -1,7 +1,8 @@
 ---
 import DistributionChart from './DistributionChart.astro';
+import { env } from 'cloudflare:workers';
 
-const db = Astro.locals.runtime.env.DB;
+const db = env.DB;
 
 interface RecordData {
   wordleNumber: number;
@@ -18,7 +19,7 @@ let easiest: RecordData | null = null;
 
 const cached = await cache.match(cacheReq);
 if (cached) {
-  const data = await cached.json();
+  const data = await cached.json() as { hardest: RecordData; easiest: RecordData };
   hardest = data.hardest;
   easiest = data.easiest;
 } else {

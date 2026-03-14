@@ -1,7 +1,8 @@
 ---
 import DistributionChart from './DistributionChart.astro';
+import { env } from 'cloudflare:workers';
 
-const db = Astro.locals.runtime.env.DB;
+const db = env.DB;
 
 function todayDateKey(): string {
   const d = new Date();
@@ -101,7 +102,7 @@ const days = await Promise.all(
   <div>
     <h2 class="text-xl font-bold text-text-primary mb-4">Recent Wordles</h2>
     <div class="flex flex-col gap-2">
-      {days.map((day) => {
+      {days.map((day: typeof days[number]) => {
         const dateLabel = formatDate(day.dateKey);
         const wordleLabel = day.wordleNumber ? `Wordle #${day.wordleNumber}` : '';
         const playersLabel = `${day.totalPlayers.toLocaleString()} player${day.totalPlayers !== 1 ? 's' : ''}`;
@@ -127,7 +128,7 @@ const days = await Promise.all(
                 <div class="border-t border-bg-tertiary pt-3 mt-4">
                   <h4 class="text-sm font-medium text-accent-purple mb-2">{winnerTitle}</h4>
                   <ul class="list-none p-0 m-0 flex flex-col gap-1.5">
-                    {day.winners.map((w) => (
+                    {day.winners.map((w: typeof day.winners[number]) => (
                       <li class="flex items-center gap-2 flex-wrap text-sm">
                         {w.url ? <a href={w.url} target="_blank" class="text-accent-blue font-bold">{w.screenName}</a> : <span class="text-text-primary font-bold">{w.screenName}</span>}
                         <span class="text-accent-blue font-bold">{w.score}{w.isHardMode && <span class="text-accent-purple">*</span>} pts</span>
@@ -167,7 +168,7 @@ const days = await Promise.all(
 
 <style>
   .rd-card.rd-expanded {
-    @apply border-accent-blue;
+    border-color: var(--color-accent-blue);
   }
   .rd-expanded .rd-chevron {
     transform: rotate(180deg);

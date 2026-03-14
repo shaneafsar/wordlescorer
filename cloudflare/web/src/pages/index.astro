@@ -6,9 +6,11 @@ import RecentDays from '../components/RecentDays.astro';
 import ScoreSearch from '../components/ScoreSearch.astro';
 import WordleRecords from '../components/WordleRecords.astro';
 
+import { env } from 'cloudflare:workers';
+
 const title = 'Score My Wordle';
-const db = Astro.locals.runtime.env.DB;
-const siteKey = Astro.locals.runtime.env.TURNSTILE_SITE_KEY;
+const db = env.DB;
+const siteKey = env.TURNSTILE_SITE_KEY;
 
 // Helper: format percentage
 function getPercent(num: number, total: number): string {

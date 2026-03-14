@@ -3,8 +3,10 @@ interface Props {
   siteKey: string;
 }
 
+import { env } from 'cloudflare:workers';
+
 const { siteKey } = Astro.props;
-const db = Astro.locals.runtime.env.DB;
+const db = env.DB;
 const pageSize = 20;
 
 const countResult = await db
@@ -125,7 +127,7 @@ function formatDate(ts: number): string {
       </div>
     ) : (
       <div class="results-grid grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
-        {hits.map((val) => {
+        {hits.map((val: typeof hits[number]) => {
           const dateStr = val.dateTimestamp ? formatDate(val.dateTimestamp) : '';
           const link = val.url || '#';
           return (
